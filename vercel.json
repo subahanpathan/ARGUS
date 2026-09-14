@@ -1,14 +1,14 @@
-{
+﻿{
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "functions": {
-    "artifacts/api-server/dist/vercel.mjs": {
+    "artifacts/api-server/src/vercel.ts": {
       "maxDuration": 60
     }
   },
   "routes": [
     {
       "src": "/(.*)",
-      "dest": "artifacts/api-server/dist/vercel.mjs"
+      "dest": "artifacts/api-server/src/vercel.ts"
     }
   ]
 }
