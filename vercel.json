@@ -1,14 +1,8 @@
-﻿{
+{
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "functions": {
-    "index.js": {
+    "index.ts": {
       "maxDuration": 60
     }
-  },
-  "routes": [
-    {
-      "src": "/(.*)",
-      "dest": "/index.js"
-    }
-  ]
+  }
 }
