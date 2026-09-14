@@ -1,0 +1,1052 @@
+Build a complete, polished, production-style cybersecurity application called **ARGUS**.
+
+# ARGUS
+
+**Automated Real-time Guard for Uncovering Security Breaches**
+
+ARGUS is an endpoint security, malware detection, and digital-forensics platform.
+
+The core purpose of ARGUS is:
+
+**Detect → Investigate → Trace → Assess Exposure → Contain → Remove → Report**
+
+ARGUS should not behave like a simple antivirus. Its key differentiator is that after detecting a threat, it investigates what happened during the period in which the threat was active.
+
+---
+
+# IMPORTANT DELIVERY REQUIREMENT
+
+**PRIORITY: FUNCTIONAL COMPLETION AND PROJECT DELIVERY**
+
+Before spending credits/tokens on unnecessary animations, decorative elements, or advanced visual polish:
+
+1. Build the complete working application.
+2. Implement all major pages and features listed below.
+3. Make sure navigation works.
+4. Make sure all buttons and interactions work.
+5. Add realistic synthetic/demo data.
+6. Make sure the application can run locally.
+7. Create a complete project ZIP archive containing the entire source code.
+8. Provide the ZIP/downloadable project package **before credits or generation limits are exhausted**.
+
+If time/credits become limited, prioritize:
+
+**Functionality > All Features > Working Navigation > Demo Data > UI Polish > Extra Animations**
+
+Do not leave the project without a downloadable source-code package.
+
+---
+
+# CORE ARGUS FEATURES
+
+ARGUS must cover these major functions:
+
+### 1. Malware Detection
+
+Detect and identify:
+
+* Viruses
+* Malware
+* Spyware
+* Suspicious executables
+* Suspicious processes
+* Behavioral anomalies
+* Potentially malicious files
+
+Provide:
+
+* Quick Scan
+* Full Scan
+* Custom Scan
+* Real-time monitoring
+* Threat severity
+* Threat classification
+* Detection timestamp
+* File path
+* Process information
+* File hash
+* Detection reason
+
+---
+
+# 2. Malware Containment
+
+When a threat is detected:
+
+* Stop/contain suspicious processes
+* Quarantine suspicious files
+* Prevent further suspicious activity
+* Show containment status
+* Allow investigation before removal
+
+Actions:
+
+**Investigate**
+**Quarantine**
+**Remove**
+**Ignore**
+
+Use confirmation dialogs for destructive actions.
+
+---
+
+# 3. Malware Removal
+
+Provide a remediation workflow:
+
+```text
+Threat Detected
+      ↓
+Investigate
+      ↓
+Contain
+      ↓
+Quarantine
+      ↓
+Remove
+      ↓
+Verify System
+```
+
+Show:
+
+* Removal status
+* Files affected
+* Processes terminated
+* Cleanup result
+* Remaining risk
+
+---
+
+# 4. Threat Source / Entry Investigation
+
+ARGUS should investigate where the threat came from **where observable from available endpoint evidence**.
+
+Display:
+
+* File origin
+* Executable path
+* Parent process
+* Child process
+* Download/source information where available
+* Creation timestamp
+* File hash
+* Related process
+* Related events
+
+Do NOT claim that an exact origin can always be determined.
+
+Use:
+
+**"Source / Entry Point Evidence"**
+
+rather than guaranteeing the exact attacker source.
+
+---
+
+# 5. Process Monitoring
+
+Monitor:
+
+* Running processes
+* Process creation
+* Parent/child relationships
+* PID
+* Executable path
+* CPU usage
+* Memory usage
+* File activity
+* Network activity
+* Risk score
+
+Provide a process investigation view.
+
+Create an interactive process tree:
+
+```text
+System
+  ↓
+Browser
+  ↓
+Downloaded File
+  ↓
+Suspicious Process
+  ↓
+Child Process
+  ↓
+Network Connection
+```
+
+---
+
+# 6. File Activity Monitoring
+
+Monitor and display:
+
+* File creation
+* File modification
+* File deletion
+* File reading
+* File copying
+* File movement
+* File staging
+
+Show:
+
+* Timestamp
+* Process
+* File
+* Operation
+* Classification
+* Risk
+
+Example:
+
+```text
+10:31:07
+DataCollector.exe
+financial_demo.pdf
+READ
+Financial
+HIGH
+```
+
+Use synthetic data for demonstrations.
+
+---
+
+# 7. Sensitive Data Detection
+
+ARGUS should identify potentially sensitive files/categories such as:
+
+* Credentials
+* Financial information
+* Personal documents
+* Identity documents
+* Source code
+* Confidential documents
+* Password files
+* Business documents
+
+Use classifications:
+
+**Personal**
+**Financial**
+**Credentials**
+**Confidential**
+**Source Code**
+**Normal**
+
+Do not store or expose real passwords, banking information, Aadhaar numbers, or other real sensitive information in the demo.
+
+---
+
+# 8. Data Exposure Analysis
+
+This is one of ARGUS's primary features.
+
+ARGUS should determine:
+
+* What sensitive files were accessed?
+* Which process accessed them?
+* When were they accessed?
+* Were they copied?
+* Were they staged?
+* Were they compressed?
+* Was suspicious network communication observed afterward?
+
+Clearly distinguish:
+
+**Accessed**
+
+**Collected**
+
+**Staged**
+
+**Potentially Transmitted**
+
+**Confirmed Exfiltration**
+
+Never label something as confirmed leakage unless sufficient evidence exists.
+
+---
+
+# 9. Exposure Window
+
+Create ARGUS's signature feature:
+
+### EXPOSURE WINDOW
+
+Measure the period between:
+
+**First suspicious activity**
+
+and
+
+**Threat detection**
+
+Example:
+
+```text
+10:31:04
+Threat activity begins
+       │
+       │
+       │ 23 seconds
+       │
+       ▼
+10:31:27
+Threat detected
+```
+
+During this window show:
+
+* Processes executed
+* Files accessed
+* Sensitive files accessed
+* Data staging
+* Network connections
+* Potential transmission
+
+Display:
+
+**Exposure Window: 23 seconds**
+
+This should be one of the most visually important parts of the application.
+
+---
+
+# 10. Network Forensics
+
+Monitor observable network activity.
+
+Show:
+
+* Source process
+* Local IP
+* Destination IP
+* Destination domain
+* Port
+* Protocol
+* Timestamp
+* Bytes sent
+* Bytes received
+* Connection frequency
+* Risk level
+
+Create an interactive network graph:
+
+```text
+ARGUS ENDPOINT
+       │
+       ▼
+Suspicious Process
+       │
+ ┌─────┼─────┐
+ ▼     ▼     ▼
+IP A   IP B   IP C
+```
+
+---
+
+# 11. Destination Tracking
+
+For suspicious network connections display:
+
+* Destination IP
+* Domain
+* Port
+* Protocol
+* ASN/organization where available
+* Country/region where available
+* Estimated IP geolocation
+* Connection time
+* Data volume
+* Associated process
+
+IMPORTANT:
+
+Do not claim that an IP address always reveals the attacker's exact physical location.
+
+Use labels such as:
+
+**Estimated Location**
+
+**Observable Network Destination**
+
+---
+
+# 12. Network Data Flow
+
+Show the relationship between:
+
+```text
+Local File
+     ↓
+Suspicious Process
+     ↓
+Data Staging
+     ↓
+Network Connection
+     ↓
+External Destination
+```
+
+This should help investigators understand the suspected data flow.
+
+---
+
+# 13. Incident Timeline
+
+Create an interactive forensic timeline.
+
+Example:
+
+```text
+10:31:04
+Suspicious process started
+
+10:31:07
+Sensitive file accessed
+
+10:31:12
+Data staging detected
+
+10:31:17
+External connection established
+
+10:31:21
+Potential outbound transfer
+
+10:31:27
+Threat detected
+
+10:31:30
+Threat quarantined
+```
+
+Every event should be clickable.
+
+Clicking an event should show supporting details.
+
+---
+
+# 14. Exposure Risk Score
+
+Create a calculated demonstration score:
+
+### ARGUS EXPOSURE RISK
+
+Example:
+
+**78 / 100 — HIGH**
+
+Factors:
+
+* Sensitive file access
+* Number of sensitive files
+* Suspicious process behavior
+* Data staging
+* External connection
+* Outbound transfer
+* Threat severity
+
+Show a breakdown.
+
+Clearly label this as:
+
+**ARGUS Risk Assessment**
+
+not a guaranteed determination of actual data theft.
+
+---
+
+# 15. Threat Intelligence
+
+Create a threat intelligence panel showing:
+
+* Threat name
+* Threat category
+* Severity
+* Hash
+* Detection method
+* Behavioral indicators
+* Related processes
+* Network indicators
+* Status
+
+Use synthetic threat intelligence in demo mode.
+
+---
+
+# 16. Quarantine
+
+Create a quarantine management system.
+
+Show:
+
+* Threat
+* File
+* Original location
+* Hash
+* Detection time
+* Severity
+* Quarantine time
+* Status
+
+Actions:
+
+* Investigate
+* Restore
+* Permanently Delete
+
+Use confirmation before deletion.
+
+---
+
+# 17. Incident Reports
+
+Generate professional forensic reports.
+
+Report should contain:
+
+### Incident Summary
+
+* Incident ID
+* Date/time
+* Threat
+* Severity
+* Status
+
+### Threat Information
+
+* File
+* Process
+* Hash
+* Source/entry evidence
+
+### Activity
+
+* Process activity
+* File activity
+* Sensitive data access
+* Network activity
+
+### Exposure Analysis
+
+* Exposure window
+* Sensitive files
+* Data staging
+* Potential transmission
+* Risk score
+
+### Network Evidence
+
+* Source
+* Destination
+* Port
+* Protocol
+* Timestamp
+* Data volume
+
+### Remediation
+
+* Process terminated
+* File quarantined
+* Threat removed
+* Recommended actions
+
+Buttons:
+
+**Generate PDF**
+**Export**
+**Download**
+**Share**
+
+---
+
+# 18. Cyber Cell Reporting
+
+Create a dedicated:
+
+### CYBER INCIDENT REPORTING
+
+page.
+
+If ARGUS identifies potential private-data exposure, display:
+
+> Potential sensitive data exposure detected.
+
+Show the evidence summary.
+
+Require explicit user consent:
+
+```text
+☐ I have reviewed the incident evidence.
+
+☐ I authorize ARGUS to share this incident report
+  with the selected cybercrime/cybersecurity authority.
+```
+
+Only after consent:
+
+**SUBMIT INCIDENT REPORT**
+
+becomes available.
+
+Show a final confirmation dialog before submission.
+
+Keep reporting user-controlled.
+
+---
+
+# 19. Report History
+
+Show:
+
+* Incident ID
+* Date
+* Threat
+* Severity
+* Exposure level
+* Report status
+* Submission status
+
+Allow users to open previous reports.
+
+---
+
+# 20. Real-Time Monitoring
+
+Create a live monitoring dashboard containing:
+
+* CPU
+* RAM
+* Processes
+* File activity
+* Network activity
+* Threat events
+* Security events
+
+Create a live event stream.
+
+Example:
+
+```text
+10:42:18
+HIGH
+Suspicious process detected
+
+10:42:11
+MEDIUM
+Sensitive file accessed
+
+10:41:54
+HIGH
+Unknown external connection
+
+10:41:40
+INFO
+System scan completed
+```
+
+---
+
+# 21. Dashboard
+
+Create a premium SOC dashboard with:
+
+### System Protection
+
+**PROTECTED**
+
+or:
+
+**THREAT DETECTED**
+
+Metrics:
+
+* Threats Detected
+* Threats Contained
+* Active Threats
+* Sensitive Files Accessed
+* Potential Exposure
+* Suspicious Connections
+
+Charts:
+
+* Security activity
+* Threat activity
+* Network activity
+* File activity
+
+Recent incidents table.
+
+Threat intelligence panel.
+
+Live event feed.
+
+---
+
+# 22. DEMO MODE
+
+Add a highly impressive:
+
+### DEMO MODE
+
+button.
+
+When enabled, simulate a complete ARGUS incident.
+
+Sequence:
+
+```text
+1. Suspicious file appears
+2. Process starts
+3. Suspicious behavior detected
+4. Sensitive file accessed
+5. Data staging detected
+6. Network connection created
+7. Potential transmission detected
+8. Exposure score increases
+9. Threat detected
+10. Threat contained
+11. Threat quarantined
+12. Incident report generated
+```
+
+The entire dashboard should update dynamically during the demonstration.
+
+Use fictional/synthetic data only.
+
+---
+
+# 23. UI DESIGN
+
+Make the interface look like a **premium commercial cybersecurity platform**.
+
+Visual inspiration:
+
+* Microsoft Defender
+* CrowdStrike
+* Splunk
+* enterprise SOC platforms
+* modern financial security applications
+
+Do NOT copy their interfaces.
+
+Create an original ARGUS design.
+
+Use:
+
+* Deep charcoal
+* Dark navy
+* White
+* Soft gray
+* Cyan/blue accents
+* Green for safe
+* Amber for warning
+* Red for critical
+
+Avoid:
+
+* Excessive neon
+* Matrix effects
+* Hacker fonts
+* Skulls
+* Gaming interfaces
+* Overly decorative graphics
+
+---
+
+# 24. Layout
+
+Desktop-first interface:
+
+```text
+┌─────────────────────────────────────────────────────┐
+│ ARGUS       Search       Alerts       Profile       │
+├────────────┬────────────────────────────────────────┤
+│ Dashboard  │                                        │
+│ Threats    │                                        │
+│ Monitoring │             MAIN CONTENT               │
+│ Processes  │                                        │
+│ Files      │                                        │
+│ Network    │                                        │
+│ Exposure   │                                        │
+│ Timeline   │                                        │
+│ Reports    │                                        │
+│ Cyber Cell │                                        │
+│ Settings   │                                        │
+├────────────┴────────────────────────────────────────┤
+│ ● Endpoint Protected     Monitoring Active          │
+└─────────────────────────────────────────────────────┘
+```
+
+---
+
+# 25. Pages
+
+Implement all pages:
+
+1. Login
+2. Dashboard
+3. Threat Detection
+4. Live Monitoring
+5. Process Analysis
+6. File Activity
+7. Network Forensics
+8. Data Exposure
+9. Exposure Window
+10. Incident Timeline
+11. Quarantine
+12. Threat Intelligence
+13. Incident Reports
+14. Report History
+15. Cyber Cell Reporting
+16. Settings
+17. About ARGUS
+
+All navigation must work.
+
+---
+
+# 26. Login
+
+Create a professional ARGUS login screen.
+
+Include:
+
+**ARGUS**
+
+Security Intelligence Platform
+
+Fields:
+
+Email
+Password
+
+Buttons:
+
+Sign In
+Demo Mode
+
+Use a premium security visual on the right side.
+
+---
+
+# 27. Technical Stack
+
+Use:
+
+* React
+* TypeScript
+* Tailwind CSS
+* Framer Motion
+* Lucide React
+* Recharts
+* Modern reusable components
+
+Architecture:
+
+```text
+Frontend
+   ↓
+API Layer
+   ↓
+ARGUS Security Engine
+   ├── Detection Engine
+   ├── Process Monitor
+   ├── File Monitor
+   ├── Network Monitor
+   ├── Forensics Engine
+   ├── Exposure Analyzer
+   ├── Remediation Engine
+   └── Reporting Engine
+```
+
+For the prototype, use mock APIs and synthetic data.
+
+Keep frontend and backend logic separated.
+
+---
+
+# 28. Data Model
+
+Create realistic mock objects for:
+
+* Threats
+* Processes
+* Files
+* Network connections
+* Incidents
+* Timeline events
+* Exposure events
+* Reports
+* Quarantine items
+
+Use realistic timestamps and relationships between records.
+
+---
+
+# 29. UX REQUIREMENTS
+
+Every important button must work.
+
+Examples:
+
+* Scan
+* Investigate
+* Quarantine
+* Remove
+* Restore
+* Delete
+* Filter
+* Search
+* Export
+* Generate Report
+* Submit Report
+* Start Demo
+
+Use:
+
+* Toast notifications
+* Confirmation dialogs
+* Loading states
+* Empty states
+* Error states
+* Success states
+
+---
+
+# 30. SECURITY PRESENTATION
+
+Throughout the UI, clearly distinguish:
+
+**Observed Evidence**
+
+from:
+
+**Potential / Inferred Activity**
+
+For example:
+
+Observed:
+
+"Process accessed financial_demo.pdf"
+
+Potential:
+
+"File may have been included in suspicious outbound activity"
+
+Do not make unsupported claims such as:
+
+"Attacker is physically located at this address."
+
+Instead:
+
+"Estimated IP geolocation: Maharashtra, India"
+
+or:
+
+"Destination geolocation unavailable."
+
+---
+
+# 31. FINAL PRESENTATION EXPERIENCE
+
+The application should be impressive enough for a college project demonstration.
+
+The ideal demonstration flow is:
+
+```text
+LOGIN
+  ↓
+DASHBOARD
+  ↓
+DEMO MODE
+  ↓
+THREAT DETECTED
+  ↓
+INVESTIGATE
+  ↓
+PROCESS ANALYSIS
+  ↓
+FILE ACTIVITY
+  ↓
+NETWORK FORENSICS
+  ↓
+DATA EXPOSURE
+  ↓
+EXPOSURE WINDOW
+  ↓
+CONTAIN THREAT
+  ↓
+QUARANTINE
+  ↓
+GENERATE REPORT
+  ↓
+USER CONSENT
+  ↓
+CYBER CELL REPORTING
+```
+
+Make this flow extremely smooth.
+
+---
+
+# 32. FINAL DELIVERY — VERY IMPORTANT
+
+Before the generation/build session ends:
+
+### MUST DO
+
+* Finish all core pages.
+* Ensure the project runs.
+* Fix compilation errors.
+* Fix broken routes.
+* Fix broken imports.
+* Verify navigation.
+* Verify demo mode.
+* Verify major buttons.
+* Verify responsive layout.
+* Include README with setup instructions.
+* Include all source code.
+* Include package/configuration files.
+* Include mock/demo data.
+* Include `.env.example` if required.
+
+### THEN PACKAGE EVERYTHING
+
+Create:
+
+**ARGUS.zip**
+
+containing the complete project.
+
+The ZIP should contain:
+
+```text
+ARGUS/
+├── frontend/
+├── backend/                 (if implemented)
+├── public/
+├── src/
+├── components/
+├── mock-data/
+├── assets/
+├── README.md
+├── package.json
+├── configuration files
+└── other required project files
+```
+
+Do not leave out source files.
+
+**Provide the ZIP/downloadable project package as soon as the functional application is complete, before spending remaining credits on optional enhancements.**
+
+If full backend functionality cannot be completed within the available generation budget, prioritize a fully working frontend + mock API architecture and package it properly rather than leaving the project unfinished.
+
+The final goal is:
+
+> **ARGUS should look and feel like a real enterprise cybersecurity and digital-forensics product, while remaining a safe research prototype using synthetic demonstration data.**

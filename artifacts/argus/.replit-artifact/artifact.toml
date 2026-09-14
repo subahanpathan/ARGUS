@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "ARGUS Security Intelligence"
+description = "A production-style cybersecurity and digital forensics prototype with synthetic demo data, incident investigation, exposure analysis, remediation workflows, and cyber incident reporting."
+version = "1.0.0"
+id = "artifacts/argus"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 25063
+
+[services.development]
+run = "pnpm --filter @workspace/argus run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/argus", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/argus/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "25063"
+BASE_PATH = "/"

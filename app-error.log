@@ -1,0 +1,41 @@
+[BABEL] Note: The code generator has deoptimised the styling of D:\Mini\artifacts\.vite-cache\argus\deps\chunk-TUQWSLYZ.js?v=577b0d47 as it exceeds the max of 500KB.
+[2m11:43:10 am[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/network/connections/stream[39m
+Error: read ECONNRESET
+    at TCP.onStreamRead (node:internal/stream_base_commons:218:20)
+[2m11:43:10 am[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/events/process/stream[39m
+Error: read ECONNRESET
+    at TCP.onStreamRead (node:internal/stream_base_commons:218:20)
+[2m11:43:10 am[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/system/telemetry/stream[39m
+Error: read ECONNRESET
+    at TCP.onStreamRead (node:internal/stream_base_commons:218:20)
+[2m11:43:10 am[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/files/scan/stream[39m
+Error: read ECONNRESET
+    at TCP.onStreamRead (node:internal/stream_base_commons:218:20)
+[2m11:43:13 am[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/detections/stream[39m
+AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1122:18)
+    at afterConnectMultiple (node:net:1689:7)
+[2m11:43:13 am[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/system/telemetry[39m
+AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1122:18)
+    at afterConnectMultiple (node:net:1689:7)
+[2m11:43:13 am[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/network/connections[39m
+AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1122:18)
+    at afterConnectMultiple (node:net:1689:7)
+[2m11:43:17 am[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/detections/stream[39m
+AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1122:18)
+    at afterConnectMultiple (node:net:1689:7)
+[2m11:43:18 am[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/processes[39m
+AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1122:18)
+    at afterConnectMultiple (node:net:1689:7)
+[2m11:43:18 am[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/system/telemetry[39m
+AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1122:18)
+    at afterConnectMultiple (node:net:1689:7)
+[2m11:43:18 am[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/network/connections[39m
+AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1122:18)
+    at afterConnectMultiple (node:net:1689:7)

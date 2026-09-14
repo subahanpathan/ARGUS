@@ -1,0 +1,1478 @@
+openapi: 3.1.0
+info:
+  # Do not change the title, if the title changes, the import paths will be broken
+  title: Api
+  version: 0.1.0
+  description: API specification
+servers:
+  - url: /api
+    description: Base API path
+tags:
+  - name: health
+    description: Health operations
+  - name: process
+    description: Process monitoring operations
+  - name: events
+    description: Security event operations
+  - name: system
+    description: System telemetry operations
+  - name: network
+    description: Network connection monitoring operations
+  - name: files
+    description: Filesystem threat scan operations
+  - name: detection
+    description: Runtime detection operations
+paths:
+  /healthz:
+    get:
+      operationId: healthCheck
+      tags: [health]
+      summary: Health check
+      description: Returns server health status
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+  /processes:
+    get:
+      operationId: getProcesses
+      tags: [process]
+      summary: Get current process snapshot
+      description: Returns the latest snapshot of all observed Windows processes
+      responses:
+        "200":
+          description: Current process snapshot
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProcessSnapshot"
+    post:
+      operationId: ingestProcessSnapshot
+      tags: [process]
+      summary: Ingest a process snapshot
+      description: Accept a full process snapshot from the security engine
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProcessSnapshot"
+      responses:
+        "201":
+          description: Snapshot accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SnapshotIngestResponse"
+        "400":
+          description: Invalid snapshot
+        "413":
+          description: Snapshot too large
+  /events/process:
+    get:
+      operationId: getProcessEvents
+      tags: [events]
+      summary: Get recent process events
+      description: Retrieve recent process start/termination events
+      parameters:
+        - name: event_type
+          in: query
+          schema:
+            type: string
+            enum: [PROCESS_STARTED, PROCESS_TERMINATED, SNAPSHOT]
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 100
+            maximum: 500
+      responses:
+        "200":
+          description: Recent process events
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProcessEventList"
+    post:
+      operationId: ingestProcessEvent
+      tags: [events]
+      summary: Ingest process events
+      description: Accept one or more process events from the security engine
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - $ref: "#/components/schemas/ProcessEvent"
+                - type: array
+                  items:
+                    $ref: "#/components/schemas/ProcessEvent"
+      responses:
+        "201":
+          description: Events accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EventIngestResponse"
+        "400":
+          description: Invalid event
+        "413":
+          description: Too many events
+        "422":
+          description: Validation failed
+  /events/process/stream:
+    get:
+      operationId: streamProcessEvents
+      tags: [events]
+      summary: SSE stream of process events
+      description: Server-Sent Events stream for real-time process event delivery
+      responses:
+        "200":
+          description: Event stream
+          content:
+            text/event-stream:
+              schema:
+                type: string
+  /system/telemetry:
+    get:
+      operationId: getSystemTelemetry
+      tags: [system]
+      summary: Get current system telemetry
+      description: Returns the latest snapshot of Windows system telemetry
+      responses:
+        "200":
+          description: Current system telemetry
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SystemTelemetry"
+        "503":
+          description: Telemetry unavailable
+    post:
+      operationId: ingestSystemTelemetry
+      tags: [system]
+      summary: Ingest system telemetry
+      description: Accept a system telemetry snapshot from the security engine
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SystemTelemetry"
+      responses:
+        "201":
+          description: Telemetry accepted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  accepted:
+                    type: boolean
+        "400":
+          description: Invalid telemetry
+        "422":
+          description: Invalid source
+  /system/telemetry/stream:
+    get:
+      operationId: streamSystemTelemetry
+      tags: [system]
+      summary: SSE stream of system telemetry
+      description: Server-Sent Events stream for real-time system telemetry delivery
+      responses:
+        "200":
+          description: Telemetry stream
+          content:
+            text/event-stream:
+              schema:
+                type: string
+  /network/connections:
+    get:
+      operationId: getNetworkConnections
+      tags: [network]
+      summary: Get current network connection snapshot
+      description: Returns the latest snapshot of all observed network connections
+      responses:
+        "200":
+          description: Current network connection snapshot
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NetworkSnapshot"
+    post:
+      operationId: ingestNetworkSnapshot
+      tags: [network]
+      summary: Ingest a network connection snapshot
+      description: Accept a network connection snapshot from the security engine
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NetworkSnapshot"
+      responses:
+        "201":
+          description: Snapshot accepted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  accepted:
+                    type: boolean
+                  connection_count:
+                    type: integer
+        "400":
+          description: Invalid snapshot
+        "413":
+          description: Snapshot too large
+  /network/connections/stream:
+    get:
+      operationId: streamNetworkConnections
+      tags: [network]
+      summary: SSE stream of network connections
+      description: Server-Sent Events stream for real-time network connection delivery
+      responses:
+        "200":
+          description: Network stream
+          content:
+            text/event-stream:
+              schema:
+                type: string
+  /network/topology:
+    get:
+      operationId: getNetworkTopology
+      tags: [network]
+      summary: Get current network topology
+      description: Returns the latest snapshot of the Windows network topology
+      responses:
+        "200":
+          description: Current network topology snapshot
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NetworkTopologySnapshot"
+    post:
+      operationId: ingestNetworkTopology
+      tags: [network]
+      summary: Ingest a network topology snapshot
+      description: Accept a comprehensive network topology snapshot from the security engine
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NetworkTopologySnapshot"
+      responses:
+        "201":
+          description: Snapshot accepted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  accepted:
+                    type: boolean
+                  connection_count:
+                    type: integer
+        "400":
+          description: Invalid snapshot
+        "413":
+          description: Snapshot too large
+  /network/topology/stream:
+    get:
+      operationId: streamNetworkTopology
+      tags: [network]
+      summary: SSE stream of network topology
+      description: Server-Sent Events stream for real-time network topology delivery
+      responses:
+        "200":
+          description: Topology stream
+          content:
+            text/event-stream:
+              schema:
+                type: string
+  /network/events:
+    get:
+      operationId: getNetworkEvents
+      tags: [network]
+      summary: Get recent network connection events
+      description: Retrieve recent connection lifecycle events (NEW, CLOSED, STATE_CHANGE, infrastructure)
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 200
+            maximum: 1000
+      responses:
+        "200":
+          description: Recent network connection events
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NetworkConnectionEventList"
+  /network/ports:
+    get:
+      operationId: getPortIntelligence
+      tags: [network]
+      summary: Get current port intelligence
+      description: Returns the latest Windows port intelligence snapshot (listening ports and UDP endpoints)
+      responses:
+        "200":
+          description: Current port intelligence snapshot
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PortIntelligenceSnapshot"
+    post:
+      operationId: ingestPortIntelligence
+      tags: [network]
+      summary: Ingest a port intelligence snapshot
+      description: Accept a port intelligence snapshot from the security engine
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PortIntelligenceSnapshot"
+      responses:
+        "201":
+          description: Snapshot accepted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  accepted:
+                    type: boolean
+                  tcp_listening_count:
+                    type: integer
+                  udp_endpoint_count:
+                    type: integer
+        "400":
+          description: Invalid snapshot
+        "413":
+          description: Snapshot too large
+  /network/ports/stream:
+    get:
+      operationId: streamPortIntelligence
+      tags: [network]
+      summary: SSE stream of port intelligence
+      description: Server-Sent Events stream for real-time port lifecycle events (PORT_OPENED, PORT_CLOSED, PORT_CHANGED)
+      responses:
+        "200":
+          description: Port intelligence stream
+          content:
+            text/event-stream:
+              schema:
+                type: string
+  /network/ports/events:
+    get:
+      operationId: getPortEvents
+      tags: [network]
+      summary: Get recent port lifecycle events
+      description: Retrieve recent port lifecycle events (PORT_OPENED, PORT_CLOSED, PORT_CHANGED)
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 200
+            maximum: 1000
+      responses:
+        "200":
+          description: Recent port lifecycle events
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  events:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/PortEvent"
+                  count:
+                    type: integer
+  /files/scan:
+    get:
+      operationId: getFileScan
+      tags: [files]
+      summary: Get current file scan snapshot
+      description: Returns the latest filesystem threat scan snapshot
+      responses:
+        "200":
+          description: Current file scan snapshot
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FileScanSnapshot"
+    post:
+      operationId: ingestFileScan
+      tags: [files]
+      summary: Ingest a filesystem threat scan snapshot
+      description: Accept a file scan snapshot from the security engine
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FileScanSnapshot"
+      responses:
+        "201":
+          description: Scan accepted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  accepted:
+                    type: integer
+                  rejected:
+                    type: integer
+        "400":
+          description: Invalid snapshot
+        "413":
+          description: Snapshot too large
+  /files/scan/stream:
+    get:
+      operationId: streamFileScan
+      tags: [files]
+      summary: SSE stream of file scan results
+      description: Server-Sent Events stream for real-time file scan delivery
+      responses:
+        "200":
+          description: File scan stream
+          content:
+            text/event-stream:
+              schema:
+                type: string
+  /detections:
+    get:
+      operationId: getDetections
+      tags: [detection]
+      summary: Get recent detections
+      description: Retrieve recent process detections, optionally filtered
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 100
+            maximum: 300
+        - name: severity
+          in: query
+          schema:
+            type: string
+            enum: [low, medium, high, critical]
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [observed, detected, investigated, contained, resolved]
+        - name: rule_id
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Recent detections
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DetectionList"
+  /detections/rules:
+    get:
+      operationId: getDetectionRules
+      tags: [detection]
+      summary: Get detection rule catalog
+      description: Returns the catalog of active detection rules for explainability
+      responses:
+        "200":
+          description: Rule catalog
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  rules:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/DetectionRule"
+  /detections/stream:
+    get:
+      operationId: streamDetections
+      tags: [detection]
+      summary: SSE stream of detections
+      description: Server-Sent Events stream for real-time detection creation and updates
+      responses:
+        "200":
+          description: Detection stream
+          content:
+            text/event-stream:
+              schema:
+                type: string
+  /detections/{id}:
+    get:
+      operationId: getDetection
+      tags: [detection]
+      summary: Get a single detection
+      description: Retrieve one detection with its ancestry, related detections and process context
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Detection detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DetectionDetail"
+        "404":
+          description: Detection not found
+    patch:
+      operationId: updateDetectionStatus
+      tags: [detection]
+      summary: Update detection lifecycle status
+      description: Update the lifecycle status of a detection
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status:
+                  type: string
+                  enum: [observed, detected, investigated, contained, resolved]
+      responses:
+        "200":
+          description: Updated detection
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  detection:
+                    $ref: "#/components/schemas/Detection"
+        "400":
+          description: Invalid status
+        "404":
+          description: Detection not found
+components:
+  schemas:
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+      required:
+        - status
+    ProcessEvent:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        event_type:
+          type: string
+          enum: [PROCESS_STARTED, PROCESS_TERMINATED, SNAPSHOT]
+        timestamp:
+          type: string
+          format: date-time
+        pid:
+          type: integer
+        process_name:
+          type: string
+        executable_path:
+          type: string
+        command_line:
+          type: string
+        parent_pid:
+          type: integer
+        parent_process_name:
+          type: string
+        source:
+          type: string
+        observed:
+          type: boolean
+        metadata:
+          type: object
+          additionalProperties: true
+      required:
+        - id
+        - event_type
+        - timestamp
+        - pid
+        - process_name
+        - source
+        - observed
+    ProcessInfo:
+      type: object
+      properties:
+        pid:
+          type: integer
+        name:
+          type: string
+        executable_path:
+          type: string
+        command_line:
+          type: string
+        parent_pid:
+          type: integer
+        parent_name:
+          type: string
+        creation_time:
+          type: string
+          format: date-time
+        cpu_percent:
+          type: number
+        memory_bytes:
+          type: integer
+        memory_percent:
+          type: number
+        username:
+          type: string
+        status:
+          type: string
+        integrity:
+          type: string
+        access_error:
+          type: string
+      required:
+        - pid
+        - name
+    ProcessSnapshot:
+      type: object
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+        total_count:
+          type: integer
+        access_denied_count:
+          type: integer
+        processes:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProcessInfo"
+      required:
+        - timestamp
+        - total_count
+        - processes
+    ProcessEventList:
+      type: object
+      properties:
+        events:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProcessEvent"
+        count:
+          type: integer
+      required:
+        - events
+        - count
+    EventIngestResponse:
+      type: object
+      properties:
+        accepted:
+          type: integer
+        rejected:
+          type: integer
+        errors:
+          type: array
+          items:
+            type: object
+            properties:
+              index:
+                type: integer
+              error:
+                type: string
+      required:
+        - accepted
+    SnapshotIngestResponse:
+      type: object
+      properties:
+        accepted:
+          type: boolean
+        process_count:
+          type: integer
+      required:
+        - accepted
+        - process_count
+    SystemTelemetry:
+      type: object
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+        source:
+          type: string
+        observed:
+          type: boolean
+        cpu:
+          type: object
+          nullable: true
+          properties:
+            percent:
+              type: number
+            count:
+              type: integer
+            physical_count:
+              type: integer
+        memory:
+          type: object
+          nullable: true
+          properties:
+            total_bytes:
+              type: integer
+              format: int64
+            available_bytes:
+              type: integer
+              format: int64
+            used_bytes:
+              type: integer
+              format: int64
+            percent:
+              type: number
+        disk:
+          type: object
+          nullable: true
+          properties:
+            mount:
+              type: string
+            total_bytes:
+              type: integer
+              format: int64
+            used_bytes:
+              type: integer
+              format: int64
+            free_bytes:
+              type: integer
+              format: int64
+            percent:
+              type: number
+        processes:
+          type: object
+          nullable: true
+          properties:
+            running:
+              type: integer
+        system:
+          type: object
+          nullable: true
+          properties:
+            uptime_seconds:
+              type: integer
+            boot_time:
+              type: number
+              format: double
+        network:
+          type: object
+          nullable: true
+          properties:
+            interfaces:
+              type: array
+              items:
+                type: object
+                properties:
+                  name:
+                    type: string
+                  is_up:
+                    type: boolean
+                  is_running:
+                    type: boolean
+                  mtu:
+                    type: integer
+                  speed:
+                    type: integer
+                  addresses:
+                    type: array
+                    items:
+                      type: string
+                  bytes_sent:
+                    type: integer
+                    format: int64
+                  bytes_recv:
+                    type: integer
+                    format: int64
+            active_count:
+              type: integer
+            total_count:
+              type: integer
+      required:
+        - timestamp
+        - source
+        - observed
+    NetworkConnection:
+      type: object
+      properties:
+        process:
+          type: string
+        pid:
+          type: integer
+          nullable: true
+        connection_id:
+          type: string
+        local_addr:
+          type: string
+        local_port:
+          type: integer
+          nullable: true
+        remote_addr:
+          type: string
+        remote_port:
+          type: integer
+          nullable: true
+        family:
+          type: string
+        address_family:
+          type: string
+        type:
+          type: string
+        status:
+          type: string
+        local_role:
+          type: string
+        remote_role:
+          type: string
+        executable_path:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+      required:
+        - process
+    NetworkSnapshot:
+      type: object
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+        total_count:
+          type: integer
+        established_count:
+          type: integer
+        listen_count:
+          type: integer
+        listening_count:
+          type: integer
+        tcp_count:
+          type: integer
+        udp_count:
+          type: integer
+        time_wait_count:
+          type: integer
+        other_state_count:
+          type: integer
+        ipv4_count:
+          type: integer
+        ipv6_count:
+          type: integer
+        unique_remote_ips:
+          type: integer
+        unique_processes:
+          type: integer
+        connections:
+          type: array
+          items:
+            $ref: "#/components/schemas/NetworkConnection"
+      required:
+        - timestamp
+        - total_count
+        - connections
+    TopologyConnectionEvent:
+      type: object
+      properties:
+        event_type:
+          type: string
+        timestamp:
+          type: string
+        connection_id:
+          type: string
+        process_name:
+          type: string
+        pid:
+          type: integer
+        protocol:
+          type: string
+        address_family:
+          type: string
+        local_addr:
+          type: string
+        local_port:
+          type: integer
+        remote_addr:
+          type: string
+        remote_port:
+          type: integer
+        state:
+          type: string
+        previous_state:
+          type: string
+        local_role:
+          type: string
+        remote_role:
+          type: string
+        message:
+          type: string
+    TopologyConnection:
+      type: object
+      properties:
+        id:
+          type: string
+        connection_id:
+          type: string
+        pid:
+          type: integer
+        process_name:
+          type: string
+        process_path:
+          type: string
+        executable_path:
+          type: string
+        local_addr:
+          type: string
+        local_port:
+          type: integer
+        remote_addr:
+          type: string
+        remote_port:
+          type: integer
+        remote_hostname:
+          type: string
+        protocol:
+          type: string
+        address_family:
+          type: string
+        state:
+          type: string
+        status:
+          type: string
+        local_role:
+          type: string
+        remote_role:
+          type: string
+        first_seen:
+          type: string
+        last_seen:
+          type: string
+    NetworkTopologySnapshot:
+      type: object
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+        hostname:
+          type: string
+        interfaces:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+              friendly_name:
+                type: string
+              interface_type:
+                type: string
+              is_up:
+                type: boolean
+              is_running:
+                type: boolean
+              mtu:
+                type: integer
+              speed:
+                type: integer
+              mac_address:
+                type: string
+              addresses:
+                type: array
+                items:
+                  type: string
+              bytes_sent:
+                type: integer
+              bytes_recv:
+                type: integer
+        default_gateway:
+          type: object
+          properties:
+            next_hop:
+              type: string
+            interface:
+              type: string
+            metric:
+              type: integer
+        dns_servers:
+          type: array
+          items:
+            type: object
+            properties:
+              interface:
+                type: string
+              servers:
+                type: array
+                items:
+                  type: string
+        connections:
+          type: array
+          items:
+            $ref: "#/components/schemas/TopologyConnection"
+        traffic_rates:
+          type: array
+          items:
+            type: object
+            properties:
+              interface:
+                type: string
+              bytes_sent:
+                type: integer
+              bytes_recv:
+                type: integer
+              bytes_sent_rate:
+                type: number
+              bytes_recv_rate:
+                type: number
+        neighbors:
+          type: array
+          items:
+            type: object
+            properties:
+              ip:
+                type: string
+              mac:
+                type: string
+              interface:
+                type: string
+              state:
+                type: string
+              hostname:
+                type: string
+        connection_events:
+          type: array
+          items:
+            $ref: "#/components/schemas/TopologyConnectionEvent"
+        public_ip:
+          type: string
+        udp_endpoints:
+          type: integer
+        tcp_listening:
+          type: integer
+        total_connections:
+          type: integer
+        established_count:
+          type: integer
+        listen_count:
+          type: integer
+        tcp_count:
+          type: integer
+        udp_count:
+          type: integer
+        time_wait_count:
+          type: integer
+        other_state_count:
+          type: integer
+        ipv4_count:
+          type: integer
+        ipv6_count:
+          type: integer
+        unique_remote_ips:
+          type: integer
+        unique_processes:
+          type: integer
+      required:
+        - timestamp
+    NetworkConnectionEventList:
+      type: object
+      properties:
+        events:
+          type: array
+          items:
+            $ref: "#/components/schemas/TopologyConnectionEvent"
+        count:
+          type: integer
+      required:
+        - events
+        - count
+    PortInfo:
+      type: object
+      properties:
+        port_id:
+          type: string
+        protocol:
+          type: string
+        address_family:
+          type: string
+        local_addr:
+          type: string
+        local_port:
+          type: integer
+        state:
+          type: string
+        pid:
+          type: integer
+        process_name:
+          type: string
+        executable_path:
+          type: string
+        binding_type:
+          type: string
+          enum: [LOOPBACK, WILDCARD, INTERFACE]
+        local_role:
+          type: string
+        first_seen:
+          type: string
+          format: date-time
+        last_seen:
+          type: string
+          format: date-time
+        associated_connection_ids:
+          type: array
+          items:
+            type: string
+    PortEvent:
+      type: object
+      properties:
+        event_type:
+          type: string
+          enum: [PORT_OPENED, PORT_CLOSED, PORT_CHANGED]
+        timestamp:
+          type: string
+          format: date-time
+        port_id:
+          type: string
+        protocol:
+          type: string
+        address_family:
+          type: string
+        local_addr:
+          type: string
+        local_port:
+          type: integer
+        state:
+          type: string
+        pid:
+          type: integer
+        process_name:
+          type: string
+        executable_path:
+          type: string
+        binding_type:
+          type: string
+        previous_pid:
+          type: integer
+        previous_process_name:
+          type: string
+        previous_state:
+          type: string
+        change_details:
+          type: string
+    PortSummary:
+      type: object
+      properties:
+        tcp_listening_count:
+          type: integer
+        udp_endpoint_count:
+          type: integer
+        ipv4_listening_count:
+          type: integer
+        ipv6_listening_count:
+          type: integer
+        loopback_count:
+          type: integer
+        wildcard_count:
+          type: integer
+        interface_count:
+          type: integer
+        active_tcp_connections:
+          type: integer
+        unique_processes:
+          type: integer
+    PortIntelligenceSnapshot:
+      type: object
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+        tcp_listening:
+          type: array
+          items:
+            $ref: "#/components/schemas/PortInfo"
+        udp_endpoints:
+          type: array
+          items:
+            $ref: "#/components/schemas/PortInfo"
+        port_events:
+          type: array
+          items:
+            $ref: "#/components/schemas/PortEvent"
+        summary:
+          $ref: "#/components/schemas/PortSummary"
+        active_tcp_connections:
+          type: integer
+      required:
+        - timestamp
+    FileFinding:
+      type: object
+      properties:
+        id:
+          type: string
+        path:
+          type: string
+        name:
+          type: string
+        extension:
+          type: string
+        size_bytes:
+          type: integer
+        modified:
+          type: string
+          format: date-time
+        hash:
+          type: string
+        severity:
+          type: string
+        className:
+          type: string
+        reason:
+          type: string
+        category:
+          type: string
+        is_running:
+          type: boolean
+        source:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+      required:
+        - id
+        - path
+        - name
+        - severity
+        - className
+        - reason
+    FileScanSnapshot:
+      type: object
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+        directories_scanned:
+          type: integer
+        files_candidates:
+          type: integer
+        files_hashed:
+          type: integer
+        files_read:
+          type: integer
+        total_count:
+          type: integer
+        findings:
+          type: array
+          items:
+            $ref: "#/components/schemas/FileFinding"
+      required:
+        - timestamp
+        - total_count
+        - findings
+    DetectionEvidence:
+      type: object
+      properties:
+        key:
+          type: string
+        description:
+          type: string
+        source:
+          type: string
+          enum: [process, command_line, executable_path, parent, ancestry, network, connection, port, file, path]
+        detail:
+          type: string
+      required:
+        - key
+        - description
+        - source
+    DetectionAncestryNode:
+      type: object
+      properties:
+        pid:
+          type: integer
+        process_name:
+          type: string
+        executable_path:
+          type: string
+          nullable: true
+        command_line:
+          type: string
+          nullable: true
+        username:
+          type: string
+          nullable: true
+      required:
+        - pid
+        - process_name
+    Detection:
+      type: object
+      properties:
+        id:
+          type: string
+        rule_id:
+          type: string
+        rule_name:
+          type: string
+        title:
+          type: string
+        severity:
+          type: string
+          enum: [low, medium, high, critical]
+        confidence:
+          type: number
+        status:
+          type: string
+          enum: [observed, detected, investigated, contained, resolved]
+        timestamp:
+          type: string
+          format: date-time
+        event_timestamp:
+          type: string
+          format: date-time
+        entity:
+          type: string
+        pid:
+          type: integer
+        executable_path:
+          type: string
+          nullable: true
+        command_line:
+          type: string
+          nullable: true
+        parent_pid:
+          type: integer
+          nullable: true
+        parent_process_name:
+          type: string
+          nullable: true
+        username:
+          type: string
+          nullable: true
+        hostname:
+          type: string
+          nullable: true
+        evidence:
+          type: array
+          items:
+            $ref: "#/components/schemas/DetectionEvidence"
+        explanation:
+          type: string
+        recommended_action:
+          type: string
+        correlated_rules:
+          type: array
+          items:
+            type: string
+        ancestry:
+          type: array
+          items:
+            $ref: "#/components/schemas/DetectionAncestryNode"
+        related_event_id:
+          type: string
+          nullable: true
+      required:
+        - id
+        - rule_id
+        - rule_name
+        - title
+        - severity
+        - confidence
+        - status
+        - timestamp
+        - event_timestamp
+        - entity
+        - pid
+        - evidence
+        - explanation
+        - recommended_action
+        - ancestry
+    DetectionRule:
+      type: object
+      properties:
+        rule_id:
+          type: string
+        rule_name:
+          type: string
+        description:
+          type: string
+      required:
+        - rule_id
+        - rule_name
+        - description
+    DetectionList:
+      type: object
+      properties:
+        detections:
+          type: array
+          items:
+            $ref: "#/components/schemas/Detection"
+        count:
+          type: integer
+        rules:
+          type: array
+          items:
+            $ref: "#/components/schemas/DetectionRule"
+      required:
+        - detections
+        - count
+    DetectionDetail:
+      type: object
+      properties:
+        detection:
+          $ref: "#/components/schemas/Detection"
+        related:
+          type: array
+          items:
+            $ref: "#/components/schemas/Detection"
+        process:
+          type: object
+          nullable: true
+          properties:
+            pid:
+              type: integer
+            process_name:
+              type: string
+            executable_path:
+              type: string
+              nullable: true
+            command_line:
+              type: string
+              nullable: true
+            parent_pid:
+              type: integer
+              nullable: true
+            parent_process_name:
+              type: string
+              nullable: true
+            username:
+              type: string
+              nullable: true
+        ancestry:
+          type: array
+          items:
+            $ref: "#/components/schemas/DetectionAncestryNode"
+      required:
+        - detection
+        - related
+        - ancestry

@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KickKick Jerseys - Premium Football Jerseys</title>
+    <style>
+        :root {
+            --primary: #1a1a2e;
+            --accent: #e94560;
+            --light: #f5f5f5;
+            --white: #ffffff;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Roboto, Arial, sans-serif;
+            color: var(--primary);
+            background: var(--white);
+            line-height: 1.6;
+        }
+
+        a {
+            text-decoration: none;
+            color: inherit;
+        }
+
+        /* Header */
+        header {
+            background: var(--primary);
+            color: var(--white);
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .logo {
+            font-size: 1.6rem;
+            font-weight: 800;
+            letter-spacing: 1px;
+        }
+
+        .logo span {
+            color: var(--accent);
+        }
+
+        nav ul {
+            list-style: none;
+            display: flex;
+            gap: 1.5rem;
+        }
+
+        nav ul li a {
+            font-weight: 600;
+            padding: 0.4rem 0.8rem;
+            border-radius: 6px;
+            transition: background 0.3s;
+        }
+
+        nav ul li a:hover {
+            background: var(--accent);
+            color: var(--white);
+        }
+
+        .cart-btn {
+            background: var(--accent);
+            color: var(--white);
+            border: none;
+            padding: 0.5rem 1.2rem;
+            border-radius: 6px;
+            font-weight: 700;
+            cursor: pointer;
+            font-size: 0.95rem;
+            transition: transform 0.2s;
+        }
+
+        .cart-btn:hover {
+            transform: scale(1.05);
+        }
+
+        /* Hero */
+        .hero {
+            background: linear-gradient(135deg, var(--primary) 0%, #16213e 100%);
+            color: var(--white);
+            text-align: center;
+            padding: 5rem 1.5rem;
+        }
+
+        .hero h1 {
+            font-size: 3rem;
+            margin-bottom: 0.8rem;
+        }
+
+        .hero h1 span {
+            color: var(--accent);
+        }
+
+        .hero p {
+            font-size: 1.2rem;
+            margin-bottom: 2rem;
+            opacity: 0.85;
+            max-width: 700px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .btn {
+            display: inline-block;
+            background: var(--accent);
+            color: var(--white);
+            padding: 0.9rem 2.2rem;
+            border-radius: 30px;
+            font-weight: 700;
+            font-size: 1.05rem;
+            border: none;
+            cursor: pointer;
+            transition: background 0.3s, transform 0.2s;
+        }
+
+        .btn:hover {
+            background: #c13149;
+            transform: translateY(-3px);
+        }
+
+        /* Section title */
+        .section-title {
+            text-align: center;
+            font-size: 2rem;
+            margin: 3rem 0 1rem;
+            position: relative;
+        }
+
+        .section-title::after {
+            content: '';
+            display: block;
+            width: 60px;
+            height: 4px;
+            background: var(--accent);
+            margin: 0.6rem auto 0;
+            border-radius: 2px;
+        }
+
+        /* Products */
+        .products {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 0 1.5rem 3rem;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.8rem;
+        }
+
+        .product-card {
+            background: var(--light);
+            border-radius: 12px;
+            overflow: hidden;
+            transition: box-shadow 0.3s, transform 0.3s;
+            text-align: center;
+        }
+
+        .product-card:hover {
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+            transform: translateY(-5px);
+        }
+
+        .product-card .shirt {
+            width: 100%;
+            height: 180px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 3rem;
+            color: var(--white);
+            font-weight: 800;
+        }
+
+        .product-card h3 {
+            margin: 1rem 0 0.3rem;
+        }
+
+        .product-card .price {
+            color: var(--accent);
+            font-weight: 700;
+            font-size: 1.15rem;
+        }
+
+        .product-card .size-row {
+            padding: 0.8rem 0;
+        }
+
+        .size-row button {
+            border: 1px solid var(--primary);
+            background: transparent;
+            padding: 0.3rem 0.8rem;
+            margin: 0 0.2rem;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+
+        .size-row button:hover,
+        .size-row button.active {
+            background: var(--primary);
+            color: var(--white);
+        }
+
+        .add-btn {
+            width: 90%;
+            margin-bottom: 1.2rem;
+            background: var(--primary);
+            color: var(--white);
+            border: none;
+            padding: 0.7rem;
+            border-radius: 8px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .add-btn:hover {
+            background: var(--accent);
+        }
+
+        /* About */
+        .about {
+            background: var(--light);
+            padding: 3rem 1.5rem;
+            text-align: center;
+        }
+
+        .about p {
+            max-width: 700px;
+            margin: 1rem auto;
+        }
+
+        .features {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1.5rem;
+            justify-content: center;
+            margin-top: 1.5rem;
+        }
+
+        .feature {
+            background: var(--white);
+            padding: 1.5rem;
+            border-radius: 10px;
+            width: 200px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+        }
+
+        .feature .icon {
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+        }
+
+        /* Footer */
+        footer {
+            background: var(--primary);
+            color: var(--white);
+            text-align: center;
+            padding: 2rem 1.5rem;
+        }
+
+        footer a {
+            color: var(--accent);
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="logo">Kick<span>Kick</span> Jerseys</div>
+        <nav>
+            <ul>
+                <li><a href="#home">Home</a></li>
+                <li><a href="#products">Shop</a></li>
+                <li><a href="#about">About</a></li>
+                <li><a href="#contact">Contact</a></li>
+            </ul>
+        </nav>
+        <button class="cart-btn" onclick="sidebarToggle()">Cart (0)</button>
+    </header>
+
+    <section class="hero" id="home">
+        <h1>Own the <span>Pitch.</span></h1>
+        <p>Premium football jerseys from your favorite clubs and national teams. Authentic quality at unbeatable prices.</p>
+        <a href="#products" class="btn">Shop Now</a>
+    </section>
+
+    <h2 class="section-title" id="products">Featured Jerseys</h2>
+
+    <section class="products" id="products">
+        <div class="product-card">
+            <div class="shirt" style="background:#1463ad;">FC</div>
+            <h3>Crimson FC Home</h3>
+            <p class="price">$59.99</p>
+            <div class="size-row">
+                <button onclick="pickSize(this)">S</button>
+                <button onclick="pickSize(this)">M</button>
+                <button onclick="pickSize(this)">L</button>
+                <button onclick="pickSize(this)">XL</button>
+            </div>
+            <button class="add-btn" onclick="addToCart('Crimson FC Home', 59.99)">Add to Cart</button>
+        </div>
+
+        <div class="product-card">
+            <div class="shirt" style="background:#e94560;">SC</div>
+            <h3>Scarlet United Away</h3>
+            <p class="price">$54.99</p>
+            <div class="size-row">
+                <button onclick="pickSize(this)">S</button>
+                <button onclick="pickSize(this)">M</button>
+                <button onclick="pickSize(this)">L</button>
+                <button onclick="pickSize(this)">XL</button>
+            </div>
+            <button class="add-btn" onclick="addToCart('Scarlet United Away', 54.99)">Add to Cart</button>
+        </div>
+
+        <div class="product-card">
+            <div class="shirt" style="background:#0f5132;">GG</div>
+            <h3>Green Giants Third</h3>
+            <p class="price">$49.99</p>
+            <div class="size-row">
+                <button onclick="pickSize(this)">S</button>
+                <button onclick="pickSize(this)">M</button>
+                <button onclick="pickSize(this)">L</button>
+                <button onclick="pickSize(this)">XL</button>
+            </div>
+            <button class="add-btn" onclick="addToCart('Green Giants Third', 49.99)">Add to Cart</button>
+        </div>
+
+        <div class="product-card">
+            <div class="shirt" style="background:#202020;">GB</div>
+            <h3>Black Ops Special</h3>
+            <p class="price">$64.99</p>
+            <div class="size-row">
+                <button onclick="pickSize(this)">S</button>
+                <button onclick="pickSize(this)">M</button>
+                <button onclick="pickSize(this)">L</button>
+                <button onclick="pickSize(this)">XL</button>
+            </div>
+            <button class="add-btn" onclick="addToCart('Black Ops Special', 64.99)">Add to Cart</button>
+        </div>
+
+        <div class="product-card">
+            <div class="shirt" style="background:#8b5a2b;">NC</div>
+            <h3>Nacional Classic</h3>
+            <p class="price">$44.99</p>
+            <div class="size-row">
+                <button onclick="pickSize(this)">S</button>
+                <button onclick="pickSize(this)">M</button>
+                <button onclick="pickSize(this)">L</button>
+                <button onclick="pickSize(this)">XL</button>
+            </div>
+            <button class="add-btn" onclick="addToCart('Nacional Classic', 44.99)">Add to Cart</button>
+        </div>
+
+        <div class="product-card">
+            <div class="shirt" style="background:#2b1a4e;">PV</div>
+            <h3>Purple Vipers Home</h3>
+            <p class="price">$57.99</p>
+            <div class="size-row">
+                <button onclick="pickSize(this)">S</button>
+                <button onclick="pickSize(this)">M</button>
+                <button onclick="pickSize(this)">L</button>
+                <button onclick="pickSize(this)">XL</button>
+            </div>
+            <button class="add-btn" onclick="addToCart('Purple Vipers Home', 57.99)">Add to Cart</button>
+        </div>
+    </section>
+
+    <section class="about" id="about">
+        <h2 class="section-title">Why Choose Us?</h2>
+        <p>We bring authentic, breathable, and durable jerseys straight to your doorstep. From casual fans to hardcore supporters, everyone looks better in KickKick.</p>
+        <div class="features">
+            <div class="feature">
+                <div class="icon">&#128274;</div>
+                <h4>100% Authentic</h4>
+                <p>Verified quality materials</p>
+            </div>
+            <div class="feature">
+                <div class="icon">&#128666;</div>
+                <h4>Fast Shipping</h4>
+                <p>3-5 day worldwide delivery</p>
+            </div>
+            <div class="feature">
+                <div class="icon">&#128176;</div>
+                <h4>Easy Returns</h4>
+                <p>30-day money back guarantee</p>
+            </div>
+            <div class="feature">
+                <div class="icon">&#128273;</div>
+                <h4>Secure Checkout</h4>
+                <p>Encrypted payment processing</p>
+            </div>
+        </div>
+    </section>
+
+    <h2 class="section-title">Contact Us</h2>
+    <div style="text-align:center; padding: 0 1.5rem 3rem;" id="contact">
+        <p>Email: <a href="mailto:support@kickkick.com" style="color:var(--accent);">support@kickkick.com</a></p>
+        <p>Phone: +1 (555) 123-4567</p>
+        <p style="margin-top:0.8rem;">
+            <a class="btn" href="mailto:support@kickkick.com">Get in Touch</a>
+        </p>
+    </div>
+
+    <footer>
+        <p>&copy; 2026 KickKick Jerseys. All rights reserved. Crafted with &#128153; for the game.</p>
+    </footer>
+
+    <script>
+        let cartItems = [];
+
+        function pickSize(btn) {
+            const row = btn.parentElement;
+            row.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+        }
+
+        function addToCart(name, price) {
+            cartItems.push({ name, price });
+            updateCart();
+        }
+
+        function updateCart() {
+            const total = cartItems.length;
+            document.querySelector('.cart-btn').textContent = 'Cart (' + total + ')';
+            alert('Added to cart! Your cart now has ' + total + ' item(s).');
+        }
+
+        function sidebarToggle() {
+            alert('Your cart:\n\n' + (cartItems.length === 0
+                ? 'Cart is empty.'
+                : cartItems.map((i, idx) => (idx + 1) + '. ' + i.name + ' - $' + i.price.toFixed(2)).join('\n')));
+        }
+    </script>
+
+</body>
+</html>
