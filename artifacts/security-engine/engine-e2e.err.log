@@ -19415,3 +19415,771 @@
 2026-09-14 18:35:46 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 1616 (conhost.exe)
 2026-09-14 18:35:46 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 15624 (git.exe)
 2026-09-14 18:35:46 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 17832 (git.exe)
+2026-09-14 18:35:48 [argus.main] INFO EVENT: PROCESS_STARTED — PID 1620 (git.exe) parent=23176
+2026-09-14 18:35:48 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 19712 (<unknown-pid-19712>)
+2026-09-14 18:35:50 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 1620 (git.exe)
+2026-09-14 18:36:01 [argus.file_monitor.scanner] INFO File scan: 4 roots, 24 candidates, 2 findings
+2026-09-14 18:36:02 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 15332 (opencode.exe)
+2026-09-14 18:36:10 [argus.main] INFO EVENT: PROCESS_STARTED — PID 21252 (backgroundTaskHost.exe) parent=1596
+2026-09-14 18:36:14 [argus.main] INFO EVENT: PROCESS_STARTED — PID 7320 (svchost.exe) parent=1360
+2026-09-14 18:36:14 [argus.main] INFO EVENT: PROCESS_STARTED — PID 23452 (RuntimeBroker.exe) parent=1596
+2026-09-14 18:36:14 [argus.main] INFO EVENT: PROCESS_STARTED — PID 25232 (WmiPrvSE.exe) parent=1596
+2026-09-14 18:36:16 [argus.file_monitor.scanner] INFO File scan: 4 roots, 24 candidates, 2 findings
+2026-09-14 18:36:18 [argus.main] INFO EVENT: PROCESS_STARTED — PID 8352 (conhost.exe) parent=30136
+2026-09-14 18:36:18 [argus.main] INFO EVENT: PROCESS_STARTED — PID 30136 (powershell.exe) parent=31368
+2026-09-14 18:36:20 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 8352 (conhost.exe)
+2026-09-14 18:36:20 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 30136 (powershell.exe)
+2026-09-14 18:36:27 [argus.main] INFO EVENT: PROCESS_STARTED — PID 9172 (PhoneExperienceHost.exe) parent=1596
+2026-09-14 18:36:27 [argus.main] INFO EVENT: PROCESS_STARTED — PID 11540 (backgroundTaskHost.exe) parent=1596
+2026-09-14 18:36:27 [argus.main] INFO EVENT: PROCESS_STARTED — PID 31116 (backgroundTaskHost.exe) parent=1596
+2026-09-14 18:36:29 [argus.main] INFO EVENT: PROCESS_STARTED — PID 16444 (svchost.exe) parent=1360
+2026-09-14 18:36:29 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 11540 (backgroundTaskHost.exe)
+2026-09-14 18:36:32 [argus.file_monitor.scanner] INFO File scan: 4 roots, 24 candidates, 2 findings
+2026-09-14 18:36:46 [argus.file_monitor.scanner] INFO File scan: 4 roots, 24 candidates, 2 findings
+2026-09-14 18:37:01 [argus.file_monitor.scanner] INFO File scan: 4 roots, 24 candidates, 2 findings
+2026-09-14 18:37:13 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 29164 (MoUsoCoreWorker.exe)
+2026-09-14 18:37:15 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 21252 (backgroundTaskHost.exe)
+2026-09-14 18:37:15 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 25232 (WmiPrvSE.exe)
+2026-09-14 18:37:16 [argus.file_monitor.scanner] INFO File scan: 4 roots, 24 candidates, 2 findings
+2026-09-14 18:37:27 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 31116 (backgroundTaskHost.exe)
+2026-09-14 18:37:32 [argus.file_monitor.scanner] INFO File scan: 4 roots, 24 candidates, 2 findings
+2026-09-14 18:37:35 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 12272 (svchost.exe)
+2026-09-14 18:37:41 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 26164 (svchost.exe)
+2026-09-14 18:37:45 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 23452 (RuntimeBroker.exe)
+2026-09-14 18:37:46 [argus.file_monitor.scanner] INFO File scan: 4 roots, 24 candidates, 2 findings
+2026-09-14 18:38:01 [argus.file_monitor.scanner] INFO File scan: 4 roots, 24 candidates, 2 findings
+2026-09-14 18:38:16 [argus.file_monitor.scanner] INFO File scan: 4 roots, 24 candidates, 2 findings
+2026-09-14 18:38:21 [argus.main] INFO EVENT: PROCESS_STARTED — PID 8776 (powershell.exe) parent=31368
+2026-09-14 18:38:21 [argus.main] INFO EVENT: PROCESS_STARTED — PID 20516 (conhost.exe) parent=8776
+2026-09-14 18:38:23 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 8776 (powershell.exe)
+2026-09-14 18:38:23 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 20516 (conhost.exe)
+2026-09-14 18:38:31 [argus.file_monitor.scanner] INFO File scan: 4 roots, 24 candidates, 2 findings
+2026-09-14 18:38:46 [argus.file_monitor.scanner] INFO File scan: 4 roots, 24 candidates, 2 findings
+2026-09-14 18:39:02 [argus.file_monitor.scanner] INFO File scan: 4 roots, 24 candidates, 2 findings
+2026-09-14 18:39:16 [argus.file_monitor.scanner] INFO File scan: 4 roots, 24 candidates, 2 findings
+2026-09-14 18:39:23 [argus.main] INFO EVENT: PROCESS_STARTED — PID 9736 (conhost.exe) parent=15104
+2026-09-14 18:39:23 [argus.main] INFO EVENT: PROCESS_STARTED — PID 15104 (powershell.exe) parent=31368
+2026-09-14 18:39:25 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 9736 (conhost.exe)
+2026-09-14 18:39:25 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 15104 (powershell.exe)
+2026-09-14 18:39:31 [argus.file_monitor.scanner] INFO File scan: 4 roots, 24 candidates, 2 findings
+2026-09-14 18:39:31 [argus.main] INFO EVENT: PROCESS_STARTED — PID 1808 (git.exe) parent=22564
+2026-09-14 18:39:31 [argus.main] INFO EVENT: PROCESS_STARTED — PID 12768 (git-remote-https.exe) parent=18968
+2026-09-14 18:39:31 [argus.main] INFO EVENT: PROCESS_STARTED — PID 18968 (git.exe) parent=1808
+2026-09-14 18:39:31 [argus.main] INFO EVENT: PROCESS_STARTED — PID 22564 (git.exe) parent=24016
+2026-09-14 18:39:33 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 1808 (git.exe)
+2026-09-14 18:39:33 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 12768 (git-remote-https.exe)
+2026-09-14 18:39:33 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 18968 (git.exe)
+2026-09-14 18:39:33 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 22564 (git.exe)
+2026-09-14 18:39:45 [argus.main] INFO EVENT: PROCESS_STARTED — PID 19220 (conhost.exe) parent=27632
+2026-09-14 18:39:45 [argus.main] INFO EVENT: PROCESS_STARTED — PID 27632 (powershell.exe) parent=31368
+2026-09-14 18:39:47 [argus.file_monitor.scanner] INFO File scan: 4 roots, 24 candidates, 2 findings
+2026-09-14 18:39:47 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 19220 (conhost.exe)
+2026-09-14 18:39:47 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 27632 (powershell.exe)
+2026-09-14 18:40:01 [argus.file_monitor.scanner] INFO File scan: 4 roots, 24 candidates, 2 findings
+2026-09-14 18:40:16 [argus.file_monitor.scanner] INFO File scan: 4 roots, 24 candidates, 2 findings
+2026-09-14 18:40:31 [argus.file_monitor.scanner] INFO File scan: 4 roots, 24 candidates, 2 findings
+2026-09-14 18:40:47 [argus.file_monitor.scanner] INFO File scan: 4 roots, 24 candidates, 2 findings
+2026-09-14 18:40:50 [argus.main] INFO EVENT: PROCESS_STARTED — PID 6836 (<unknown-pid-6836>) parent=31368
+2026-09-14 18:40:52 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 6836 (<unknown-pid-6836>)
+2026-09-14 18:41:01 [argus.file_monitor.scanner] INFO File scan: 4 roots, 24 candidates, 2 findings
+2026-09-14 18:41:17 [argus.file_monitor.scanner] INFO File scan: 4 roots, 24 candidates, 2 findings
+2026-09-14 18:41:18 [argus.main] INFO EVENT: PROCESS_STARTED — PID 24604 (RuntimeBroker.exe) parent=1596
+2026-09-14 18:41:18 [argus.main] INFO EVENT: PROCESS_STARTED — PID 26752 (taskhostw.exe) parent=2996
+2026-09-14 18:41:20 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 26752 (taskhostw.exe)
+2026-09-14 18:41:28 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 16444 (svchost.exe)
+2026-09-14 18:41:31 [argus.file_monitor.scanner] INFO File scan: 4 roots, 24 candidates, 2 findings
+2026-09-14 18:41:44 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 7320 (svchost.exe)
+2026-09-14 18:41:46 [argus.file_monitor.scanner] INFO File scan: 4 roots, 24 candidates, 2 findings
+2026-09-14 18:41:58 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 24604 (RuntimeBroker.exe)
+2026-09-14 18:42:01 [argus.file_monitor.scanner] INFO File scan: 4 roots, 24 candidates, 2 findings
+2026-09-14 18:42:16 [argus.file_monitor.scanner] INFO File scan: 4 roots, 24 candidates, 2 findings
+2026-09-14 18:42:28 [argus.main] INFO EVENT: PROCESS_STARTED — PID 18064 (powershell.exe) parent=31368
+2026-09-14 18:42:28 [argus.main] INFO EVENT: PROCESS_STARTED — PID 28400 (conhost.exe) parent=18064
+2026-09-14 18:42:30 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 18064 (powershell.exe)
+2026-09-14 18:42:30 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 28400 (conhost.exe)
+2026-09-14 18:42:31 [argus.file_monitor.scanner] INFO File scan: 4 roots, 24 candidates, 2 findings
+2026-09-14 18:42:40 [argus.main] INFO EVENT: PROCESS_STARTED — PID 1464 (svchost.exe) parent=1360
+2026-09-14 18:42:40 [argus.main] INFO EVENT: PROCESS_STARTED — PID 8024 (mscopilot.exe) parent=27040
+2026-09-14 18:42:40 [argus.main] INFO EVENT: PROCESS_STARTED — PID 10980 (svchost.exe) parent=1360
+2026-09-14 18:42:40 [argus.main] INFO EVENT: PROCESS_STARTED — PID 17244 (mscopilot.exe) parent=27040
+2026-09-14 18:42:40 [argus.main] INFO EVENT: PROCESS_STARTED — PID 17972 (elevation_service.exe) parent=1360
+2026-09-14 18:42:40 [argus.main] INFO EVENT: PROCESS_STARTED — PID 24652 (mscopilot.exe) parent=27040
+2026-09-14 18:42:40 [argus.main] INFO EVENT: PROCESS_STARTED — PID 24792 (svchost.exe) parent=1360
+2026-09-14 18:42:40 [argus.main] INFO EVENT: PROCESS_STARTED — PID 25216 (identity_helper.exe) parent=27040
+2026-09-14 18:42:40 [argus.main] INFO EVENT: PROCESS_STARTED — PID 27040 (mscopilot.exe) parent=11900
+2026-09-14 18:42:40 [argus.main] INFO EVENT: PROCESS_STARTED — PID 29824 (mscopilot.exe) parent=27040
+2026-09-14 18:42:40 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 2220 (mscopilot.exe)
+2026-09-14 18:42:40 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 10324 (mscopilot.exe)
+2026-09-14 18:42:40 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 11900 (mscopilot.exe)
+2026-09-14 18:42:40 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 17304 (mscopilot.exe)
+2026-09-14 18:42:40 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 25068 (mscopilot.exe)
+2026-09-14 18:42:47 [argus.file_monitor.scanner] INFO File scan: 4 roots, 24 candidates, 2 findings
+2026-09-14 18:42:50 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 25216 (identity_helper.exe)
+2026-09-14 18:43:00 [argus.main] INFO EVENT: PROCESS_STARTED — PID 1616 (conhost.exe) parent=21252
+2026-09-14 18:43:00 [argus.main] INFO EVENT: PROCESS_STARTED — PID 21252 (powershell.exe) parent=31368
+2026-09-14 18:43:01 [argus.file_monitor.scanner] INFO File scan: 4 roots, 24 candidates, 2 findings
+2026-09-14 18:43:03 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 1616 (conhost.exe)
+2026-09-14 18:43:03 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 21252 (powershell.exe)
+2026-09-14 18:43:16 [argus.file_monitor.scanner] INFO File scan: 4 roots, 24 candidates, 2 findings
+2026-09-14 18:43:21 [argus.main] INFO EVENT: PROCESS_STARTED — PID 11564 (opencode.exe) parent=24016
+2026-09-14 18:43:23 [argus.main] INFO EVENT: PROCESS_STARTED — PID 4104 (svchost.exe) parent=1360
+2026-09-14 18:43:29 [argus.main] INFO EVENT: PROCESS_STARTED — PID 18388 (conhost.exe) parent=25644
+2026-09-14 18:43:29 [argus.main] INFO EVENT: PROCESS_STARTED — PID 25644 (powershell.exe) parent=31368
+2026-09-14 18:43:31 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 18388 (conhost.exe)
+2026-09-14 18:43:31 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 25644 (powershell.exe)
+2026-09-14 18:43:31 [argus.file_monitor.scanner] INFO File scan: 4 roots, 24 candidates, 2 findings
+2026-09-14 18:43:33 [argus.main] INFO EVENT: PROCESS_STARTED — PID 9060 (powershell.exe) parent=31368
+2026-09-14 18:43:33 [argus.main] INFO EVENT: PROCESS_STARTED — PID 29392 (conhost.exe) parent=9060
+2026-09-14 18:43:35 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 9060 (powershell.exe)
+2026-09-14 18:43:35 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 29392 (conhost.exe)
+2026-09-14 18:43:41 [argus.main] INFO EVENT: PROCESS_STARTED — PID 23708 (svchost.exe) parent=1360
+2026-09-14 18:43:46 [argus.file_monitor.scanner] INFO File scan: 4 roots, 24 candidates, 2 findings
+2026-09-14 18:43:47 [argus.main] INFO EVENT: PROCESS_STARTED — PID 28608 (chrome.exe) parent=20496
+2026-09-14 18:43:47 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 26500 (chrome.exe)
+2026-09-14 18:43:51 [argus.main] INFO EVENT: PROCESS_STARTED — PID 17152 (chrome.exe) parent=20496
+2026-09-14 18:43:51 [argus.main] INFO EVENT: PROCESS_STARTED — PID 17300 (chrome.exe) parent=20496
+2026-09-14 18:43:51 [argus.main] INFO EVENT: PROCESS_STARTED — PID 25840 (chrome.exe) parent=20496
+2026-09-14 18:43:51 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 28608 (chrome.exe)
+2026-09-14 18:43:53 [argus.main] INFO EVENT: PROCESS_STARTED — PID 7856 (chrome.exe) parent=20496
+2026-09-14 18:43:53 [argus.main] INFO EVENT: PROCESS_STARTED — PID 16328 (chrome.exe) parent=20496
+2026-09-14 18:43:53 [argus.main] INFO EVENT: PROCESS_STARTED — PID 27872 (chrome.exe) parent=20496
+2026-09-14 18:43:55 [argus.main] INFO EVENT: PROCESS_STARTED — PID 18680 (chrome.exe) parent=20496
+2026-09-14 18:43:57 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 20976 (chrome.exe)
+2026-09-14 18:43:57 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 31652 (chrome.exe)
+2026-09-14 18:43:57 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 17300 (chrome.exe)
+2026-09-14 18:43:57 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 25840 (chrome.exe)
+2026-09-14 18:43:59 [argus.main] INFO EVENT: PROCESS_STARTED — PID 11900 (chrome.exe) parent=20496
+2026-09-14 18:43:59 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 16328 (chrome.exe)
+2026-09-14 18:44:01 [argus.main] INFO EVENT: PROCESS_STARTED — PID 12452 (git.exe) parent=11564
+2026-09-14 18:44:01 [argus.main] INFO EVENT: PROCESS_STARTED — PID 13616 (conhost.exe) parent=12452
+2026-09-14 18:44:01 [argus.main] INFO EVENT: PROCESS_STARTED — PID 19728 (<unknown-pid-19728>) parent=none
+2026-09-14 18:44:01 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 17152 (chrome.exe)
+2026-09-14 18:44:02 [argus.file_monitor.scanner] INFO File scan: 4 roots, 24 candidates, 2 findings
+2026-09-14 18:44:03 [argus.main] INFO EVENT: PROCESS_STARTED — PID 13344 (git.exe) parent=11564
+2026-09-14 18:44:03 [argus.main] INFO EVENT: PROCESS_STARTED — PID 22532 (conhost.exe) parent=13344
+2026-09-14 18:44:03 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 12452 (git.exe)
+2026-09-14 18:44:03 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 13616 (conhost.exe)
+2026-09-14 18:44:03 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 19728 (<unknown-pid-19728>)
+2026-09-14 18:44:05 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 13344 (git.exe)
+2026-09-14 18:44:05 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 22532 (conhost.exe)
+2026-09-14 18:44:17 [argus.file_monitor.scanner] INFO File scan: 4 roots, 24 candidates, 2 findings
+2026-09-14 18:44:24 [argus.main] INFO EVENT: PROCESS_STARTED — PID 6592 (conhost.exe) parent=28872
+2026-09-14 18:44:24 [argus.main] INFO EVENT: PROCESS_STARTED — PID 28872 (<unknown-pid-28872>) parent=none
+2026-09-14 18:44:26 [argus.main] INFO EVENT: PROCESS_STARTED — PID 2652 (git.exe) parent=11564
+2026-09-14 18:44:26 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 6592 (conhost.exe)
+2026-09-14 18:44:26 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 28872 (<unknown-pid-28872>)
+2026-09-14 18:44:28 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 2652 (git.exe)
+2026-09-14 18:44:30 [argus.main] INFO EVENT: PROCESS_STARTED — PID 16144 (powershell.exe) parent=31368
+2026-09-14 18:44:30 [argus.main] INFO EVENT: PROCESS_STARTED — PID 29864 (chrome.exe) parent=20496
+2026-09-14 18:44:30 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 11900 (chrome.exe)
+2026-09-14 18:44:32 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 16144 (powershell.exe)
+2026-09-14 18:44:32 [argus.file_monitor.scanner] INFO File scan: 4 roots, 24 candidates, 2 findings
+2026-09-14 18:44:47 [argus.file_monitor.scanner] INFO File scan: 4 roots, 24 candidates, 2 findings
+2026-09-14 18:44:52 [argus.main] INFO EVENT: PROCESS_STARTED — PID 19416 (chrome.exe) parent=20496
+2026-09-14 18:44:52 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 18680 (chrome.exe)
+2026-09-14 18:45:02 [argus.file_monitor.scanner] INFO File scan: 4 roots, 24 candidates, 2 findings
+2026-09-14 18:45:06 [argus.main] INFO EVENT: PROCESS_STARTED — PID 2068 (git.exe) parent=8996
+2026-09-14 18:45:06 [argus.main] INFO EVENT: PROCESS_STARTED — PID 20768 (<unknown-pid-20768>) parent=11564
+2026-09-14 18:45:08 [argus.main] INFO EVENT: PROCESS_STARTED — PID 15316 (powershell.exe) parent=31368
+2026-09-14 18:45:08 [argus.main] INFO EVENT: PROCESS_STARTED — PID 24024 (conhost.exe) parent=15316
+2026-09-14 18:45:08 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 2068 (git.exe)
+2026-09-14 18:45:08 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 20768 (<unknown-pid-20768>)
+2026-09-14 18:45:10 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 15316 (powershell.exe)
+2026-09-14 18:45:10 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 24024 (conhost.exe)
+2026-09-14 18:45:17 [argus.file_monitor.scanner] INFO File scan: 4 roots, 24 candidates, 2 findings
+2026-09-14 18:45:26 [argus.main] INFO EVENT: PROCESS_STARTED — PID 21028 (chrome.exe) parent=20496
+2026-09-14 18:45:28 [argus.main] INFO EVENT: PROCESS_STARTED — PID 17080 (chrome.exe) parent=20496
+2026-09-14 18:45:28 [argus.main] INFO EVENT: PROCESS_STARTED — PID 31156 (chrome.exe) parent=20496
+2026-09-14 18:45:30 [argus.main] INFO EVENT: PROCESS_STARTED — PID 7468 (conhost.exe) parent=17112
+2026-09-14 18:45:30 [argus.main] INFO EVENT: PROCESS_STARTED — PID 17112 (powershell.exe) parent=31368
+2026-09-14 18:45:31 [argus.file_monitor.scanner] INFO File scan: 4 roots, 24 candidates, 2 findings
+2026-09-14 18:45:32 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 9172 (PhoneExperienceHost.exe)
+2026-09-14 18:45:32 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 7468 (conhost.exe)
+2026-09-14 18:45:32 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 17112 (powershell.exe)
+2026-09-14 18:45:38 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 21028 (chrome.exe)
+2026-09-14 18:45:40 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 24792 (svchost.exe)
+2026-09-14 18:45:46 [argus.file_monitor.scanner] INFO File scan: 4 roots, 24 candidates, 2 findings
+2026-09-14 18:45:56 [argus.main] INFO EVENT: PROCESS_STARTED — PID 9992 (git.exe) parent=11564
+2026-09-14 18:45:58 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 9992 (git.exe)
+2026-09-14 18:46:01 [argus.file_monitor.scanner] INFO File scan: 4 roots, 24 candidates, 2 findings
+2026-09-14 18:46:16 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 23708 (svchost.exe)
+2026-09-14 18:46:17 [argus.file_monitor.scanner] INFO File scan: 4 roots, 24 candidates, 2 findings
+2026-09-14 18:46:32 [argus.file_monitor.scanner] INFO File scan: 4 roots, 24 candidates, 2 findings
+2026-09-14 18:46:32 [argus.main] INFO EVENT: PROCESS_STARTED — PID 6028 (powershell.exe) parent=31368
+2026-09-14 18:46:33 [argus.main] INFO EVENT: PROCESS_STARTED — PID 16456 (conhost.exe) parent=6028
+2026-09-14 18:46:33 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 17572 (WmiPrvSE.exe)
+2026-09-14 18:46:33 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 17972 (elevation_service.exe)
+2026-09-14 18:46:35 [argus.main] INFO EVENT: PROCESS_STARTED — PID 18572 (WmiPrvSE.exe) parent=1596
+2026-09-14 18:46:35 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 6028 (powershell.exe)
+2026-09-14 18:46:35 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 16456 (conhost.exe)
+2026-09-14 18:46:37 [argus.main] INFO EVENT: PROCESS_STARTED — PID 1576 (git.exe) parent=11564
+2026-09-14 18:46:37 [argus.main] INFO EVENT: PROCESS_STARTED — PID 3132 (conhost.exe) parent=1576
+2026-09-14 18:46:39 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 1576 (git.exe)
+2026-09-14 18:46:39 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 3132 (conhost.exe)
+2026-09-14 18:46:47 [argus.file_monitor.scanner] INFO File scan: 4 roots, 24 candidates, 2 findings
+2026-09-14 18:47:02 [argus.file_monitor.scanner] INFO File scan: 4 roots, 24 candidates, 2 findings
+2026-09-14 18:47:11 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 10980 (svchost.exe)
+2026-09-14 18:47:13 [argus.main] INFO EVENT: PROCESS_STARTED — PID 8096 (git.exe) parent=21476
+2026-09-14 18:47:13 [argus.main] INFO EVENT: PROCESS_STARTED — PID 8340 (<unknown-pid-8340>) parent=21476
+2026-09-14 18:47:15 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 8096 (git.exe)
+2026-09-14 18:47:15 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 8340 (<unknown-pid-8340>)
+2026-09-14 18:47:16 [argus.file_monitor.scanner] INFO File scan: 4 roots, 24 candidates, 2 findings
+2026-09-14 18:47:31 [argus.file_monitor.scanner] INFO File scan: 4 roots, 24 candidates, 2 findings
+2026-09-14 18:47:35 [argus.main] INFO EVENT: PROCESS_STARTED — PID 676 (powershell.exe) parent=31368
+2026-09-14 18:47:35 [argus.main] INFO EVENT: PROCESS_STARTED — PID 23020 (conhost.exe) parent=676
+2026-09-14 18:47:37 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 676 (powershell.exe)
+2026-09-14 18:47:37 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 23020 (conhost.exe)
+2026-09-14 18:47:41 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 1464 (svchost.exe)
+2026-09-14 18:47:45 [argus.main] INFO EVENT: PROCESS_STARTED — PID 6660 (powershell.exe) parent=31368
+2026-09-14 18:47:45 [argus.main] INFO EVENT: PROCESS_STARTED — PID 15660 (conhost.exe) parent=6660
+2026-09-14 18:47:46 [argus.file_monitor.scanner] INFO File scan: 4 roots, 24 candidates, 2 findings
+2026-09-14 18:47:47 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 6660 (powershell.exe)
+2026-09-14 18:47:47 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 15660 (conhost.exe)
+2026-09-14 18:47:53 [argus.main] INFO EVENT: PROCESS_STARTED — PID 3868 (conhost.exe) parent=23312
+2026-09-14 18:47:53 [argus.main] INFO EVENT: PROCESS_STARTED — PID 17696 (conhost.exe) parent=24860
+2026-09-14 18:47:55 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 3868 (conhost.exe)
+2026-09-14 18:47:55 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 17696 (conhost.exe)
+2026-09-14 18:48:01 [argus.main] INFO EVENT: PROCESS_STARTED — PID 18352 (acappaa.exe) parent=2996
+2026-09-14 18:48:01 [argus.file_monitor.scanner] INFO File scan: 4 roots, 24 candidates, 2 findings
+2026-09-14 18:48:03 [argus.main] INFO EVENT: PROCESS_STARTED — PID 23088 (svchost.exe) parent=1360
+2026-09-14 18:48:03 [argus.main] INFO EVENT: PROCESS_STARTED — PID 30424 (backgroundTaskHost.exe) parent=1596
+2026-09-14 18:48:03 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 18352 (acappaa.exe)
+2026-09-14 18:48:16 [argus.file_monitor.scanner] INFO File scan: 4 roots, 24 candidates, 2 findings
+2026-09-14 18:48:21 [argus.main] INFO EVENT: PROCESS_STARTED — PID 3268 (backgroundTaskHost.exe) parent=1596
+2026-09-14 18:48:22 [argus.main] INFO EVENT: PROCESS_STARTED — PID 15148 (backgroundTaskHost.exe) parent=1596
+2026-09-14 18:48:22 [argus.main] INFO EVENT: PROCESS_STARTED — PID 19420 (backgroundTaskHost.exe) parent=1596
+2026-09-14 18:48:22 [argus.main] INFO EVENT: PROCESS_STARTED — PID 21520 (backgroundTaskHost.exe) parent=1596
+2026-09-14 18:48:22 [argus.main] INFO EVENT: PROCESS_STARTED — PID 22392 (RuntimeBroker.exe) parent=1596
+2026-09-14 18:48:22 [argus.main] INFO EVENT: PROCESS_STARTED — PID 31332 (backgroundTaskHost.exe) parent=1596
+2026-09-14 18:48:22 [argus.main] INFO EVENT: PROCESS_STARTED — PID 31560 (backgroundTaskHost.exe) parent=1596
+2026-09-14 18:48:32 [argus.file_monitor.scanner] INFO File scan: 4 roots, 24 candidates, 2 findings
+2026-09-14 18:48:32 [argus.main] INFO EVENT: PROCESS_STARTED — PID 14536 (git.exe) parent=11564
+2026-09-14 18:48:32 [argus.main] INFO EVENT: PROCESS_STARTED — PID 17700 (conhost.exe) parent=14536
+2026-09-14 18:48:34 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 14536 (git.exe)
+2026-09-14 18:48:34 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 17700 (conhost.exe)
+2026-09-14 18:48:36 [argus.main] INFO EVENT: PROCESS_STARTED — PID 11364 (powershell.exe) parent=31368
+2026-09-14 18:48:36 [argus.main] INFO EVENT: PROCESS_STARTED — PID 22656 (conhost.exe) parent=11364
+2026-09-14 18:48:38 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 11364 (powershell.exe)
+2026-09-14 18:48:38 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 22656 (conhost.exe)
+2026-09-14 18:48:46 [argus.file_monitor.scanner] INFO File scan: 4 roots, 24 candidates, 2 findings
+2026-09-14 18:48:58 [argus.main] INFO EVENT: PROCESS_STARTED — PID 5000 (conhost.exe) parent=27492
+2026-09-14 18:48:58 [argus.main] INFO EVENT: PROCESS_STARTED — PID 5848 (cmd.exe) parent=27492
+2026-09-14 18:48:58 [argus.main] INFO EVENT: PROCESS_STARTED — PID 22060 (node.exe) parent=23832
+2026-09-14 18:48:58 [argus.main] INFO EVENT: PROCESS_STARTED — PID 23832 (cmd.exe) parent=5848
+2026-09-14 18:48:58 [argus.main] INFO EVENT: PROCESS_STARTED — PID 27492 (powershell.exe) parent=11564
+2026-09-14 18:49:00 [argus.main] INFO EVENT: PROCESS_STARTED — PID 6864 (node.exe) parent=5848
+2026-09-14 18:49:00 [argus.main] INFO EVENT: PROCESS_STARTED — PID 29576 (node.exe) parent=30012
+2026-09-14 18:49:00 [argus.main] INFO EVENT: PROCESS_STARTED — PID 30012 (cmd.exe) parent=6864
+2026-09-14 18:49:00 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 22060 (node.exe)
+2026-09-14 18:49:00 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 23832 (cmd.exe)
+2026-09-14 18:49:02 [argus.file_monitor.scanner] INFO File scan: 4 roots, 24 candidates, 2 findings
+2026-09-14 18:49:02 [argus.main] INFO EVENT: PROCESS_STARTED — PID 5600 (git.exe) parent=11564
+2026-09-14 18:49:02 [argus.main] INFO EVENT: PROCESS_STARTED — PID 8500 (conhost.exe) parent=5600
+2026-09-14 18:49:02 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 30424 (backgroundTaskHost.exe)
+2026-09-14 18:49:02 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 5000 (conhost.exe)
+2026-09-14 18:49:02 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 5848 (cmd.exe)
+2026-09-14 18:49:02 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 27492 (powershell.exe)
+2026-09-14 18:49:02 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 6864 (node.exe)
+2026-09-14 18:49:02 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 29576 (node.exe)
+2026-09-14 18:49:02 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 30012 (cmd.exe)
+2026-09-14 18:49:04 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 5600 (git.exe)
+2026-09-14 18:49:04 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 8500 (conhost.exe)
+2026-09-14 18:49:16 [argus.file_monitor.scanner] INFO File scan: 4 roots, 24 candidates, 2 findings
+2026-09-14 18:49:20 [argus.main] INFO EVENT: PROCESS_STARTED — PID 9984 (node.exe) parent=27408
+2026-09-14 18:49:20 [argus.main] INFO EVENT: PROCESS_STARTED — PID 21988 (conhost.exe) parent=29044
+2026-09-14 18:49:20 [argus.main] INFO EVENT: PROCESS_STARTED — PID 23056 (cmd.exe) parent=29044
+2026-09-14 18:49:20 [argus.main] INFO EVENT: PROCESS_STARTED — PID 27408 (cmd.exe) parent=23056
+2026-09-14 18:49:21 [argus.main] INFO EVENT: PROCESS_STARTED — PID 29044 (powershell.exe) parent=11564
+2026-09-14 18:49:23 [argus.main] INFO EVENT: PROCESS_STARTED — PID 12976 (git.exe) parent=25356
+2026-09-14 18:49:23 [argus.main] INFO EVENT: PROCESS_STARTED — PID 25356 (git.exe) parent=11564
+2026-09-14 18:49:23 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 3268 (backgroundTaskHost.exe)
+2026-09-14 18:49:23 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 15148 (backgroundTaskHost.exe)
+2026-09-14 18:49:23 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 19420 (backgroundTaskHost.exe)
+2026-09-14 18:49:23 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 21520 (backgroundTaskHost.exe)
+2026-09-14 18:49:23 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 31332 (backgroundTaskHost.exe)
+2026-09-14 18:49:23 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 31560 (backgroundTaskHost.exe)
+2026-09-14 18:49:23 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 9984 (node.exe)
+2026-09-14 18:49:23 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 21988 (conhost.exe)
+2026-09-14 18:49:23 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 23056 (cmd.exe)
+2026-09-14 18:49:23 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 27408 (cmd.exe)
+2026-09-14 18:49:23 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 29044 (powershell.exe)
+2026-09-14 18:49:25 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 12976 (git.exe)
+2026-09-14 18:49:25 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 25356 (git.exe)
+2026-09-14 18:49:32 [argus.file_monitor.scanner] INFO File scan: 4 roots, 24 candidates, 2 findings
+2026-09-14 18:49:33 [argus.main] INFO EVENT: PROCESS_STARTED — PID 12476 (conhost.exe) parent=16444
+2026-09-14 18:49:33 [argus.main] INFO EVENT: PROCESS_STARTED — PID 13564 (cmd.exe) parent=21872
+2026-09-14 18:49:33 [argus.main] INFO EVENT: PROCESS_STARTED — PID 16444 (powershell.exe) parent=11564
+2026-09-14 18:49:33 [argus.main] INFO EVENT: PROCESS_STARTED — PID 17356 (node.exe) parent=13564
+2026-09-14 18:49:33 [argus.main] INFO EVENT: PROCESS_STARTED — PID 21872 (node.exe) parent=16444
+2026-09-14 18:49:35 [argus.main] INFO EVENT: PROCESS_STARTED — PID 20304 (node.exe) parent=25836
+2026-09-14 18:49:35 [argus.main] INFO EVENT: PROCESS_STARTED — PID 25836 (cmd.exe) parent=17356
+2026-09-14 18:49:37 [argus.main] INFO EVENT: PROCESS_STARTED — PID 6560 (node.exe) parent=13440
+2026-09-14 18:49:37 [argus.main] INFO EVENT: PROCESS_STARTED — PID 9328 (cmd.exe) parent=20304
+2026-09-14 18:49:38 [argus.main] INFO EVENT: PROCESS_STARTED — PID 13440 (cmd.exe) parent=20304
+2026-09-14 18:49:38 [argus.main] INFO EVENT: PROCESS_STARTED — PID 21620 (cmd.exe) parent=20304
+2026-09-14 18:49:38 [argus.main] INFO EVENT: PROCESS_STARTED — PID 24192 (node.exe) parent=21620
+2026-09-14 18:49:38 [argus.main] INFO EVENT: PROCESS_STARTED — PID 25208 (chrome.exe) parent=20496
+2026-09-14 18:49:38 [argus.main] INFO EVENT: PROCESS_STARTED — PID 27492 (cmd.exe) parent=20304
+2026-09-14 18:49:38 [argus.main] INFO EVENT: PROCESS_STARTED — PID 29636 (node.exe) parent=9328
+2026-09-14 18:49:40 [argus.main] INFO EVENT: PROCESS_STARTED — PID 10324 (chrome.exe) parent=20496
+2026-09-14 18:49:40 [argus.main] INFO EVENT: PROCESS_STARTED — PID 11220 (chrome.exe) parent=20496
+2026-09-14 18:49:40 [argus.main] INFO EVENT: PROCESS_STARTED — PID 15664 (chrome.exe) parent=20496
+2026-09-14 18:49:40 [argus.main] INFO EVENT: PROCESS_STARTED — PID 25276 (chrome.exe) parent=20496
+2026-09-14 18:49:40 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 31156 (chrome.exe)
+2026-09-14 18:49:40 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 9328 (cmd.exe)
+2026-09-14 18:49:40 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 27492 (cmd.exe)
+2026-09-14 18:49:40 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 29636 (node.exe)
+2026-09-14 18:49:42 [argus.main] INFO EVENT: PROCESS_STARTED — PID 6896 (chrome.exe) parent=20496
+2026-09-14 18:49:42 [argus.main] INFO EVENT: PROCESS_STARTED — PID 10920 (node.exe) parent=13564
+2026-09-14 18:49:42 [argus.main] INFO EVENT: PROCESS_STARTED — PID 17532 (chrome.exe) parent=20496
+2026-09-14 18:49:42 [argus.main] INFO EVENT: PROCESS_STARTED — PID 28856 (chrome.exe) parent=20496
+2026-09-14 18:49:42 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 17356 (node.exe)
+2026-09-14 18:49:42 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 20304 (node.exe)
+2026-09-14 18:49:42 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 25836 (cmd.exe)
+2026-09-14 18:49:42 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 6560 (node.exe)
+2026-09-14 18:49:42 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 13440 (cmd.exe)
+2026-09-14 18:49:42 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 21620 (cmd.exe)
+2026-09-14 18:49:42 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 24192 (node.exe)
+2026-09-14 18:49:44 [argus.main] INFO EVENT: PROCESS_STARTED — PID 9056 (esbuild.exe) parent=24056
+2026-09-14 18:49:44 [argus.main] INFO EVENT: PROCESS_STARTED — PID 24056 (node.exe) parent=24408
+2026-09-14 18:49:44 [argus.main] INFO EVENT: PROCESS_STARTED — PID 24408 (cmd.exe) parent=10920
+2026-09-14 18:49:44 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 25208 (chrome.exe)
+2026-09-14 18:49:44 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 25276 (chrome.exe)
+2026-09-14 18:49:47 [argus.main] INFO EVENT: PROCESS_STARTED — PID 3816 (chrome.exe) parent=20496
+2026-09-14 18:49:47 [argus.main] INFO EVENT: PROCESS_STARTED — PID 22012 (chrome.exe) parent=20496
+2026-09-14 18:49:47 [argus.main] INFO EVENT: PROCESS_STARTED — PID 22168 (node.exe) parent=31668
+2026-09-14 18:49:47 [argus.main] INFO EVENT: PROCESS_STARTED — PID 24000 (cmd.exe) parent=10920
+2026-09-14 18:49:47 [argus.main] INFO EVENT: PROCESS_STARTED — PID 31668 (node.exe) parent=24000
+2026-09-14 18:49:47 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 28856 (chrome.exe)
+2026-09-14 18:49:47 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 9056 (esbuild.exe)
+2026-09-14 18:49:47 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 24056 (node.exe)
+2026-09-14 18:49:47 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 24408 (cmd.exe)
+2026-09-14 18:49:47 [argus.file_monitor.scanner] INFO File scan: 4 roots, 24 candidates, 2 findings
+2026-09-14 18:49:49 [argus.main] INFO EVENT: PROCESS_STARTED — PID 19052 (esbuild.exe) parent=31668
+2026-09-14 18:49:49 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 22012 (chrome.exe)
+2026-09-14 18:49:49 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 22168 (node.exe)
+2026-09-14 18:49:53 [argus.main] INFO EVENT: PROCESS_STARTED — PID 11440 (powershell.exe) parent=31368
+2026-09-14 18:49:53 [argus.main] INFO EVENT: PROCESS_STARTED — PID 21520 (conhost.exe) parent=11440
+2026-09-14 18:49:53 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 9584 (msedge.exe)
+2026-09-14 18:49:53 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 22392 (RuntimeBroker.exe)
+2026-09-14 18:49:55 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 11440 (powershell.exe)
+2026-09-14 18:49:55 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 21520 (conhost.exe)
+2026-09-14 18:49:57 [argus.main] INFO EVENT: PROCESS_STARTED — PID 8148 (git.exe) parent=11564
+2026-09-14 18:49:57 [argus.main] INFO EVENT: PROCESS_STARTED — PID 29344 (conhost.exe) parent=8148
+2026-09-14 18:49:57 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 832 (chrome.exe)
+2026-09-14 18:49:57 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 12476 (conhost.exe)
+2026-09-14 18:49:57 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 13564 (cmd.exe)
+2026-09-14 18:49:57 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 16444 (powershell.exe)
+2026-09-14 18:49:57 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 21872 (node.exe)
+2026-09-14 18:49:57 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 15664 (chrome.exe)
+2026-09-14 18:49:57 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 10920 (node.exe)
+2026-09-14 18:49:57 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 24000 (cmd.exe)
+2026-09-14 18:49:57 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 31668 (node.exe)
+2026-09-14 18:49:57 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 19052 (esbuild.exe)
+2026-09-14 18:49:59 [argus.main] INFO EVENT: PROCESS_STARTED — PID 2176 (msedge.exe) parent=28476
+2026-09-14 18:49:59 [argus.main] INFO EVENT: PROCESS_STARTED — PID 10424 (msedge.exe) parent=28476
+2026-09-14 18:49:59 [argus.main] INFO EVENT: PROCESS_STARTED — PID 13720 (svchost.exe) parent=1360
+2026-09-14 18:50:00 [argus.main] INFO EVENT: PROCESS_STARTED — PID 24144 (svchost.exe) parent=1360
+2026-09-14 18:50:00 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 6856 (msedge.exe)
+2026-09-14 18:50:00 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 8148 (git.exe)
+2026-09-14 18:50:00 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 29344 (conhost.exe)
+2026-09-14 18:50:01 [argus.file_monitor.scanner] INFO File scan: 4 roots, 24 candidates, 2 findings
+2026-09-14 18:50:02 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 26684 (chrome.exe)
+2026-09-14 18:50:08 [argus.main] INFO EVENT: PROCESS_STARTED — PID 5744 (chrome.exe) parent=20496
+2026-09-14 18:50:10 [argus.main] INFO EVENT: PROCESS_STARTED — PID 24236 (chrome.exe) parent=20496
+2026-09-14 18:50:17 [argus.file_monitor.scanner] INFO File scan: 4 roots, 24 candidates, 2 findings
+2026-09-14 18:50:32 [argus.file_monitor.scanner] INFO File scan: 4 roots, 24 candidates, 2 findings
+2026-09-14 18:50:38 [argus.main] INFO EVENT: PROCESS_STARTED — PID 13952 (conhost.exe) parent=17652
+2026-09-14 18:50:38 [argus.main] INFO EVENT: PROCESS_STARTED — PID 17652 (powershell.exe) parent=31368
+2026-09-14 18:50:40 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 13952 (conhost.exe)
+2026-09-14 18:50:40 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 17652 (powershell.exe)
+2026-09-14 18:50:42 [argus.main] INFO EVENT: PROCESS_STARTED — PID 2944 (chrome.exe) parent=20496
+2026-09-14 18:50:42 [argus.main] INFO EVENT: PROCESS_STARTED — PID 6188 (chrome.exe) parent=20496
+2026-09-14 18:50:42 [argus.main] INFO EVENT: PROCESS_STARTED — PID 6560 (chrome.exe) parent=20496
+2026-09-14 18:50:42 [argus.main] INFO EVENT: PROCESS_STARTED — PID 13440 (chrome.exe) parent=20496
+2026-09-14 18:50:42 [argus.main] INFO EVENT: PROCESS_STARTED — PID 14804 (chrome.exe) parent=20496
+2026-09-14 18:50:42 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 24236 (chrome.exe)
+2026-09-14 18:50:44 [argus.main] INFO EVENT: PROCESS_STARTED — PID 7320 (chrome.exe) parent=20496
+2026-09-14 18:50:44 [argus.main] INFO EVENT: PROCESS_STARTED — PID 30780 (chrome.exe) parent=20496
+2026-09-14 18:50:44 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 2944 (chrome.exe)
+2026-09-14 18:50:44 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 6188 (chrome.exe)
+2026-09-14 18:50:44 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 13440 (chrome.exe)
+2026-09-14 18:50:44 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 14804 (chrome.exe)
+2026-09-14 18:50:47 [argus.file_monitor.scanner] INFO File scan: 4 roots, 24 candidates, 2 findings
+2026-09-14 18:51:01 [argus.file_monitor.scanner] INFO File scan: 4 roots, 24 candidates, 2 findings
+2026-09-14 18:51:16 [argus.file_monitor.scanner] INFO File scan: 4 roots, 24 candidates, 2 findings
+2026-09-14 18:51:33 [argus.file_monitor.scanner] INFO File scan: 4 roots, 24 candidates, 2 findings
+2026-09-14 18:51:38 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 6560 (chrome.exe)
+2026-09-14 18:51:40 [argus.main] INFO EVENT: PROCESS_STARTED — PID 8112 (conhost.exe) parent=21380
+2026-09-14 18:51:40 [argus.main] INFO EVENT: PROCESS_STARTED — PID 9004 (conhost.exe) parent=26500
+2026-09-14 18:51:40 [argus.main] INFO EVENT: PROCESS_STARTED — PID 21380 (powershell.exe) parent=11564
+2026-09-14 18:51:40 [argus.main] INFO EVENT: PROCESS_STARTED — PID 24000 (node.exe) parent=28116
+2026-09-14 18:51:40 [argus.main] INFO EVENT: PROCESS_STARTED — PID 26500 (powershell.exe) parent=31368
+2026-09-14 18:51:40 [argus.main] INFO EVENT: PROCESS_STARTED — PID 28116 (cmd.exe) parent=21380
+2026-09-14 18:51:43 [argus.main] INFO EVENT: PROCESS_STARTED — PID 4472 (cmd.exe) parent=24000
+2026-09-14 18:51:43 [argus.main] INFO EVENT: PROCESS_STARTED — PID 11504 (node.exe) parent=4472
+2026-09-14 18:51:43 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 9004 (conhost.exe)
+2026-09-14 18:51:43 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 26500 (powershell.exe)
+2026-09-14 18:51:45 [argus.main] INFO EVENT: PROCESS_STARTED — PID 1604 (<unknown-pid-1604>) parent=none
+2026-09-14 18:51:45 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 8112 (conhost.exe)
+2026-09-14 18:51:45 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 21380 (powershell.exe)
+2026-09-14 18:51:45 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 24000 (node.exe)
+2026-09-14 18:51:45 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 28116 (cmd.exe)
+2026-09-14 18:51:45 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 4472 (cmd.exe)
+2026-09-14 18:51:45 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 11504 (node.exe)
+2026-09-14 18:51:47 [argus.main] INFO EVENT: PROCESS_STARTED — PID 23696 (conhost.exe) parent=31592
+2026-09-14 18:51:47 [argus.main] INFO EVENT: PROCESS_STARTED — PID 24024 (git.exe) parent=31592
+2026-09-14 18:51:47 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 1604 (<unknown-pid-1604>)
+2026-09-14 18:51:47 [argus.file_monitor.scanner] INFO File scan: 4 roots, 24 candidates, 2 findings
+2026-09-14 18:51:49 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 23696 (conhost.exe)
+2026-09-14 18:51:49 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 24024 (git.exe)
+2026-09-14 18:52:01 [argus.file_monitor.scanner] INFO File scan: 4 roots, 24 candidates, 2 findings
+2026-09-14 18:52:09 [argus.main] INFO EVENT: PROCESS_STARTED — PID 14200 (chrome.exe) parent=20496
+2026-09-14 18:52:09 [argus.main] INFO EVENT: PROCESS_STARTED — PID 29656 (chrome.exe) parent=20496
+2026-09-14 18:52:09 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 7320 (chrome.exe)
+2026-09-14 18:52:17 [argus.file_monitor.scanner] INFO File scan: 4 roots, 24 candidates, 2 findings
+2026-09-14 18:52:19 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 29656 (chrome.exe)
+2026-09-14 18:52:23 [argus.main] INFO EVENT: PROCESS_STARTED — PID 2976 (cmd.exe) parent=30276
+2026-09-14 18:52:23 [argus.main] INFO EVENT: PROCESS_STARTED — PID 3516 (node.exe) parent=2976
+2026-09-14 18:52:23 [argus.main] INFO EVENT: PROCESS_STARTED — PID 21052 (node.exe) parent=26752
+2026-09-14 18:52:23 [argus.main] INFO EVENT: PROCESS_STARTED — PID 22908 (conhost.exe) parent=30276
+2026-09-14 18:52:23 [argus.main] INFO EVENT: PROCESS_STARTED — PID 26752 (cmd.exe) parent=3516
+2026-09-14 18:52:24 [argus.main] INFO EVENT: PROCESS_STARTED — PID 30276 (powershell.exe) parent=11564
+2026-09-14 18:52:26 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 2976 (cmd.exe)
+2026-09-14 18:52:26 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 3516 (node.exe)
+2026-09-14 18:52:26 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 21052 (node.exe)
+2026-09-14 18:52:26 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 22908 (conhost.exe)
+2026-09-14 18:52:26 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 26752 (cmd.exe)
+2026-09-14 18:52:26 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 30276 (powershell.exe)
+2026-09-14 18:52:30 [argus.main] INFO EVENT: PROCESS_STARTED — PID 22532 (conhost.exe) parent=26500
+2026-09-14 18:52:30 [argus.main] INFO EVENT: PROCESS_STARTED — PID 26500 (powershell.exe) parent=31368
+2026-09-14 18:52:30 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 29864 (chrome.exe)
+2026-09-14 18:52:31 [argus.file_monitor.scanner] INFO File scan: 4 roots, 24 candidates, 2 findings
+2026-09-14 18:52:32 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 22532 (conhost.exe)
+2026-09-14 18:52:32 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 26500 (powershell.exe)
+2026-09-14 18:52:44 [argus.main] INFO EVENT: PROCESS_STARTED — PID 7556 (WmiPrvSE.exe) parent=1596
+2026-09-14 18:52:44 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 18572 (WmiPrvSE.exe)
+2026-09-14 18:52:46 [argus.file_monitor.scanner] INFO File scan: 4 roots, 24 candidates, 2 findings
+2026-09-14 18:53:00 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 13720 (svchost.exe)
+2026-09-14 18:53:02 [argus.file_monitor.scanner] INFO File scan: 4 roots, 24 candidates, 2 findings
+2026-09-14 18:53:02 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 14200 (chrome.exe)
+2026-09-14 18:53:16 [argus.file_monitor.scanner] INFO File scan: 4 roots, 24 candidates, 2 findings
+2026-09-14 18:53:22 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 4104 (svchost.exe)
+2026-09-14 18:53:31 [argus.file_monitor.scanner] INFO File scan: 4 roots, 24 candidates, 2 findings
+2026-09-14 18:53:34 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 23088 (svchost.exe)
+2026-09-14 18:53:46 [argus.file_monitor.scanner] INFO File scan: 4 roots, 24 candidates, 2 findings
+2026-09-14 18:54:01 [argus.file_monitor.scanner] INFO File scan: 4 roots, 24 candidates, 2 findings
+2026-09-14 18:54:17 [argus.file_monitor.scanner] INFO File scan: 4 roots, 24 candidates, 2 findings
+2026-09-14 18:54:18 [argus.main] INFO EVENT: PROCESS_STARTED — PID 5448 (updater.exe) parent=2996
+2026-09-14 18:54:18 [argus.main] INFO EVENT: PROCESS_STARTED — PID 6248 (updater.exe) parent=5448
+2026-09-14 18:54:18 [argus.main] INFO EVENT: PROCESS_STARTED — PID 14756 (updater.exe) parent=29460
+2026-09-14 18:54:18 [argus.main] INFO EVENT: PROCESS_STARTED — PID 21780 (backgroundTaskHost.exe) parent=1596
+2026-09-14 18:54:18 [argus.main] INFO EVENT: PROCESS_STARTED — PID 27852 (updater.exe) parent=29388
+2026-09-14 18:54:18 [argus.main] INFO EVENT: PROCESS_STARTED — PID 29388 (updater.exe) parent=1360
+2026-09-14 18:54:18 [argus.main] INFO EVENT: PROCESS_STARTED — PID 29460 (updater.exe) parent=1360
+2026-09-14 18:54:24 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 5448 (updater.exe)
+2026-09-14 18:54:24 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 6248 (updater.exe)
+2026-09-14 18:54:31 [argus.file_monitor.scanner] INFO File scan: 4 roots, 24 candidates, 2 findings
+2026-09-14 18:54:34 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 14756 (updater.exe)
+2026-09-14 18:54:34 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 27852 (updater.exe)
+2026-09-14 18:54:34 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 29388 (updater.exe)
+2026-09-14 18:54:34 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 29460 (updater.exe)
+2026-09-14 18:54:38 [argus.main] INFO EVENT: PROCESS_STARTED — PID 10332 (conhost.exe) parent=21244
+2026-09-14 18:54:38 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 10324 (chrome.exe)
+2026-09-14 18:54:40 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 10332 (conhost.exe)
+2026-09-14 18:54:46 [argus.file_monitor.scanner] INFO File scan: 4 roots, 24 candidates, 2 findings
+2026-09-14 18:54:47 [argus.main] INFO EVENT: PROCESS_STARTED — PID 11712 (conhost.exe) parent=21932
+2026-09-14 18:54:47 [argus.main] INFO EVENT: PROCESS_STARTED — PID 21932 (powershell.exe) parent=31368
+2026-09-14 18:54:49 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 24144 (svchost.exe)
+2026-09-14 18:54:49 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 11712 (conhost.exe)
+2026-09-14 18:54:49 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 21932 (powershell.exe)
+2026-09-14 18:55:01 [argus.file_monitor.scanner] INFO File scan: 4 roots, 24 candidates, 2 findings
+2026-09-14 18:55:17 [argus.file_monitor.scanner] INFO File scan: 4 roots, 24 candidates, 2 findings
+2026-09-14 18:55:19 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 21780 (backgroundTaskHost.exe)
+2026-09-14 18:55:29 [argus.main] INFO EVENT: PROCESS_STARTED — PID 7940 (conhost.exe) parent=24804
+2026-09-14 18:55:29 [argus.main] INFO EVENT: PROCESS_STARTED — PID 24804 (powershell.exe) parent=11564
+2026-09-14 18:55:31 [argus.main] INFO EVENT: PROCESS_STARTED — PID 3936 (git.exe) parent=23716
+2026-09-14 18:55:31 [argus.main] INFO EVENT: PROCESS_STARTED — PID 23628 (conhost.exe) parent=23716
+2026-09-14 18:55:31 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 7940 (conhost.exe)
+2026-09-14 18:55:31 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 24804 (powershell.exe)
+2026-09-14 18:55:31 [argus.file_monitor.scanner] INFO File scan: 4 roots, 24 candidates, 2 findings
+2026-09-14 18:55:33 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 3936 (git.exe)
+2026-09-14 18:55:33 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 23628 (conhost.exe)
+2026-09-14 18:55:46 [argus.file_monitor.scanner] INFO File scan: 4 roots, 24 candidates, 2 findings
+2026-09-14 18:56:01 [argus.file_monitor.scanner] INFO File scan: 4 roots, 24 candidates, 2 findings
+2026-09-14 18:56:17 [argus.file_monitor.scanner] INFO File scan: 4 roots, 24 candidates, 2 findings
+2026-09-14 18:56:27 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 17532 (chrome.exe)
+2026-09-14 18:56:31 [argus.file_monitor.scanner] INFO File scan: 4 roots, 24 candidates, 2 findings
+2026-09-14 18:56:33 [argus.main] INFO EVENT: PROCESS_STARTED — PID 208 (git.exe) parent=29632
+2026-09-14 18:56:33 [argus.main] INFO EVENT: PROCESS_STARTED — PID 1480 (conhost.exe) parent=22608
+2026-09-14 18:56:35 [argus.main] INFO EVENT: PROCESS_STARTED — PID 13720 (conhost.exe) parent=20484
+2026-09-14 18:56:35 [argus.main] INFO EVENT: PROCESS_STARTED — PID 20484 (git.exe) parent=11564
+2026-09-14 18:56:35 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 208 (git.exe)
+2026-09-14 18:56:35 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 1480 (conhost.exe)
+2026-09-14 18:56:37 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 13720 (conhost.exe)
+2026-09-14 18:56:37 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 20484 (git.exe)
+2026-09-14 18:56:46 [argus.file_monitor.scanner] INFO File scan: 4 roots, 24 candidates, 2 findings
+2026-09-14 18:56:49 [argus.main] INFO EVENT: PROCESS_STARTED — PID 29240 (powershell.exe) parent=31368
+2026-09-14 18:56:49 [argus.main] INFO EVENT: PROCESS_STARTED — PID 30184 (conhost.exe) parent=29240
+2026-09-14 18:56:51 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 29240 (powershell.exe)
+2026-09-14 18:56:51 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 30184 (conhost.exe)
+2026-09-14 18:57:01 [argus.file_monitor.scanner] INFO File scan: 4 roots, 24 candidates, 2 findings
+2026-09-14 18:57:16 [argus.file_monitor.scanner] INFO File scan: 4 roots, 24 candidates, 2 findings
+2026-09-14 18:57:21 [argus.main] INFO EVENT: PROCESS_STARTED — PID 20876 (conhost.exe) parent=30700
+2026-09-14 18:57:21 [argus.main] INFO EVENT: PROCESS_STARTED — PID 30700 (powershell.exe) parent=31368
+2026-09-14 18:57:23 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 20876 (conhost.exe)
+2026-09-14 18:57:23 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 30700 (powershell.exe)
+2026-09-14 18:57:27 [argus.main] INFO EVENT: PROCESS_STARTED — PID 7396 (node.exe) parent=15456
+2026-09-14 18:57:27 [argus.main] INFO EVENT: PROCESS_STARTED — PID 7628 (cmd.exe) parent=20436
+2026-09-14 18:57:28 [argus.main] INFO EVENT: PROCESS_STARTED — PID 14344 (cmd.exe) parent=7628
+2026-09-14 18:57:28 [argus.main] INFO EVENT: PROCESS_STARTED — PID 15148 (node.exe) parent=14344
+2026-09-14 18:57:28 [argus.main] INFO EVENT: PROCESS_STARTED — PID 20436 (powershell.exe) parent=11564
+2026-09-14 18:57:28 [argus.main] INFO EVENT: PROCESS_STARTED — PID 29192 (conhost.exe) parent=20436
+2026-09-14 18:57:28 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 30780 (chrome.exe)
+2026-09-14 18:57:30 [argus.main] INFO EVENT: PROCESS_STARTED — PID 2648 (git.exe) parent=28008
+2026-09-14 18:57:30 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 7396 (node.exe)
+2026-09-14 18:57:30 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 7628 (cmd.exe)
+2026-09-14 18:57:30 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 14344 (cmd.exe)
+2026-09-14 18:57:30 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 15148 (node.exe)
+2026-09-14 18:57:30 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 20436 (powershell.exe)
+2026-09-14 18:57:30 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 29192 (conhost.exe)
+2026-09-14 18:57:31 [argus.file_monitor.scanner] INFO File scan: 4 roots, 24 candidates, 2 findings
+2026-09-14 18:57:32 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 2648 (git.exe)
+2026-09-14 18:57:40 [argus.main] INFO EVENT: PROCESS_STARTED — PID 17028 (svchost.exe) parent=1360
+2026-09-14 18:57:46 [argus.file_monitor.scanner] INFO File scan: 4 roots, 24 candidates, 2 findings
+2026-09-14 18:57:50 [argus.main] INFO EVENT: PROCESS_STARTED — PID 1724 (conhost.exe) parent=20636
+2026-09-14 18:57:50 [argus.main] INFO EVENT: PROCESS_STARTED — PID 20636 (powershell.exe) parent=31368
+2026-09-14 18:57:52 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 1724 (conhost.exe)
+2026-09-14 18:57:52 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 20636 (powershell.exe)
+2026-09-14 18:57:54 [argus.main] INFO EVENT: PROCESS_STARTED — PID 10952 (taskhostw.exe) parent=2996
+2026-09-14 18:57:54 [argus.main] INFO EVENT: PROCESS_STARTED — PID 11604 (powershell.exe) parent=31368
+2026-09-14 18:57:54 [argus.main] INFO EVENT: PROCESS_STARTED — PID 14844 (sppsvc.exe) parent=1360
+2026-09-14 18:57:54 [argus.main] INFO EVENT: PROCESS_STARTED — PID 16356 (svchost.exe) parent=1360
+2026-09-14 18:57:54 [argus.main] INFO EVENT: PROCESS_STARTED — PID 22628 (conhost.exe) parent=11604
+2026-09-14 18:57:54 [argus.main] INFO EVENT: PROCESS_STARTED — PID 31456 (RuntimeBroker.exe) parent=1596
+2026-09-14 18:57:56 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 10952 (taskhostw.exe)
+2026-09-14 18:57:56 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 11604 (powershell.exe)
+2026-09-14 18:57:56 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 22628 (conhost.exe)
+2026-09-14 18:58:01 [argus.file_monitor.scanner] INFO File scan: 4 roots, 24 candidates, 2 findings
+2026-09-14 18:58:17 [argus.file_monitor.scanner] INFO File scan: 4 roots, 24 candidates, 2 findings
+2026-09-14 18:58:24 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 14844 (sppsvc.exe)
+2026-09-14 18:58:31 [argus.file_monitor.scanner] INFO File scan: 4 roots, 24 candidates, 2 findings
+2026-09-14 18:58:34 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 31456 (RuntimeBroker.exe)
+2026-09-14 18:58:46 [argus.file_monitor.scanner] INFO File scan: 4 roots, 24 candidates, 2 findings
+2026-09-14 18:58:48 [argus.main] INFO EVENT: PROCESS_STARTED — PID 30724 (backgroundTaskHost.exe) parent=1596
+2026-09-14 18:58:54 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 16356 (svchost.exe)
+2026-09-14 18:58:58 [argus.main] INFO EVENT: PROCESS_STARTED — PID 3304 (powershell.exe) parent=31368
+2026-09-14 18:58:58 [argus.main] INFO EVENT: PROCESS_STARTED — PID 21984 (conhost.exe) parent=3304
+2026-09-14 18:59:00 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 3304 (powershell.exe)
+2026-09-14 18:59:00 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 21984 (conhost.exe)
+2026-09-14 18:59:01 [argus.file_monitor.scanner] INFO File scan: 4 roots, 24 candidates, 2 findings
+2026-09-14 18:59:08 [argus.main] INFO EVENT: PROCESS_STARTED — PID 4556 (cmd.exe) parent=22876
+2026-09-14 18:59:08 [argus.main] INFO EVENT: PROCESS_STARTED — PID 8976 (conhost.exe) parent=22876
+2026-09-14 18:59:09 [argus.main] INFO EVENT: PROCESS_STARTED — PID 22876 (powershell.exe) parent=11564
+2026-09-14 18:59:09 [argus.main] INFO EVENT: PROCESS_STARTED — PID 24568 (node.exe) parent=4556
+2026-09-14 18:59:11 [argus.main] INFO EVENT: PROCESS_STARTED — PID 12452 (cmd.exe) parent=24568
+2026-09-14 18:59:11 [argus.main] INFO EVENT: PROCESS_STARTED — PID 16064 (node.exe) parent=12452
+2026-09-14 18:59:13 [argus.main] INFO EVENT: PROCESS_STARTED — PID 7628 (conhost.exe) parent=29116
+2026-09-14 18:59:13 [argus.main] INFO EVENT: PROCESS_STARTED — PID 14352 (<unknown-pid-14352>) parent=none
+2026-09-14 18:59:13 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 4556 (cmd.exe)
+2026-09-14 18:59:13 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 8976 (conhost.exe)
+2026-09-14 18:59:13 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 22876 (powershell.exe)
+2026-09-14 18:59:13 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 24568 (node.exe)
+2026-09-14 18:59:13 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 12452 (cmd.exe)
+2026-09-14 18:59:13 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 16064 (node.exe)
+2026-09-14 18:59:15 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 7628 (conhost.exe)
+2026-09-14 18:59:15 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 14352 (<unknown-pid-14352>)
+2026-09-14 18:59:16 [argus.file_monitor.scanner] INFO File scan: 4 roots, 24 candidates, 2 findings
+2026-09-14 18:59:17 [argus.main] INFO EVENT: PROCESS_STARTED — PID 448 (node.exe) parent=18448
+2026-09-14 18:59:17 [argus.main] INFO EVENT: PROCESS_STARTED — PID 13616 (cmd.exe) parent=27396
+2026-09-14 18:59:17 [argus.main] INFO EVENT: PROCESS_STARTED — PID 15660 (conhost.exe) parent=27396
+2026-09-14 18:59:17 [argus.main] INFO EVENT: PROCESS_STARTED — PID 18448 (cmd.exe) parent=13616
+2026-09-14 18:59:17 [argus.main] INFO EVENT: PROCESS_STARTED — PID 27396 (powershell.exe) parent=11564
+2026-09-14 18:59:19 [argus.main] INFO EVENT: PROCESS_STARTED — PID 12104 (node.exe) parent=13616
+2026-09-14 18:59:19 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 448 (node.exe)
+2026-09-14 18:59:19 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 18448 (cmd.exe)
+2026-09-14 18:59:21 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 13616 (cmd.exe)
+2026-09-14 18:59:21 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 15660 (conhost.exe)
+2026-09-14 18:59:21 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 27396 (powershell.exe)
+2026-09-14 18:59:21 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 12104 (node.exe)
+2026-09-14 18:59:31 [argus.main] INFO EVENT: PROCESS_STARTED — PID 5376 (conhost.exe) parent=31624
+2026-09-14 18:59:31 [argus.main] INFO EVENT: PROCESS_STARTED — PID 31624 (powershell.exe) parent=31368
+2026-09-14 18:59:32 [argus.file_monitor.scanner] INFO File scan: 4 roots, 24 candidates, 2 findings
+2026-09-14 18:59:33 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 5376 (conhost.exe)
+2026-09-14 18:59:33 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 31624 (powershell.exe)
+2026-09-14 18:59:46 [argus.file_monitor.scanner] INFO File scan: 4 roots, 24 candidates, 2 findings
+2026-09-14 18:59:47 [argus.main] INFO EVENT: PROCESS_STARTED — PID 9472 (git.exe) parent=11564
+2026-09-14 18:59:47 [argus.main] INFO EVENT: PROCESS_STARTED — PID 12796 (git.exe) parent=9472
+2026-09-14 18:59:49 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 30724 (backgroundTaskHost.exe)
+2026-09-14 18:59:49 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 9472 (git.exe)
+2026-09-14 18:59:49 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 12796 (git.exe)
+2026-09-14 18:59:53 [argus.main] INFO EVENT: PROCESS_STARTED — PID 15368 (conhost.exe) parent=24772
+2026-09-14 18:59:53 [argus.main] INFO EVENT: PROCESS_STARTED — PID 24772 (powershell.exe) parent=31368
+2026-09-14 18:59:55 [argus.main] INFO EVENT: PROCESS_STARTED — PID 5916 (<unknown-pid-5916>) parent=none
+2026-09-14 18:59:55 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 15368 (conhost.exe)
+2026-09-14 18:59:55 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 24772 (powershell.exe)
+2026-09-14 18:59:57 [argus.main] INFO EVENT: PROCESS_STARTED — PID 8172 (git.exe) parent=11564
+2026-09-14 18:59:57 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 5916 (<unknown-pid-5916>)
+2026-09-14 19:00:00 [argus.main] INFO EVENT: PROCESS_STARTED — PID 31064 (git.exe) parent=11564
+2026-09-14 19:00:00 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 8172 (git.exe)
+2026-09-14 19:00:02 [argus.file_monitor.scanner] INFO File scan: 4 roots, 24 candidates, 2 findings
+2026-09-14 19:00:02 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 31064 (git.exe)
+2026-09-14 19:00:08 [argus.main] INFO EVENT: PROCESS_STARTED — PID 3800 (conhost.exe) parent=10336
+2026-09-14 19:00:08 [argus.main] INFO EVENT: PROCESS_STARTED — PID 10336 (<unknown-pid-10336>) parent=none
+2026-09-14 19:00:10 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 11220 (chrome.exe)
+2026-09-14 19:00:10 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 6896 (chrome.exe)
+2026-09-14 19:00:10 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 3816 (chrome.exe)
+2026-09-14 19:00:10 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 3800 (conhost.exe)
+2026-09-14 19:00:10 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 10336 (<unknown-pid-10336>)
+2026-09-14 19:00:16 [argus.file_monitor.scanner] INFO File scan: 4 roots, 24 candidates, 2 findings
+2026-09-14 19:00:32 [argus.file_monitor.scanner] INFO File scan: 4 roots, 24 candidates, 2 findings
+2026-09-14 19:00:36 [argus.main] INFO EVENT: PROCESS_STARTED — PID 19272 (powershell.exe) parent=31368
+2026-09-14 19:00:36 [argus.main] INFO EVENT: PROCESS_STARTED — PID 19752 (conhost.exe) parent=19272
+2026-09-14 19:00:38 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 19272 (powershell.exe)
+2026-09-14 19:00:38 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 19752 (conhost.exe)
+2026-09-14 19:00:46 [argus.file_monitor.scanner] INFO File scan: 4 roots, 24 candidates, 2 findings
+2026-09-14 19:00:56 [argus.main] INFO EVENT: PROCESS_STARTED — PID 8832 (powershell.exe) parent=31368
+2026-09-14 19:00:56 [argus.main] INFO EVENT: PROCESS_STARTED — PID 22464 (conhost.exe) parent=8832
+2026-09-14 19:00:58 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 8832 (powershell.exe)
+2026-09-14 19:00:58 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 22464 (conhost.exe)
+2026-09-14 19:01:02 [argus.file_monitor.scanner] INFO File scan: 4 roots, 24 candidates, 2 findings
+2026-09-14 19:01:10 [argus.main] INFO EVENT: PROCESS_STARTED — PID 4416 (conhost.exe) parent=25392
+2026-09-14 19:01:10 [argus.main] INFO EVENT: PROCESS_STARTED — PID 8332 (conhost.exe) parent=21796
+2026-09-14 19:01:10 [argus.main] INFO EVENT: PROCESS_STARTED — PID 15668 (<unknown-pid-15668>) parent=none
+2026-09-14 19:01:12 [argus.main] INFO EVENT: PROCESS_STARTED — PID 5340 (conhost.exe) parent=13648
+2026-09-14 19:01:12 [argus.main] INFO EVENT: PROCESS_STARTED — PID 13648 (git.exe) parent=11564
+2026-09-14 19:01:12 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 4416 (conhost.exe)
+2026-09-14 19:01:12 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 8332 (conhost.exe)
+2026-09-14 19:01:12 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 15668 (<unknown-pid-15668>)
+2026-09-14 19:01:14 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 5340 (conhost.exe)
+2026-09-14 19:01:14 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 13648 (git.exe)
+2026-09-14 19:01:16 [argus.file_monitor.scanner] INFO File scan: 4 roots, 24 candidates, 2 findings
+2026-09-14 19:01:32 [argus.file_monitor.scanner] INFO File scan: 4 roots, 24 candidates, 2 findings
+2026-09-14 19:01:46 [argus.file_monitor.scanner] INFO File scan: 4 roots, 24 candidates, 2 findings
+2026-09-14 19:02:02 [argus.file_monitor.scanner] INFO File scan: 4 roots, 24 candidates, 2 findings
+2026-09-14 19:02:12 [argus.main] INFO EVENT: PROCESS_STARTED — PID 14176 (conhost.exe) parent=29736
+2026-09-14 19:02:12 [argus.main] INFO EVENT: PROCESS_STARTED — PID 29736 (powershell.exe) parent=11564
+2026-09-14 19:02:14 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 14176 (conhost.exe)
+2026-09-14 19:02:14 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 29736 (powershell.exe)
+2026-09-14 19:02:17 [argus.file_monitor.scanner] INFO File scan: 4 roots, 24 candidates, 2 findings
+2026-09-14 19:02:32 [argus.file_monitor.scanner] INFO File scan: 4 roots, 24 candidates, 2 findings
+2026-09-14 19:02:44 [argus.main] INFO EVENT: PROCESS_STARTED — PID 27556 (chrome.exe) parent=20496
+2026-09-14 19:02:47 [argus.main] INFO EVENT: PROCESS_STARTED — PID 2352 (powershell.exe) parent=31368
+2026-09-14 19:02:47 [argus.main] INFO EVENT: PROCESS_STARTED — PID 14252 (conhost.exe) parent=2352
+2026-09-14 19:02:47 [argus.file_monitor.scanner] INFO File scan: 4 roots, 24 candidates, 2 findings
+2026-09-14 19:02:49 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 2352 (powershell.exe)
+2026-09-14 19:02:49 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 14252 (conhost.exe)
+2026-09-14 19:02:59 [argus.main] INFO EVENT: PROCESS_STARTED — PID 20776 (chrome.exe) parent=20496
+2026-09-14 19:03:02 [argus.file_monitor.scanner] INFO File scan: 4 roots, 24 candidates, 2 findings
+2026-09-14 19:03:03 [argus.main] INFO EVENT: PROCESS_STARTED — PID 13524 (chrome.exe) parent=20496
+2026-09-14 19:03:07 [argus.main] INFO EVENT: PROCESS_STARTED — PID 27376 (SnippingTool.exe) parent=25620
+2026-09-14 19:03:15 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 20776 (chrome.exe)
+2026-09-14 19:03:17 [argus.main] INFO EVENT: PROCESS_STARTED — PID 23528 (powershell.exe) parent=31368
+2026-09-14 19:03:17 [argus.main] INFO EVENT: PROCESS_STARTED — PID 25424 (conhost.exe) parent=23528
+2026-09-14 19:03:17 [argus.file_monitor.scanner] INFO File scan: 4 roots, 24 candidates, 2 findings
+2026-09-14 19:03:19 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 23528 (powershell.exe)
+2026-09-14 19:03:19 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 25424 (conhost.exe)
+2026-09-14 19:03:21 [argus.main] INFO EVENT: PROCESS_STARTED — PID 12020 (SearchProtocolHost.exe) parent=17328
+2026-09-14 19:03:21 [argus.main] INFO EVENT: PROCESS_STARTED — PID 17632 (SearchFilterHost.exe) parent=17328
+2026-09-14 19:03:21 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 27376 (SnippingTool.exe)
+2026-09-14 19:03:23 [argus.main] INFO EVENT: PROCESS_STARTED — PID 21844 (SearchFilterHost.exe) parent=17328
+2026-09-14 19:03:23 [argus.main] INFO EVENT: PROCESS_STARTED — PID 25208 (audiodg.exe) parent=3388
+2026-09-14 19:03:31 [argus.main] INFO EVENT: PROCESS_STARTED — PID 1676 (svchost.exe) parent=1360
+2026-09-14 19:03:31 [argus.main] INFO EVENT: PROCESS_STARTED — PID 20568 (svchost.exe) parent=1360
+2026-09-14 19:03:32 [argus.file_monitor.scanner] INFO File scan: 4 roots, 24 candidates, 2 findings
+2026-09-14 19:03:33 [argus.main] INFO EVENT: PROCESS_STARTED — PID 19956 (dllhost.exe) parent=1596
+2026-09-14 19:03:41 [argus.main] INFO EVENT: PROCESS_STARTED — PID 6632 (git.exe) parent=11564
+2026-09-14 19:03:41 [argus.main] INFO EVENT: PROCESS_STARTED — PID 9952 (conhost.exe) parent=6632
+2026-09-14 19:03:41 [argus.main] INFO EVENT: PROCESS_STARTED — PID 30856 (git.exe) parent=6632
+2026-09-14 19:03:41 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 19956 (dllhost.exe)
+2026-09-14 19:03:43 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 6632 (git.exe)
+2026-09-14 19:03:43 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 9952 (conhost.exe)
+2026-09-14 19:03:43 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 30856 (git.exe)
+2026-09-14 19:03:46 [argus.file_monitor.scanner] INFO File scan: 4 roots, 24 candidates, 2 findings
+2026-09-14 19:03:49 [argus.main] INFO EVENT: PROCESS_STARTED — PID 13632 (conhost.exe) parent=16328
+2026-09-14 19:03:49 [argus.main] INFO EVENT: PROCESS_STARTED — PID 16328 (powershell.exe) parent=31368
+2026-09-14 19:03:52 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 13632 (conhost.exe)
+2026-09-14 19:03:52 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 16328 (powershell.exe)
+2026-09-14 19:04:00 [argus.main] INFO EVENT: PROCESS_STARTED — PID 16144 (conhost.exe) parent=25392
+2026-09-14 19:04:00 [argus.main] INFO EVENT: PROCESS_STARTED — PID 25392 (powershell.exe) parent=31368
+2026-09-14 19:04:01 [argus.file_monitor.scanner] INFO File scan: 4 roots, 24 candidates, 2 findings
+2026-09-14 19:04:02 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 16144 (conhost.exe)
+2026-09-14 19:04:02 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 25392 (powershell.exe)
+2026-09-14 19:04:04 [argus.main] INFO EVENT: PROCESS_STARTED — PID 17376 (dllhost.exe) parent=1596
+2026-09-14 19:04:04 [argus.main] INFO EVENT: PROCESS_STARTED — PID 17860 (dllhost.exe) parent=1596
+2026-09-14 19:04:04 [argus.main] INFO EVENT: PROCESS_STARTED — PID 20040 (dllhost.exe) parent=1596
+2026-09-14 19:04:04 [argus.main] INFO EVENT: PROCESS_STARTED — PID 26316 (dllhost.exe) parent=1596
+2026-09-14 19:04:06 [argus.main] INFO EVENT: PROCESS_STARTED — PID 12992 (dllhost.exe) parent=1596
+2026-09-14 19:04:10 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 17376 (dllhost.exe)
+2026-09-14 19:04:12 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 20040 (dllhost.exe)
+2026-09-14 19:04:16 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 17860 (dllhost.exe)
+2026-09-14 19:04:16 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 26316 (dllhost.exe)
+2026-09-14 19:04:16 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 12992 (dllhost.exe)
+2026-09-14 19:04:17 [argus.file_monitor.scanner] INFO File scan: 4 roots, 24 candidates, 2 findings
+2026-09-14 19:04:22 [argus.main] INFO EVENT: PROCESS_STARTED — PID 3080 (conhost.exe) parent=11712
+2026-09-14 19:04:22 [argus.main] INFO EVENT: PROCESS_STARTED — PID 11712 (powershell.exe) parent=31368
+2026-09-14 19:04:24 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 3080 (conhost.exe)
+2026-09-14 19:04:24 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 11712 (powershell.exe)
+2026-09-14 19:04:30 [argus.main] INFO EVENT: PROCESS_STARTED — PID 8228 (<unknown-pid-8228>) parent=14572
+2026-09-14 19:04:32 [argus.file_monitor.scanner] INFO File scan: 4 roots, 24 candidates, 2 findings
+2026-09-14 19:04:32 [argus.main] INFO EVENT: PROCESS_STARTED — PID 14540 (git.exe) parent=31472
+2026-09-14 19:04:32 [argus.main] INFO EVENT: PROCESS_STARTED — PID 20864 (<unknown-pid-20864>) parent=none
+2026-09-14 19:04:32 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 8228 (<unknown-pid-8228>)
+2026-09-14 19:04:34 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 14540 (git.exe)
+2026-09-14 19:04:34 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 20864 (<unknown-pid-20864>)
+2026-09-14 19:04:40 [argus.main] INFO EVENT: PROCESS_STARTED — PID 8340 (git.exe) parent=22696
+2026-09-14 19:04:40 [argus.main] INFO EVENT: PROCESS_STARTED — PID 18296 (conhost.exe) parent=22696
+2026-09-14 19:04:42 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 8340 (git.exe)
+2026-09-14 19:04:42 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 18296 (conhost.exe)
+2026-09-14 19:04:44 [argus.main] INFO EVENT: PROCESS_STARTED — PID 17044 (node.exe) parent=21420
+2026-09-14 19:04:44 [argus.main] INFO EVENT: PROCESS_STARTED — PID 21420 (cmd.exe) parent=26028
+2026-09-14 19:04:44 [argus.main] INFO EVENT: PROCESS_STARTED — PID 26028 (powershell.exe) parent=11564
+2026-09-14 19:04:44 [argus.main] INFO EVENT: PROCESS_STARTED — PID 31060 (conhost.exe) parent=26028
+2026-09-14 19:04:47 [argus.main] INFO EVENT: PROCESS_STARTED — PID 30204 (node.exe) parent=30424
+2026-09-14 19:04:47 [argus.main] INFO EVENT: PROCESS_STARTED — PID 30424 (cmd.exe) parent=17044
+2026-09-14 19:04:47 [argus.file_monitor.scanner] INFO File scan: 4 roots, 24 candidates, 2 findings
+2026-09-14 19:04:49 [argus.main] INFO EVENT: PROCESS_STARTED — PID 3916 (git.exe) parent=11564
+2026-09-14 19:04:49 [argus.main] INFO EVENT: PROCESS_STARTED — PID 20792 (git.exe) parent=11564
+2026-09-14 19:04:49 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 17044 (node.exe)
+2026-09-14 19:04:49 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 21420 (cmd.exe)
+2026-09-14 19:04:49 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 26028 (powershell.exe)
+2026-09-14 19:04:49 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 31060 (conhost.exe)
+2026-09-14 19:04:49 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 30204 (node.exe)
+2026-09-14 19:04:49 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 30424 (cmd.exe)
+2026-09-14 19:04:51 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 3916 (git.exe)
+2026-09-14 19:04:51 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 20792 (git.exe)
+2026-09-14 19:05:01 [argus.main] INFO EVENT: PROCESS_STARTED — PID 18364 (powershell.exe) parent=31368
+2026-09-14 19:05:01 [argus.main] INFO EVENT: PROCESS_STARTED — PID 19052 (conhost.exe) parent=18364
+2026-09-14 19:05:02 [argus.file_monitor.scanner] INFO File scan: 4 roots, 24 candidates, 2 findings
+2026-09-14 19:05:03 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 18364 (powershell.exe)
+2026-09-14 19:05:03 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 19052 (conhost.exe)
+2026-09-14 19:05:16 [argus.file_monitor.scanner] INFO File scan: 4 roots, 24 candidates, 2 findings
+2026-09-14 19:05:25 [argus.main] INFO EVENT: PROCESS_STARTED — PID 12184 (powershell.exe) parent=31368
+2026-09-14 19:05:25 [argus.main] INFO EVENT: PROCESS_STARTED — PID 27252 (conhost.exe) parent=12184
+2026-09-14 19:05:27 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 12184 (powershell.exe)
+2026-09-14 19:05:27 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 27252 (conhost.exe)
+2026-09-14 19:05:32 [argus.file_monitor.scanner] INFO File scan: 4 roots, 24 candidates, 2 findings
+2026-09-14 19:05:41 [argus.main] INFO EVENT: PROCESS_STARTED — PID 16320 (git.exe) parent=22216
+2026-09-14 19:05:41 [argus.main] INFO EVENT: PROCESS_STARTED — PID 22216 (<unknown-pid-22216>) parent=none
+2026-09-14 19:05:43 [argus.main] INFO EVENT: PROCESS_STARTED — PID 27092 (chrome.exe) parent=20496
+2026-09-14 19:05:43 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 16320 (git.exe)
+2026-09-14 19:05:43 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 22216 (<unknown-pid-22216>)
+2026-09-14 19:05:45 [argus.main] INFO EVENT: PROCESS_STARTED — PID 19448 (chrome.exe) parent=20496
+2026-09-14 19:05:47 [argus.file_monitor.scanner] INFO File scan: 4 roots, 24 candidates, 2 findings
+2026-09-14 19:05:55 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 17632 (SearchFilterHost.exe)
+2026-09-14 19:05:55 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 21844 (SearchFilterHost.exe)
+2026-09-14 19:06:01 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 12020 (SearchProtocolHost.exe)
+2026-09-14 19:06:01 [argus.file_monitor.scanner] INFO File scan: 4 roots, 24 candidates, 2 findings
+2026-09-14 19:06:03 [argus.main] INFO EVENT: PROCESS_STARTED — PID 6528 (powershell.exe) parent=31368
+2026-09-14 19:06:03 [argus.main] INFO EVENT: PROCESS_STARTED — PID 27968 (conhost.exe) parent=6528
+2026-09-14 19:06:05 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 6528 (powershell.exe)
+2026-09-14 19:06:05 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 27968 (conhost.exe)
+2026-09-14 19:06:16 [argus.file_monitor.scanner] INFO File scan: 4 roots, 24 candidates, 2 findings
+2026-09-14 19:06:31 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 20568 (svchost.exe)
+2026-09-14 19:06:32 [argus.file_monitor.scanner] INFO File scan: 4 roots, 24 candidates, 2 findings
+2026-09-14 19:06:33 [argus.main] INFO EVENT: PROCESS_TERMINATED — PID 1676 (svchost.exe)
+2026-09-14 19:06:46 [argus.file_monitor.scanner] INFO File scan: 4 roots, 24 candidates, 2 findings
+2026-09-14 19:06:59 [argus.main] INFO EVENT: PROCESS_STARTED — PID 9268 (svchost.exe) parent=1360
+2026-09-14 19:07:01 [argus.file_monitor.scanner] INFO File scan: 4 roots, 24 candidates, 2 findings
+2026-09-14 19:07:04 [argus.main] INFO EVENT: PROCESS_STARTED — PID 8832 (git.exe) parent=11564
+2026-09-14 19:07:04 [argus.main] INFO EVENT: PROCESS_STARTED — PID 10388 (<unknown-pid-10388>) parent=none
