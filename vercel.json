@@ -1,4 +1,4 @@
-﻿{
+{
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "functions": {
     "artifacts/api-server/src/vercel.ts": {
