@@ -1,11 +1,10 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "builds": [
-    {
-      "src": "artifacts/api-server/dist/vercel.mjs",
-      "use": "@vercel/node"
+  "functions": {
+    "artifacts/api-server/dist/vercel.mjs": {
+      "maxDuration": 60
     }
-  ],
+  },
   "routes": [
     {
       "src": "/(.*)",
