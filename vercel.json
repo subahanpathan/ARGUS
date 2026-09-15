@@ -1,8 +1,15 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "cd artifacts/api-server && node ./build.mjs",
   "functions": {
-    "index.ts": {
+    "api/index.ts": {
       "maxDuration": 60
     }
-  }
+  },
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "/api/index"
+    }
+  ]
 }
