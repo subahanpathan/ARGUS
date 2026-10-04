@@ -37,6 +37,7 @@ import { LiveChart } from '@/motion/live-chart';
 import NotFound from '@/pages/not-found';
 import MonitoringPage from '@/pages/monitoring-page';
 import ProcessesPage from '@/pages/processes-page';
+import FilesPage from '@/pages/files-page';
 
 const queryClient = new QueryClient();
 
@@ -324,17 +325,7 @@ function fmtUptime(seconds?: number): string {
 
 // MonitoringPage extracted to @/pages/monitoring-page
 // ProcessesPage extracted to @/pages/processes-page
-
-
-function FilesPage({ toast }: { toast: (t: string, b: string) => void }) {
-  const [query, setQuery] = useState(''); const [onlySensitive, setOnlySensitive] = useState(false); const rows = fileSeed.filter((f) => `${f.path} ${f.process} ${f.classification}`.toLowerCase().includes(query.toLowerCase()) && (!onlySensitive || f.risk === 'critical' || f.risk === 'high'));
-  const exportFiles = () => {
-    const csv = ['timestamp,process,path,operation,classification,risk,evidence', ...rows.map((f) => `${f.timestamp},${f.process},"${f.path}",${f.operation},"${f.classification}",${f.risk},observed`)].join('\n');
-    downloadTextFile('INC-2024-1042-file-activity.csv', csv, 'text/csv');
-    toast('Evidence export ready', 'File activity CSV downloaded locally.');
-  };
-  return <div className="animate-rise"><PageHeading eyebrow="Observed evidence · file telemetry" title="File activity" subtitle="Sensitive classifications are shown alongside the exact process that touched them." actions={<Button icon={Download} onClick={exportFiles} testId="button-export-files">Export CSV</Button>} /><div className="filterbar"><div className="search-wrap"><Search size={14} /><input className="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search file paths or processes" data-testid="input-search-files" /></div><Button kind={onlySensitive ? 'primary' : ''} icon={FileKey2} onClick={() => setOnlySensitive(!onlySensitive)} testId="button-filter-sensitive">{onlySensitive ? 'Showing sensitive' : 'Sensitive only'}</Button><span className="mono muted">{rows.length} events</span></div><Card><div className="table-wrap"><table className="data-table" style={{ minWidth: 900 }}><thead><tr><th>Time</th><th>Process</th><th>Path</th><th>Operation</th><th>Classification</th><th>Risk</th><th>Evidence</th></tr></thead><tbody>{rows.map((f) => <tr key={f.id}><td className="mono">{f.timestamp}</td><td><b>{f.process}</b></td><td className="mono">{f.path}</td><td><Badge value={f.operation.toLowerCase()} /></td><td>{f.classification}</td><td><Badge value={f.risk} /></td><td><span className="signal-good mono"><Check size={12} style={{ verticalAlign: 'middle' }} /> observed</span></td></tr>)}</tbody></table>{!rows.length && <div className="empty"><FolderOpen size={22} /><h3>No file events</h3><p>There are no file events matching this view.</p></div>}</div></Card></div>;
-}
+// FilesPage extracted to @/pages/files-page
 
 const DETECTION_STATUS_FLOW: DetectionStatus[] = ['observed', 'detected', 'investigated', 'contained', 'resolved'];
 
@@ -949,7 +940,7 @@ function AppContent() {
     if (location === '/detections/rules') return <RuleCatalogPage detections={detections} />;
     if (location === '/monitoring') return <MonitoringPage processMonitor={processMonitor} onNavigate={setLocation} />;
     if (location === '/processes') return <ProcessesPage toast={toast} contained={contained} monitorData={processMonitor} onNavigate={setLocation} />;
-    if (location === '/files') return <FilesPage toast={toast} />;
+    if (location === '/files') return <FilesPage toast={toast} fileScan={fileScan} onNavigate={setLocation} onQuarantine={(item) => setQuarantine((prev) => [item, ...prev])} />;
     if (location === '/network') return <NetworkPage toast={toast} contained={contained} />;
     if (location === '/exposure') return <ExposurePage phase={phase} toast={toast} />;
     if (location === '/exposure-window') return <ExposureWindowPage phase={phase} toast={toast} />;
@@ -962,7 +953,7 @@ function AppContent() {
     if (location === '/settings') return <SettingsPage toast={toast} />;
     if (location === '/about') return <AboutPage />;
     return <NotFound />;
-  }, [location, phase, demoState, threats, quarantine, incidentStatus, contained, cyberCellSubmitted, processMonitor, telemetryStream, networkMonitor, threatAnalysis, detections, autoDemo.state]);
+  }, [location, phase, demoState, threats, quarantine, incidentStatus, contained, cyberCellSubmitted, processMonitor, telemetryStream, networkMonitor, threatAnalysis, detections, autoDemo.state, fileScan]);
 
   const toastStack = <div className="toast-stack">{toasts.map((t) => <div className="toast" key={t.id} data-testid={`toast-${t.id}`}><strong>{t.title}</strong><p>{t.body}</p></div>)}</div>;
 

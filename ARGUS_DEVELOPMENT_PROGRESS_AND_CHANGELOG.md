@@ -155,5 +155,37 @@ This document tracks all development milestones, historical changes, active impl
   * Added **System Critical Process Warning** in the termination confirmation modal if terminating core Windows subsystems (`explorer.exe`, `dwm.exe`, `csrss.exe`, `lsass.exe`, `services.exe`, `smss.exe`, `svchost.exe`).
   * Added checkbox toggle for `Terminate entire child process tree (/T)`.
 
+### Session 5: File Activity & Filesystem Threat Surveillance (COMPLETED)
+
+#### Problem Statement & Analyst Needs
+1. `FilesPage` was a 10-line static dummy component inside `App.tsx` that ignored the real security engine's file scanner.
+2. Lack of live host filesystem surveillance, cryptographic SHA-256 fingerprint verification, and directory categorization.
+3. Lack of a dedicated forensic inspector for examining file security reasons, touching processes, and executing isolation/quarantine workflows.
+
+#### New Changes & Verification
+* **Dedicated Modular Files Subsystem (`artifacts/argus/src/pages/files-page.tsx`)**:
+  * Extracted and replaced the inline dummy component with a comprehensive forensic investigation suite.
+  * Connected live SSE / REST feed from `useFileScan` consuming `/api/files/scan` and `/api/files/scan/stream`.
+  * Dual-mode telemetry badge: `((o)) REAL WINDOWS FILESYSTEM (X FINDINGS)` when connected, gracefully falling back to `DEMO INCIDENT FILE TELEMETRY` on cloud/Vercel.
+* **4-Card KPI Analytics Strip**:
+  * Real-time metrics for Monitored Target Files, Critical Threats, High Risk Inbound/Scripts, and Staging & Temp Artifacts.
+* **Dual View Modes (Explorer Table & Directory Map)**:
+  * **Explorer Table**: Interactive, sortable table displaying Time, Touching Process, File Name & Path, Operation, Classification, Severity Badge, SHA-256 Fingerprint (with 1-click copy), Size, and Remediation Actions.
+  * **Directory Map**: Grouped forensic view across 4 surveillance vectors (Downloads & Inbound, Staging & Temp, Confidential & Sensitive DLP, Startup & Persistence).
+* **Forensic Artifact Inspector Drawer/Modal**:
+  * Complete target path with 1-click copy.
+  * Cryptographic SHA-256 hash with copy and external VirusTotal threat intelligence lookup (`https://www.virustotal.com/gui/search/<hash>`).
+  * Detailed Heuristic Analysis explaining the detection primitive.
+  * Direct pivot link to `/processes` for the touching process.
+  * Safe Quarantine/Isolation action adding artifacts directly into the ARGUS Quarantine Vault.
+* **Search, Filters & 1-Click Forensic Exports**:
+  * Real-time search across file path, process, classification, and SHA-256.
+  * Category dropdown: `All File Events`, `Threats & Anomalies`, `Downloads & Inbound`, `Temp & Archive Staging`, `Startup & Persistence`, `Confidential / DLP`.
+  * Dedicated DLP toggle button (`Filter Sensitive (DLP)`).
+  * 1-Click **Export CSV** and **Export JSON** for incident reports and SIEM integration.
+* **Verification**:
+  * Tested live on Windows host via browser subagent: verified real telemetry connection with 2 live findings (`start-sensor.bat` scripts in Downloads), inspected modal with real SHA-256 hash, and captured screenshots (`files_forensic_inspector_local.png` and `files_directory_map_local.png`).
+
+
 
 
