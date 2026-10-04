@@ -38,6 +38,7 @@ import NotFound from '@/pages/not-found';
 import MonitoringPage from '@/pages/monitoring-page';
 import ProcessesPage from '@/pages/processes-page';
 import FilesPage from '@/pages/files-page';
+import ExposurePage from '@/pages/exposure-page';
 
 const queryClient = new QueryClient();
 
@@ -597,23 +598,7 @@ function NetworkPage({ toast, contained }: { toast: (t: string, b: string) => vo
     )}
   </div>;
 }
-
-function ExposurePage({ phase, toast }: { phase: number; toast: (t: string, b: string) => void }) {
-  const score = phase >= 5 ? 86 : phase >= 3 ? 61 : 38;
-  const stages = [['Accessed', '5 files', 'Observed evidence', 'good'], ['Collected', '3 files', 'Observed evidence', 'good'], ['Staged', '1 archive', 'Observed evidence', 'good'], ['Potentially transmitted', '18.4 KB', 'Inferred from flow', 'warn'], ['Confirmed exfiltration', 'Not established', 'No direct payload evidence', 'muted']];
-  const exportAssessment = () => {
-    const text = [
-      'ARGUS Exposure Assessment — INC-2024-1042',
-      `Assessed risk: ${score}/100`,
-      'Confirmed exfiltration: Not established',
-      'Evidence model: observed vs potential/inferred kept separate.',
-      'Synthetic demonstration export — local only.',
-    ].join('\n');
-    downloadTextFile('INC-2024-1042-exposure-assessment.txt', text);
-    toast('Assessment exported', 'Exposure summary downloaded locally.');
-  };
-  return <div className="animate-rise"><PageHeading eyebrow="Decision support · incident INC-2024-1042" title="Exposure assessment" subtitle="A defensible separation between what the sensor observed and what the evidence only suggests." actions={<><Button icon={Download} onClick={exportAssessment} testId="button-export-exposure">Export assessment</Button><Link href="/reports" className="btn btn-primary" data-testid="link-generate-report-exposure">Generate report <ArrowRight size={13} /></Link></>} /><Card className="card-pad" style={{ marginBottom: 14, background: 'linear-gradient(105deg,hsl(var(--card)),hsl(190 45% 12%))' }}><div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 30, flexWrap: 'wrap' }}><div><div className="eyebrow">Current assessed risk</div><div style={{ fontSize: 49, fontWeight: 800, letterSpacing: '-.08em', marginTop: 4 }} className={score > 70 ? 'signal-danger' : 'signal-warn'}>{score}<span style={{ fontSize: 16, color: 'hsl(var(--muted-foreground))', letterSpacing: 0 }}>/100</span></div><div className="muted" style={{ fontSize: 11 }}>Risk reflects correlation confidence, data sensitivity, and destination novelty. It is not proof of data theft.</div></div><div style={{ width: 300, maxWidth: '100%' }}><div className="risk-meter" style={{ height: 12, gap: 4 }}>{[1, 2, 3, 4, 5].map((n) => <i className={n <= Math.ceil(score / 20) ? 'on' : ''} key={n} />)}</div><div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 7 }} className="mono muted"><span>Low</span><span>Critical</span></div></div></div></Card><div className="grid split-grid"><Card className="card-pad"><PanelTitle title="Exposure stages" detail="EVIDENCE CHAIN" />{stages.map(([title, value, note, tone], i) => <div className="kpi-line" key={title}><div style={{ display: 'flex', gap: 10, alignItems: 'center' }}><div style={{ width: 21, height: 21, borderRadius: '50%', display: 'grid', placeItems: 'center', background: i === 4 ? 'hsl(var(--muted))' : 'hsl(var(--accent)/.12)', color: i === 4 ? 'hsl(var(--muted-foreground))' : 'hsl(var(--accent))', font: '10px var(--app-font-mono)' }}>{i < 4 ? <Check size={12} /> : '5'}</div><span><b>{title}</b><br /><span className="muted" style={{ fontSize: 10 }}>{note}</span></span></div><span style={{ textAlign: 'right' }}><b className={tone === 'warn' ? 'signal-warn' : tone === 'muted' ? 'muted' : ''}>{value}</b><br /><span className="mono muted">{i < 4 ? 'supported' : 'not confirmed'}</span></span></div>)}</Card><Card className="card-pad"><PanelTitle title="Risk breakdown" detail="CONTRIBUTING SIGNALS" />{[['Data sensitivity', 'High', 82, 'danger'], ['Process novelty', 'High', 74, 'danger'], ['Destination reputation', 'Medium', 58, 'warn'], ['Payload visibility', 'Low confidence', 31, 'warn'], ['Correlation confidence', 'Strong', 91, 'good']].map(([label, value, width, tone]) => <div style={{ marginBottom: 17 }} key={label as string}><div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, marginBottom: 7 }}><span>{label}</span><b className={`signal-${tone}`}>{value}</b></div><div className="progress"><i style={{ width: `${width}%`, background: tone === 'danger' ? 'hsl(var(--destructive))' : tone === 'warn' ? 'hsl(var(--chart-3))' : 'hsl(var(--accent))' }} /></div></div>)}</Card></div><Card className="card-pad" style={{ marginTop: 14 }}><PanelTitle title="Linked evidence" detail="CLICK TO TRACE" />{timelineSeed.slice(1, 6).map((e) => <div className="event-row" key={e.id}><div className="avatar" style={{ borderRadius: 5, color: e.status === 'potential' ? 'hsl(var(--chart-3))' : 'hsl(var(--primary))' }}>{e.category === 'network' ? <Network size={14} /> : e.category === 'collection' ? <FileKey2 size={14} /> : <Activity size={14} />}</div><div className="event-copy"><b>{e.title}</b><div className="muted">{e.detail}</div></div><Badge value={e.status} /><span className="event-time">{e.time}</span></div>)}</Card></div>;
-}
+// ExposurePage extracted to @/pages/exposure-page
 
 function TimelinePage({ phase }: { phase: number }) {
   const [selected, setSelected] = useState('tl-6'); const visible = phase ? timelineSeed.slice(0, Math.min(phase + 1, timelineSeed.length)) : timelineSeed;
@@ -942,7 +927,7 @@ function AppContent() {
     if (location === '/processes') return <ProcessesPage toast={toast} contained={contained} monitorData={processMonitor} onNavigate={setLocation} />;
     if (location === '/files') return <FilesPage toast={toast} fileScan={fileScan} onNavigate={setLocation} onQuarantine={(item) => setQuarantine((prev) => [item, ...prev])} />;
     if (location === '/network') return <NetworkPage toast={toast} contained={contained} />;
-    if (location === '/exposure') return <ExposurePage phase={phase} toast={toast} />;
+    if (location === '/exposure') return <ExposurePage phase={phase} toast={toast} threatAnalysis={threatAnalysis} fileScan={fileScan} processMonitor={processMonitor} networkMonitor={networkMonitor} onNavigate={setLocation} contained={contained} onContain={() => containThreat('thr-1')} />;
     if (location === '/exposure-window') return <ExposureWindowPage phase={phase} toast={toast} />;
     if (location === '/timeline') return <TimelinePage phase={phase} />;
     if (location === '/quarantine') return <QuarantinePage items={quarantine} setItems={setQuarantine} toast={toast} setModal={setModal} setLocation={setLocation} />;

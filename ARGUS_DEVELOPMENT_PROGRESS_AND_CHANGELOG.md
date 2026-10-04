@@ -186,6 +186,35 @@ This document tracks all development milestones, historical changes, active impl
 * **Verification**:
   * Tested live on Windows host via browser subagent: verified real telemetry connection with 2 live findings (`start-sensor.bat` scripts in Downloads), inspected modal with real SHA-256 hash, and captured screenshots (`files_forensic_inspector_local.png` and `files_directory_map_local.png`).
 
+### Session 6: Exposure Assessment & Blast Radius Intelligence (COMPLETED)
+
+#### Problem Statement & Analyst Needs
+1. `ExposurePage` was an inline 15-line stub inside `App.tsx` with static scores and limited decision-support context.
+2. Lack of a multi-tab investigation suite separating Kill-Chain progression, lateral asset blast radius, risk factor decomposition, and containment playbooks.
+3. Lack of comprehensive export capabilities (CSV matrix, structured JSON incident dossier, and executive memo).
+
+#### New Changes & Verification
+* **Dedicated Modular Exposure Subsystem (`artifacts/argus/src/pages/exposure-page.tsx`)**:
+  * Replaced inline stub with a decision-support and blast-radius analysis dashboard.
+  * Connects to live threat analysis (`useThreatAnalysis`), process monitoring, and filesystem telemetry to calculate dynamic composite risk scores (`LIVE TELEMETRY EXPOSURE (RISK 96/100)`).
+* **Hero Assessed Risk Score & Severity Dial**:
+  * Multi-segment glowing risk meter with baseline scale: Baseline (0), Monitored (25), Elevated (50), High (75), Critical (100).
+  * Direct host containment status indicator (`ENDPOINT ISOLATED` vs `EGRESS ACTIVE`).
+* **4-Card KPI Analytics Strip**:
+  * Primary Affected Host (`WS-0427`), Sensitive Documents Touched (`5 Files`), Staged / Inferred Flow (`18.4 KB`), and Confirmed Exfiltration (`None · Protected by DLP boundary`).
+* **4 Subsystem Investigation Tabs**:
+  * **Kill-Chain Evidence Chain**: 5-stage progression (Initial Vector, Collection, Staging, Potential Exfiltration, Confirmed Exfiltration) alongside the **ARGUS Defensible Evidence Model** card.
+  * **Blast Radius & Asset Impact**: Asset cards covering Affected Host, User Identity (`CORP\mira.alvarez`), Data Repositories, and Adjacent VLAN Peers.
+  * **Contributing Risk Factors**: Decomposes Data Sensitivity (84%), Process Novelty (78%), Destination Reputation (65%), Payload Visibility (32%), and Correlation Confidence (94%).
+  * **Incident Response Playbook**: Immediate containment actions (Host Isolation toggle, Process Tree Termination pivot, Quarantine Vault pivot, Identity & Perimeter Safeguards).
+* **1-Click Forensic Incident Exports**:
+  * **Export CSV**: Complete tabular matrix of exposure stages, entities, status, and evidence models.
+  * **Export JSON**: Structured incident response schema for SIEM/SOAR ingestion.
+  * **Executive Memo**: Pre-formatted incident briefing memorandum.
+* **Verification**:
+  * Verified locally on dev server via browser subagent with live risk calculation (`96/100`), tab switching, and screenshot captures (`exposure_blast_radius_local_1791114536731.png` and `exposure_playbook_local_1791114576060.png`).
+
+
 
 
 
