@@ -241,10 +241,12 @@ router.post("/processes/:pid/terminate", (req: Request, res: Response) => {
   }
 
   const procName = typeof req.body?.name === "string" ? req.body.name : `PID ${pid}`;
+  const killTree = Boolean(req.body?.killTree);
 
   if (process.platform === "win32") {
     import("child_process").then(({ execFile }) => {
-      execFile("taskkill", ["/F", "/PID", String(pid)], (error, stdout, stderr) => {
+      const taskkillArgs = killTree ? ["/F", "/T", "/PID", String(pid)] : ["/F", "/PID", String(pid)];
+      execFile("taskkill", taskkillArgs, (error, stdout, stderr) => {
         if (error) {
           const combined = `${stdout} ${stderr}`;
           const isAccessDenied = combined.toLowerCase().includes("access is denied");

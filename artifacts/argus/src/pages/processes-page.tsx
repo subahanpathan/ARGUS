@@ -77,16 +77,68 @@ const processSeed: ProcessRecord[] = [
   { pid: 9136, executable: 'rundll32.exe', parent: 8420, cpu: '7.6%', memory: '31 MB', files: 8, network: 0, risk: 'high' },
 ];
 
+export const CRITICAL_SYSTEM_PROCESSES = new Set([
+  'explorer.exe',
+  'dwm.exe',
+  'csrss.exe',
+  'lsass.exe',
+  'services.exe',
+  'smss.exe',
+  'svchost.exe',
+  'wininit.exe',
+  'winlogon.exe',
+  'system',
+]);
+
+export function computeProcessRisk(p: { name: string; executable_path?: string; cpu_percent?: number }): {
+  severity: Severity;
+  label: string;
+  reason: string;
+} {
+  const name = (p.name || '').toLowerCase();
+  const path = (p.executable_path || '').toLowerCase();
+
+  // 1. High-risk execution shells and script hosts in suspicious user directories
+  if (name === 'powershell.exe' || name === 'pwsh.exe' || name === 'cmd.exe' || name === 'wscript.exe' || name === 'cscript.exe' || name === 'mshta.exe') {
+    if (path.includes('appdata') || path.includes('temp') || path.includes('downloads') || path.includes('public')) {
+      return { severity: 'critical', label: 'CRITICAL', reason: 'Script engine executing from user-writable / staging path' };
+    }
+    return { severity: 'high', label: 'SUSPICIOUS', reason: 'System command interpreter with process execution capabilities' };
+  }
+
+  // 2. Binary masquerading detection: Windows core binaries outside system32
+  if ((name === 'svchost.exe' || name === 'lsass.exe' || name === 'services.exe') && path && !path.includes('system32')) {
+    return { severity: 'critical', label: 'CRITICAL', reason: 'Binary masquerade: Core system process running outside System32' };
+  }
+
+  // 3. Known attack vectors / credential targets
+  if (name === 'rundll32.exe' || name === 'reg.exe' || name === 'vssadmin.exe' || name === 'certutil.exe' || name === 'schtasks.exe' || name === 'whoami.exe') {
+    return { severity: 'high', label: 'SUSPICIOUS', reason: 'Living-off-the-land binary (LOLBIN) frequently abused for evasion' };
+  }
+
+  // 4. Resource anomalies
+  if ((p.cpu_percent ?? 0) >= 15.0) {
+    return { severity: 'medium', label: 'ANOMALY', reason: `High compute consumption: ${p.cpu_percent?.toFixed(1)}% CPU load` };
+  }
+
+  // 5. Normal system or clean apps
+  if (name.endsWith('.exe') && path.includes('windows\\system32')) {
+    return { severity: 'low', label: 'SYSTEM', reason: 'Verified Windows System32 core service' };
+  }
+
+  return { severity: 'low', label: 'NORMAL', reason: 'Standard process operating within expected boundaries' };
+}
+
 function Badge({ value }: { value: string }) {
   const tone = value.toLowerCase().replace(/ /g, '-');
   const cls =
     tone === 'critical' || tone === 'malicious'
       ? 'badge-critical'
-      : tone === 'high' || tone === 'suspicious'
+      : tone === 'high' || tone === 'suspicious' || tone === 'anomaly'
       ? 'badge-high'
       : tone === 'medium' || tone === 'monitored'
       ? 'badge-medium'
-      : tone === 'low' || tone === 'trusted' || tone === 'active'
+      : tone === 'low' || tone === 'trusted' || tone === 'active' || tone === 'normal' || tone === 'system'
       ? 'badge-low'
       : 'badge-muted';
   return <span className={cn('badge', cls)}>{value}</span>;
@@ -220,11 +272,12 @@ export default function ProcessesPage({
 
   const [viewMode, setViewMode] = useState<ViewMode>('graph');
   const [searchTerm, setSearchTerm] = useState('');
-  const [resourceFilter, setResourceFilter] = useState<'all' | 'high_cpu' | 'high_ram'>('all');
+  const [resourceFilter, setResourceFilter] = useState<'all' | 'threats' | 'high_cpu' | 'high_ram' | 'system'>('all');
   const [sortField, setSortField] = useState<SortField>('cpu');
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
   const [terminatingPid, setTerminatingPid] = useState<number | null>(null);
   const [showTerminateConfirm, setShowTerminateConfirm] = useState<RealProcessInfo | ProcessRecord | null>(null);
+  const [killTree, setKillTree] = useState(true);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
   const copyToClipboard = (text: string, key: string, label: string) => {
@@ -271,8 +324,15 @@ export default function ProcessesPage({
             (p.executable_path && p.executable_path.toLowerCase().includes(searchTerm.toLowerCase()));
 
           if (!matchQuery) return false;
+          if (resourceFilter === 'threats') {
+            const risk = computeProcessRisk(p);
+            return risk.severity === 'critical' || risk.severity === 'high' || risk.severity === 'medium';
+          }
           if (resourceFilter === 'high_cpu') return (p.cpu_percent ?? 0) >= 2.0;
           if (resourceFilter === 'high_ram') return (p.memory_bytes ?? 0) >= 150 * 1024 * 1024;
+          if (resourceFilter === 'system') {
+            return p.pid < 1000 || (p.username && p.username.toLowerCase().includes('system'));
+          }
           return true;
         })
         .sort((a, b) => {
@@ -292,7 +352,9 @@ export default function ProcessesPage({
         searchTerm === '' ||
         p.executable.toLowerCase().includes(searchTerm.toLowerCase()) ||
         String(p.pid).includes(searchTerm);
-      return matchQuery;
+      if (!matchQuery) return false;
+      if (resourceFilter === 'threats') return p.risk === 'critical' || p.risk === 'high' || p.risk === 'medium';
+      return true;
     });
   }, [isReal, monitorData, searchTerm, resourceFilter, sortField, sortOrder]);
 
@@ -316,18 +378,18 @@ export default function ProcessesPage({
   };
 
   // Terminate process action
-  const handleTerminateProcess = async (pid: number, name: string) => {
+  const handleTerminateProcess = async (pid: number, name: string, killChildren: boolean = true) => {
     setTerminatingPid(pid);
     setShowTerminateConfirm(null);
     try {
       const resp = await fetch(`/api/processes/${pid}/terminate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name }),
+        body: JSON.stringify({ name, killTree: killChildren }),
       });
       const data = await resp.json();
       if (resp.ok && data.success) {
-        toast('Process Terminated', `Terminated ${name} (PID ${pid}) successfully.`);
+        toast('Process Terminated', `Terminated ${name} (PID ${pid}) successfully${killChildren ? ' including child tree' : ''}.`);
       } else {
         toast('Termination Failed', data.error || 'Could not terminate process.');
       }
@@ -336,6 +398,44 @@ export default function ProcessesPage({
     } finally {
       setTerminatingPid(null);
     }
+  };
+
+  // Export functions
+  const exportProcessesCSV = () => {
+    const list = isReal && monitorData ? filteredProcesses : processSeed;
+    const headers = ['PID', 'Name', 'Parent PID', 'CPU %', 'Memory', 'Risk', 'User', 'Executable Path'];
+    const rows = list.map((item: any) => {
+      const pid = item.pid;
+      const name = item.name || item.executable || '';
+      const ppid = item.parent_pid ?? item.parent ?? '';
+      const cpu = typeof item.cpu_percent === 'number' ? `${item.cpu_percent.toFixed(1)}%` : item.cpu || '0%';
+      const mem = typeof item.memory_bytes === 'number' ? fmtBytes(item.memory_bytes) : item.memory || '—';
+      const risk = item.risk || computeProcessRisk(item).label;
+      const user = item.username || 'System';
+      const path = item.executable_path || '';
+      return [pid, `"${name}"`, ppid, `"${cpu}"`, `"${mem}"`, `"${risk}"`, `"${user}"`, `"${path}"`].join(',');
+    });
+
+    const csvContent = 'data:text/csv;charset=utf-8,' + encodeURIComponent([headers.join(','), ...rows].join('\n'));
+    const link = document.createElement('a');
+    link.setAttribute('href', csvContent);
+    link.setAttribute('download', `ARGUS_Process_Snapshot_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast('Export Complete', `Exported ${list.length} processes to CSV.`);
+  };
+
+  const exportProcessesJSON = () => {
+    const list = isReal && monitorData ? filteredProcesses : processSeed;
+    const jsonContent = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(list, null, 2));
+    const link = document.createElement('a');
+    link.setAttribute('href', jsonContent);
+    link.setAttribute('download', `ARGUS_Process_Snapshot_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.json`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast('Export Complete', `Exported ${list.length} processes to JSON.`);
   };
 
   const dataBadge = isReal ? (
@@ -462,20 +562,41 @@ export default function ProcessesPage({
           )}
         </div>
 
-        {isReal && (
-          <select
-            className="select"
-            value={resourceFilter}
-            onChange={(e) => setResourceFilter(e.target.value as any)}
-            style={{ fontSize: 11, height: 32 }}
-          >
-            <option value="all">All Resource Levels</option>
-            <option value="high_cpu">High CPU (≥ 2.0%)</option>
-            <option value="high_ram">High RAM (≥ 150 MB)</option>
-          </select>
-        )}
+        <select
+          className="select"
+          value={resourceFilter}
+          onChange={(e) => setResourceFilter(e.target.value as any)}
+          style={{ fontSize: 11, height: 32 }}
+        >
+          <option value="all">All Processes</option>
+          <option value="threats">Threats & Anomalies</option>
+          <option value="high_cpu">High CPU (≥ 2.0%)</option>
+          <option value="high_ram">High RAM (≥ 150 MB)</option>
+          <option value="system">System Daemons</option>
+        </select>
 
-        <div className="mono muted" style={{ fontSize: 11 }}>
+        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+          <button
+            type="button"
+            className="btn btn-ghost"
+            style={{ padding: '4px 9px', fontSize: 11 }}
+            onClick={exportProcessesCSV}
+            title="Export process snapshot to CSV"
+          >
+            <Download size={12} style={{ marginRight: 4 }} /> CSV
+          </button>
+          <button
+            type="button"
+            className="btn btn-ghost"
+            style={{ padding: '4px 9px', fontSize: 11 }}
+            onClick={exportProcessesJSON}
+            title="Export process snapshot to JSON"
+          >
+            <FileSearch size={12} style={{ marginRight: 4 }} /> JSON
+          </button>
+        </div>
+
+        <div className="mono muted" style={{ fontSize: 11, marginLeft: 'auto' }}>
           Showing {filteredProcesses.length} of {isReal ? monitorData?.snapshot.length : processSeed.length} processes
         </div>
       </div>
@@ -524,6 +645,7 @@ export default function ProcessesPage({
                       <th style={{ cursor: 'pointer' }} onClick={() => toggleSort('memory')}>
                         Memory {sortField === 'memory' && <ArrowUpDown size={10} />}
                       </th>
+                      <th>Risk</th>
                       {isReal && (
                         <th style={{ cursor: 'pointer' }} onClick={() => toggleSort('user')}>
                           User {sortField === 'user' && <ArrowUpDown size={10} />}
@@ -537,6 +659,7 @@ export default function ProcessesPage({
                       ? (filteredProcesses as RealProcessInfo[]).map((p) => {
                           const isSel = p.pid === selectedPid;
                           const cpu = p.cpu_percent ?? 0;
+                          const risk = computeProcessRisk(p);
                           return (
                             <tr
                               key={p.pid}
@@ -564,6 +687,9 @@ export default function ProcessesPage({
                                 </span>
                               </td>
                               <td className="mono">{fmtBytes(p.memory_bytes)}</td>
+                              <td>
+                                <Badge value={risk.label} />
+                              </td>
                               <td className="mono muted" style={{ fontSize: 10 }}>
                                 {p.username || 'System'}
                               </td>
@@ -604,6 +730,20 @@ export default function ProcessesPage({
                               <td className="mono">{p.memory}</td>
                               <td>
                                 <Badge value={p.risk} />
+                              </td>
+                              <td>
+                                <button
+                                  type="button"
+                                  className="btn btn-ghost"
+                                  style={{ padding: '3px 7px', fontSize: 10 }}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setShowTerminateConfirm(p);
+                                  }}
+                                  title="Terminate Process"
+                                >
+                                  <Trash2 size={11} style={{ color: 'hsl(var(--destructive))' }} />
+                                </button>
                               </td>
                             </tr>
                           );
@@ -660,7 +800,17 @@ export default function ProcessesPage({
                       )}
                     </div>
                   </div>
-                  <Badge value={selectedRealProcess.access_error ? 'restricted' : 'active'} />
+                  <Badge value={computeProcessRisk(selectedRealProcess).label} />
+                </div>
+
+                <div style={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 6, padding: 10, margin: '10px 0' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                    <span style={{ fontSize: 11, fontWeight: 700 }}>Security Risk Assessment</span>
+                    <Badge value={computeProcessRisk(selectedRealProcess).label} />
+                  </div>
+                  <p style={{ margin: 0, fontSize: 11, color: 'hsl(var(--muted-foreground))', lineHeight: 1.4 }}>
+                    {computeProcessRisk(selectedRealProcess).reason}
+                  </p>
                 </div>
 
                 <div className="grid metrics" style={{ gridTemplateColumns: 'repeat(2, 1fr)', gap: 10, margin: '14px 0' }}>
@@ -870,34 +1020,54 @@ export default function ProcessesPage({
       )}
 
       {/* Terminate Process Confirmation Modal */}
-      {showTerminateConfirm && (
-        <div className="modal-backdrop" role="presentation" onClick={() => setShowTerminateConfirm(null)}>
-          <div className="modal" style={{ maxWidth: 440 }} onClick={(e) => e.stopPropagation()}>
-            <div className="eyebrow" style={{ color: 'hsl(var(--destructive))' }}>High Risk Remediation</div>
-            <h2 style={{ margin: '4px 0 10px', fontSize: 18 }}>Terminate Process?</h2>
-            <p style={{ fontSize: 12, lineHeight: 1.5, color: 'hsl(var(--muted-foreground))', margin: '0 0 16px' }}>
-              Are you sure you want to forcibly terminate{' '}
-              <b style={{ color: 'hsl(var(--foreground))' }}>
-                {'name' in showTerminateConfirm ? showTerminateConfirm.name : showTerminateConfirm.executable}
-              </b>{' '}
-              (PID {showTerminateConfirm.pid})? Unsaved state in that process will be lost.
-            </p>
-            <div className="modal-actions" style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
-              <Button onClick={() => setShowTerminateConfirm(null)}>Cancel</Button>
-              <Button
-                kind="danger"
-                icon={Trash2}
-                onClick={() => {
-                  const name = 'name' in showTerminateConfirm ? showTerminateConfirm.name : showTerminateConfirm.executable;
-                  handleTerminateProcess(showTerminateConfirm.pid, name);
-                }}
-              >
-                Terminate Process
-              </Button>
+      {showTerminateConfirm && (() => {
+        const name = 'name' in showTerminateConfirm ? showTerminateConfirm.name : showTerminateConfirm.executable;
+        const isCritical = CRITICAL_SYSTEM_PROCESSES.has(name.toLowerCase());
+        return (
+          <div className="modal-backdrop" role="presentation" onClick={() => setShowTerminateConfirm(null)}>
+            <div className="modal" style={{ maxWidth: 460 }} onClick={(e) => e.stopPropagation()}>
+              <div className="eyebrow" style={{ color: 'hsl(var(--destructive))' }}>High Risk Remediation</div>
+              <h2 style={{ margin: '4px 0 10px', fontSize: 18 }}>Terminate Process?</h2>
+
+              {isCritical && (
+                <div style={{ background: 'hsl(38 92% 50% / 0.15)', border: '1px solid hsl(38 92% 50% / 0.4)', borderRadius: 6, padding: 10, marginBottom: 12 }}>
+                  <div style={{ color: 'hsl(38 92% 50%)', fontWeight: 700, fontSize: 11, display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <AlertTriangle size={14} /> System Critical Process Warning
+                  </div>
+                  <p style={{ margin: '4px 0 0', fontSize: 11, color: 'hsl(var(--foreground))', lineHeight: 1.4 }}>
+                    <b>{name}</b> is a core Windows subsystem process. Terminating it may cause desktop crashing, display restart, or forced logout.
+                  </p>
+                </div>
+              )}
+
+              <p style={{ fontSize: 12, lineHeight: 1.5, color: 'hsl(var(--muted-foreground))', margin: '0 0 16px' }}>
+                Are you sure you want to forcibly terminate <b style={{ color: 'hsl(var(--foreground))' }}>{name}</b> (PID {showTerminateConfirm.pid})? Unsaved state in that process will be lost.
+              </p>
+
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11, marginBottom: 16, cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  checked={killTree}
+                  onChange={(e) => setKillTree(e.target.checked)}
+                  style={{ cursor: 'pointer' }}
+                />
+                <span>Terminate entire child process tree (<code className="mono">/T</code>)</span>
+              </label>
+
+              <div className="modal-actions" style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+                <Button onClick={() => setShowTerminateConfirm(null)}>Cancel</Button>
+                <Button
+                  kind="danger"
+                  icon={Trash2}
+                  onClick={() => handleTerminateProcess(showTerminateConfirm.pid, name, killTree)}
+                >
+                  Terminate Process
+                </Button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
     </div>
   );
 }

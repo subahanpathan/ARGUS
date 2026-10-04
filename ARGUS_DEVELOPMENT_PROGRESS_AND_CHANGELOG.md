@@ -18,7 +18,7 @@ This document tracks all development milestones, historical changes, active impl
 | 8 | **Threats Management Feed** | 85% | 85% | 🟡 Hybrid Live/Demo | Live correlation hook; status is React-state only |
 | 9 | **Live Monitoring & System Vitals** | 75% | **100%** | 🟢 Complete Upgrade | Live host stream + demo fallback + top processes + bandwidth rate + resilient connection |
 | 10 | **Active Endpoint Containment** | 15% | 15% | 🔴 Simulated UI | Confirmation dialogs; OS netsh/firewall pending |
-| 11 | **Process Kill / Remediation** | 15% | **80%** | 🟢 Live Remediation | `POST /api/processes/:pid/terminate` with OS `taskkill`, PID 0/4 protection, SSE broadcast |
+| 11 | **Process Kill / Remediation** | 15% | **95%** | 🟢 Live Remediation | `POST /api/processes/:pid/terminate` with OS `taskkill /F /T`, PID 0/4 protection, critical process warning, SSE broadcast |
 | 12 | **File Quarantine Action & Vault** | 15% | 15% | 🔴 Simulated UI | React inventory; physical `.quarantine` pending |
 | 13 | **Exposure Analysis & Blast Radius** | 90% | 90% | 🟢 Complete | Risk scoring & compromised asset blast radius |
 | 14 | **Exposure Window View** | 95% | 95% | 🟢 Complete | Timeline tracking first suspicious activity → containment |
@@ -126,5 +126,34 @@ This document tracks all development milestones, historical changes, active impl
 * **Verification**:
   * Tested live telemetry streaming in browser (`live_monitoring_page_1791103415182.png`): Confirmed `((o)) REAL WINDOWS TELEMETRY` active on 12 cores with 315 live processes.
   * Tested process explorer and search filter (`process_filtered_inspection_1791100880826.png`).
+
+### Session 4: Process Activity Refinements, Threat Scoring & Forensic Exports (COMPLETED)
+
+#### Problem Statement & Analyst Needs
+1. Analysts needed heuristic risk classification for live host processes (distinguishing LOLBIN execution, masquerading binaries, and script interpreters from normal system services).
+2. Lack of quick forensic export for incident response reporting.
+3. Lack of safety guardrails when terminating processes (accidentally killing `explorer.exe`, `dwm.exe`, or `csrss.exe`), and inability to terminate entire process trees (`/T`).
+
+#### New Changes & Verification
+* **Heuristic Security Risk Scoring Engine (`computeProcessRisk`)**:
+  * Implemented deterministic heuristic classifier evaluating executable name, execution path, and CPU utilization.
+  * Detects script engines (`powershell`, `cmd`, `wscript`, `mshta`) executing from user-writable / staging directories (`AppData`, `Temp`, `Downloads`).
+  * Identifies Living-off-the-Land binaries (LOLBINs: `rundll32`, `reg`, `vssadmin`, `certutil`, `whoami`).
+  * Detects core binary masquerading (e.g. `svchost.exe` running outside `C:\Windows\System32`).
+  * Flags high compute anomalies (CPU > 15%).
+* **Risk Column & Badges in Explorer Table**:
+  * Added visual `Risk` column with color-coded classification badges (`CRITICAL`, `SUSPICIOUS`, `ANOMALY`, `SYSTEM`, `NORMAL`).
+* **Threats & Extended Filter Toolbar**:
+  * Quick filter dropdown: `All Processes`, `Threats & Anomalies`, `High CPU (≥ 2.0%)`, `High RAM (≥ 150 MB)`, and `System Daemons`.
+* **1-Click Forensic Snapshot Export**:
+  * **Export to CSV**: Dumps PID, Name, PPID, CPU, Memory, Risk verdict, User, and full executable path.
+  * **Export to JSON**: Structured array for SIEM/EDR log ingestion and forensic incident reports.
+* **Process Detail Inspector Risk Card**:
+  * Displays "Security Risk Assessment" block explaining the specific reason for the assigned verdict.
+* **Remediation Guardrails & Child Process Tree Termination**:
+  * Upgraded `POST /api/processes/:pid/terminate` to support `killTree: true` (`taskkill /F /T /PID <pid>`).
+  * Added **System Critical Process Warning** in the termination confirmation modal if terminating core Windows subsystems (`explorer.exe`, `dwm.exe`, `csrss.exe`, `lsass.exe`, `services.exe`, `smss.exe`, `svchost.exe`).
+  * Added checkbox toggle for `Terminate entire child process tree (/T)`.
+
 
 
