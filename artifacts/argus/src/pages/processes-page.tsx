@@ -8,6 +8,7 @@ import {
   Copy,
   Cpu,
   Database,
+  Download,
   ExternalLink,
   FileSearch,
   Filter,
