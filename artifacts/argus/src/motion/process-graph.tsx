@@ -25,7 +25,8 @@ export type ProcessGraphNode = {
   files: string;
   verdict: ProcessVerdict;
   /** When true the parent→this edge animates a directional data flow. */
-  flow?: boolean;
+  flow?: boolean; 3
+  
   /** When true the card renders in a "contained / quarantined" state. */
   contained?: boolean;
 };
@@ -236,7 +237,41 @@ function Branch({
 export function ProcessGraph({ nodes, selected, onSelect }: ProcessGraphProps) {
   const [openPid, setOpenPid] = useState<number | null>(selected);
 
-  const roots = useMemo(() => nodes.filter((n) => n.parentPid == null), [nodes]);
+  const roots = useMemo(() => {
+    if (nodes.length === 0) return [];
+    const pids = new Set(nodes.map((n) => n.pid));
+    // A root is any process whose parent is not in the snapshot, or parentPid is null or <= 0
+    const list = nodes.filter((n) => n.parentPid == null || n.parentPid <= 0 || !pids.has(n.parentPid));
+
+    // When there are many roots (e.g. real Windows environment with 300+ processes),
+    // prioritize roots that have children, the selected process root, or elevated verdicts.
+    if (list.length > 6) {
+      const childParentPids = new Set(nodes.map((n) => n.parentPid));
+      const selectedChainRoots = new Set<number>();
+      let cur = nodes.find((n) => n.pid === selected);
+      while (cur) {
+        if (cur.parentPid == null || cur.parentPid <= 0 || !pids.has(cur.parentPid)) {
+          selectedChainRoots.add(cur.pid);
+          break;
+        }
+        cur = nodes.find((n) => n.pid === cur!.parentPid);
+      }
+
+      const prioritized = list.filter(
+        (r) =>
+          selectedChainRoots.has(r.pid) ||
+          r.verdict === 'suspicious' ||
+          r.verdict === 'malicious' ||
+          childParentPids.has(r.pid),
+      );
+
+      if (prioritized.length > 0) {
+        return prioritized.slice(0, 8);
+      }
+      return list.slice(0, 8);
+    }
+    return list.length > 0 ? list : nodes.slice(0, 5);
+  }, [nodes, selected]);
 
   if (roots.length === 0) {
     return <div className="empty">No processes observed in this snapshot.</div>;

@@ -33,10 +33,10 @@ import { PortIntelligencePanel } from '@/components/port-intelligence-panel';
 import type { UniverseNode } from '@/components/network-universe-types';
 import { useThreatAnalysis, type LiveThreat } from '@/hooks/use-threat-analysis';
 import { useFileScan } from '@/hooks/use-file-scan';
-import { ProcessGraph, buildGraphFromSeed, buildGraphFromTelemetry } from '@/motion/process-graph';
 import { LiveChart } from '@/motion/live-chart';
 import NotFound from '@/pages/not-found';
 import MonitoringPage from '@/pages/monitoring-page';
+import ProcessesPage from '@/pages/processes-page';
 
 const queryClient = new QueryClient();
 
@@ -49,7 +49,6 @@ type Threat = {
   id: string; name: string; severity: Severity; className: string; timestamp: string;
   path: string; process: string; hash: string; reason: string; status: ThreatStatus;
 };
-type ProcessRecord = { pid: number; executable: string; parent: number | null; cpu: string; memory: string; files: number; network: number; risk: Severity };
 type FileRecord = { id: string; timestamp: string; process: string; path: string; operation: string; classification: string; risk: Severity };
 type Connection = { id: string; process: string; local: string; destination: string; domain: string; port: number; protocol: string; time: string; bytes: string; frequency: string; risk: Severity; location: string };
 type TimelineEvent = { id: string; time: string; title: string; detail: string; category: string; status: EvidenceStatus };
@@ -61,15 +60,6 @@ const threatsSeed: Threat[] = [
   { id: 'thr-3', name: 'Unsigned binary in user profile', severity: 'medium', className: 'Execution', timestamp: 'Today, 09:38:06', path: 'C:\\Users\\mira\\Downloads\\invoice_viewer.exe', process: 'outlook.exe', hash: '63e9d2aa18c7f0b4e5be17', reason: 'First-seen executable with low reputation (spawned via Outlook attachment)', status: 'contained' },
   { id: 'thr-4', name: 'Persistence via Run key', severity: 'medium', className: 'Persistence', timestamp: 'Yesterday, 18:14:22', path: 'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run', process: 'reg.exe', hash: '—', reason: 'New user-level startup value created', status: 'resolved' },
   { id: 'thr-5', name: 'Archive utility accessed', severity: 'low', className: 'Collection', timestamp: 'Yesterday, 17:58:09', path: 'C:\\Program Files\\7-Zip\\7z.exe', process: '7z.exe', hash: '1b44c9e0a27d8e20', reason: 'Archive created in a monitored workspace', status: 'resolved' },
-];
-
-/** Parent/child graph: explorer → outlook → invoice_viewer → powershell → rundll32 */
-const processSeed: ProcessRecord[] = [
-  { pid: 4908, executable: 'explorer.exe', parent: null, cpu: '1.1%', memory: '68 MB', files: 9, network: 1, risk: 'low' },
-  { pid: 7124, executable: 'outlook.exe', parent: 4908, cpu: '3.2%', memory: '214 MB', files: 42, network: 9, risk: 'medium' },
-  { pid: 10544, executable: 'invoice_viewer.exe', parent: 7124, cpu: '0.4%', memory: '48 MB', files: 6, network: 0, risk: 'medium' },
-  { pid: 8420, executable: 'powershell.exe', parent: 10544, cpu: '12.8%', memory: '84 MB', files: 17, network: 3, risk: 'critical' },
-  { pid: 9136, executable: 'rundll32.exe', parent: 8420, cpu: '7.6%', memory: '31 MB', files: 8, network: 0, risk: 'high' },
 ];
 
 const fileSeed: FileRecord[] = [
@@ -227,7 +217,10 @@ function Dashboard({ phase, demoState, demo, startDemo, pauseDemo, resumeDemo, t
   const demoLabel = demoState === 'paused' ? 'Paused' : demoState === 'completed' ? 'Completed' : demoState === 'running' ? 'Running' : null;
   const autonomous = demo.demoMode;
   const autonomousDashboard = autonomous && demo.demoStep === DEMO_STEP.DASHBOARD;
-  const hostOnline = telemetry.connected && telemetry.hasData && telemetry.telemetry != null;
+  const isFresh = telemetry.lastUpdateTime
+    ? Math.abs(Date.now() - new Date(telemetry.lastUpdateTime).getTime()) < 30000
+    : false;
+  const hostOnline = (telemetry.connected || isFresh || Boolean(processMonitor.hasData)) && telemetry.telemetry != null;
   const t = telemetry.telemetry;
   const realEvents = processMonitor.events.filter((e) => e.event_type !== 'SNAPSHOT');
   const realStreamActive = processMonitor.connected && processMonitor.hasData;
@@ -330,122 +323,8 @@ function fmtUptime(seconds?: number): string {
 }
 
 // MonitoringPage extracted to @/pages/monitoring-page
+// ProcessesPage extracted to @/pages/processes-page
 
-type ProcessesPageProps = {
-  toast: (t: string, b: string) => void;
-  contained: boolean;
-  monitorData?: {
-    connected: boolean;
-    hasData: boolean;
-    events: RealProcessEvent[];
-    snapshot: RealProcessInfo[];
-    eventCount: number;
-    lastEventTime: string | null;
-  };
-};
-
-function ProcessesPage({ toast, contained, monitorData }: ProcessesPageProps) {
-  const [selected, setSelected] = useState(8420);
-  const isReal = monitorData?.hasData && monitorData.snapshot.length > 0;
-  const recentEvents = monitorData?.events.slice(-20).reverse() ?? [];
-
-  const parentLabel = (parentPid: number | null) => {
-    if (parentPid == null) return '—';
-    const parent = processSeed.find((x) => x.pid === parentPid);
-    return parent ? `${parent.executable} (${parent.pid})` : String(parentPid);
-  };
-
-  const dataBadge = isReal
-    ? <span className="badge badge-low" style={{ background: 'hsl(142 71% 20%)', color: 'hsl(142 71% 70%)', border: '1px solid hsl(142 71% 30%)' }}><Radio size={10} style={{ marginRight: 4, verticalAlign: 'middle' }} />REAL WINDOWS TELEMETRY</span>
-    : <span className="badge badge-muted" style={{ background: 'hsl(var(--muted))', color: 'hsl(var(--muted-foreground))', border: '1px solid hsl(var(--border))' }}><AlertTriangle size={10} style={{ marginRight: 4, verticalAlign: 'middle' }} />DEMO DATA</span>;
-
-  const treeCount = isReal ? monitorData.snapshot.length : processSeed.length;
-  const treeTitle = isReal ? "Interactive process graph" : "Interactive process graph (demo)";
-
-  // Contained/flagged PIDs for the incident chain in both demo + live modes.
-  const demoContainedPids = contained ? [8420, 9136, 10544] : [];
-  const demoFlaggedPids = [8420, 9136];
-
-  const graphNodes = isReal
-    ? buildGraphFromTelemetry(
-        monitorData.snapshot.map((s) => ({
-          pid: s.pid,
-          parent_pid: s.parent_pid ?? null,
-          name: s.name,
-          cpu_percent: s.cpu_percent ?? null,
-          memory_bytes: s.memory_bytes ?? null,
-          access_error: s.access_error ?? null,
-          executable_path: s.executable_path ?? null,
-        })),
-        contained ? [] : demoContainedPids,
-        demoFlaggedPids,
-      )
-    : buildGraphFromSeed(processSeed, demoContainedPids);
-
-  const handleGraphSelect = (pid: number) => setSelected(pid);
-
-  return <div className="animate-page-enter">
-    <PageHeading eyebrow="Endpoint WS-0427 · live process graph" title="Process activity" subtitle="A parent-child view of execution, resource use, and connected evidence." actions={<>{dataBadge}<Button icon={RefreshCw} onClick={() => { toast('Process tree refreshed', isReal ? 'Merging latest Windows process snapshots.' : 'New process snapshots merged into the endpoint view.'); }} testId="button-refresh-processes">Refresh</Button></>} />
-    {contained && <div className="scan-strip" data-testid="process-contained-banner"><div className="scan-status"><ShieldCheck size={15} /><div>Endpoint contained<small> · suspicious process tree remains visible for forensic review</small></div></div></div>}
-    {monitorData?.connected === false && !isReal && <div className="scan-strip" style={{ marginBottom: 14, background: 'hsl(var(--muted))' }}><div className="scan-status" style={{ color: 'hsl(var(--muted-foreground))' }}><AlertTriangle size={15} /><div><b>Security engine offline</b><small> · Start the ARGUS security engine to enable real Windows process monitoring. Showing demo data.</small></div></div></div>}
-    <div className="grid split-grid">
-      <Card className="card-pad">
-        <PanelTitle title={treeTitle} detail={`${treeCount} PROCESSES`} />
-        <ProcessGraph nodes={graphNodes} selected={selected} onSelect={handleGraphSelect} />
-      </Card>
-      <Card className="card-pad">
-        <PanelTitle title="Process detail" detail={`PID ${selected}`} />
-        {isReal
-          ? <RealProcessDetail snapshot={monitorData.snapshot} selected={selected} />
-          : <DemoProcessDetail selected={selected} parentLabel={parentLabel} contained={contained} />}
-      </Card>
-    </div>
-    {isReal && recentEvents.length > 0 && <Card className="card-pad" style={{ marginTop: 14 }}><PanelTitle title="Recent process events" detail={`LAST ${recentEvents.length} EVENTS`} /><div style={{ maxHeight: 240, overflow: 'auto' }}>{recentEvents.map((ev) => <div className="event-row" key={ev.id}><span className="event-dot" style={ev.event_type === 'PROCESS_STARTED' ? { background: 'hsl(var(--accent))' } : { background: 'hsl(var(--destructive))' }} /><div className="event-copy"><div>{ev.event_type === 'PROCESS_STARTED' ? 'Process started' : 'Process terminated'}</div><div className="muted" style={{ fontSize: 10, marginTop: 2 }}><span className="mono">{ev.process_name}</span> · PID {ev.pid}{ev.parent_process_name ? ` · parent: ${ev.parent_process_name}` : ''}</div></div><span className="event-time">{new Date(ev.timestamp).toLocaleTimeString()}</span></div>)}</div></Card>}
-  </div>;
-}
-
-function RealProcessDetail({ snapshot, selected }: { snapshot: RealProcessInfo[]; selected: number }) {
-  const p = snapshot.find((x) => x.pid === selected) || snapshot[0];
-  if (!p) return <div className="empty"><h3>No process selected</h3></div>;
-  const parent = snapshot.find((x) => x.pid === p.parent_pid);
-  const memMB = p.memory_bytes ? `${(p.memory_bytes / 1048576).toFixed(0)} MB` : '—';
-  const cpuStr = p.cpu_percent != null ? `${p.cpu_percent.toFixed(1)}%` : '—';
-  return <>
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
-      <div><h2 style={{ margin: 0, fontSize: 20 }}>{p.name}</h2><div className="muted mono" style={{ marginTop: 5 }}>{p.executable_path || '—'}</div></div>
-      <Badge value={p.access_error ? 'restricted' : 'low'} />
-    </div>
-    <div className="grid metrics" style={{ gridTemplateColumns: 'repeat(2,1fr)', marginTop: 21 }}>
-      <StatCard label="CPU" value={cpuStr} note="current utilization" tone="info" />
-      <StatCard label="Memory" value={memMB} note="private working set" tone="good" />
-    </div>
-    <div className="kpi-line" style={{ marginTop: 13 }}><span className="muted">Parent</span><b className="mono">{parent ? `${parent.name} (${parent.pid})` : (p.parent_pid != null ? String(p.parent_pid) : '—')}</b></div>
-    <div className="kpi-line"><span className="muted">Status</span><span className="signal-good mono"><Check size={12} style={{ verticalAlign: 'middle' }} /> {p.status || 'active'}</span></div>
-    {p.username && <div className="kpi-line"><span className="muted">User</span><b className="mono">{p.username}</b></div>}
-    {p.access_error && <div className="kpi-line"><span className="muted">Access</span><span className="signal-warn mono">{p.access_error}</span></div>}
-    {p.creation_time && <div className="kpi-line"><span className="muted">Created</span><b className="mono">{new Date(p.creation_time).toLocaleTimeString()}</b></div>}
-  </>;
-}
-
-function DemoProcessDetail({ selected, parentLabel, contained }: { selected: number; parentLabel: (pid: number | null) => string; contained: boolean }) {
-  const p = processSeed.find((x) => x.pid === selected) || processSeed[0];
-  const exePath = p.executable === 'invoice_viewer.exe' ? 'C:\\Users\\mira\\Downloads\\invoice_viewer.exe' : `C:\\Windows\\System32\\${p.executable}`;
-  return <>
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
-      <div><h2 style={{ margin: 0, fontSize: 20 }}>{p.executable}</h2><div className="muted mono" style={{ marginTop: 5 }}>{exePath}</div></div>
-      <Badge value={p.risk} />
-    </div>
-    <div className="grid metrics" style={{ gridTemplateColumns: 'repeat(2,1fr)', marginTop: 21 }}>
-      <StatCard label="CPU" value={contained && (p.pid === 8420 || p.pid === 9136 || p.pid === 10544) ? '0.0%' : p.cpu} note="current utilization" tone="info" />
-      <StatCard label="Memory" value={p.memory} note="private working set" tone="good" />
-    </div>
-    <div className="kpi-line" style={{ marginTop: 13 }}><span className="muted">Parent</span><b className="mono">{parentLabel(p.parent)}</b></div>
-    <div className="kpi-line"><span className="muted">File operations</span><b className="mono">{p.files}</b></div>
-    <div className="kpi-line"><span className="muted">Network connections</span><b className="mono">{p.network}</b></div>
-    <div className="kpi-line"><span className="muted">Status</span><span className="signal-good mono"><Check size={12} style={{ verticalAlign: 'middle' }} /> active</span></div>
-    <div className="kpi-line"><span className="muted">Risk classification</span><Badge value={p.risk} /></div>
-  </>;
-}
 
 function FilesPage({ toast }: { toast: (t: string, b: string) => void }) {
   const [query, setQuery] = useState(''); const [onlySensitive, setOnlySensitive] = useState(false); const rows = fileSeed.filter((f) => `${f.path} ${f.process} ${f.classification}`.toLowerCase().includes(query.toLowerCase()) && (!onlySensitive || f.risk === 'critical' || f.risk === 'high'));
@@ -1069,7 +948,7 @@ function AppContent() {
     if (location === '/detections') return <DetectionsPage detections={detections} toast={toast} setLocation={setLocation} />;
     if (location === '/detections/rules') return <RuleCatalogPage detections={detections} />;
     if (location === '/monitoring') return <MonitoringPage processMonitor={processMonitor} onNavigate={setLocation} />;
-    if (location === '/processes') return <ProcessesPage toast={toast} contained={contained} monitorData={processMonitor} />;
+    if (location === '/processes') return <ProcessesPage toast={toast} contained={contained} monitorData={processMonitor} onNavigate={setLocation} />;
     if (location === '/files') return <FilesPage toast={toast} />;
     if (location === '/network') return <NetworkPage toast={toast} contained={contained} />;
     if (location === '/exposure') return <ExposurePage phase={phase} toast={toast} />;

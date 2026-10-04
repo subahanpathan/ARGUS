@@ -223,4 +223,85 @@ function validateProcessEvent(event: unknown): { valid: true } | { valid: false;
   return { valid: true };
 }
 
+/**
+ * POST /api/processes/:pid/terminate
+ * Terminate a process by PID and emit a PROCESS_TERMINATED event.
+ */
+router.post("/processes/:pid/terminate", (req: Request, res: Response) => {
+  const pid = parseInt(req.params.pid, 10);
+  if (isNaN(pid) || pid <= 0) {
+    res.status(400).json({ error: "Invalid PID" });
+    return;
+  }
+
+  // Refuse to terminate critical system PIDs
+  if (pid === 0 || pid === 4) {
+    res.status(403).json({ error: "Cannot terminate core OS system process (PID 0/4)" });
+    return;
+  }
+
+  const procName = typeof req.body?.name === "string" ? req.body.name : `PID ${pid}`;
+
+  if (process.platform === "win32") {
+    import("child_process").then(({ execFile }) => {
+      execFile("taskkill", ["/F", "/PID", String(pid)], (error, stdout, stderr) => {
+        if (error) {
+          const combined = `${stdout} ${stderr}`;
+          const isAccessDenied = combined.toLowerCase().includes("access is denied");
+          const isNotFound = combined.toLowerCase().includes("not found");
+
+          res.status(isAccessDenied ? 403 : isNotFound ? 404 : 500).json({
+            success: false,
+            error: isAccessDenied
+              ? "Access denied: elevated administrator privileges required to terminate this process."
+              : isNotFound
+              ? "Process not found or already exited."
+              : `Termination failed: ${combined.trim() || error.message}`,
+            detail: combined.trim(),
+          });
+          return;
+        }
+
+        eventHub.addEvent({
+          id: `term-${pid}-${Date.now()}`,
+          event_type: "PROCESS_TERMINATED",
+          timestamp: new Date().toISOString(),
+          pid,
+          process_name: procName,
+          source: "remediation_action",
+          observed: true,
+        });
+
+        res.json({
+          success: true,
+          pid,
+          message: `Process ${procName} (PID ${pid}) was successfully terminated.`,
+        });
+      });
+    }).catch((err) => {
+      res.status(500).json({ error: err.message });
+    });
+  } else {
+    try {
+      process.kill(pid, "SIGTERM");
+      eventHub.addEvent({
+        id: `term-${pid}-${Date.now()}`,
+        event_type: "PROCESS_TERMINATED",
+        timestamp: new Date().toISOString(),
+        pid,
+        process_name: procName,
+        source: "remediation_action",
+        observed: true,
+      });
+      res.json({
+        success: true,
+        pid,
+        message: `Process ${procName} (PID ${pid}) was successfully terminated.`,
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  }
+});
+
 export default router;

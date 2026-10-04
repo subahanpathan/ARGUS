@@ -77,10 +77,12 @@ export type TelemetryStreamState = {
   telemetry: SystemTelemetryData | null;
   /** ISO timestamp of last received telemetry */
   lastUpdateTime: string | null;
+  /** Force an immediate telemetry fetch */
+  refresh: () => Promise<void>;
 };
 
 const RECONNECT_DELAY_MS = 3000;
-const POLL_MS = 5000;
+const POLL_MS = 4000;
 
 export function useTelemetryStream(): TelemetryStreamState {
   const [connected, setConnected] = useState(false);
@@ -99,6 +101,8 @@ export function useTelemetryStream(): TelemetryStreamState {
           setTelemetry(data);
           setLastUpdateTime(data.timestamp);
           setHasData(true);
+          // If we successfully get fresh data from polling, mark connected
+          setConnected(true);
         }
       }
     } catch {
@@ -128,6 +132,7 @@ export function useTelemetryStream(): TelemetryStreamState {
 
             // Connection confirmation — may include initial telemetry
             if (data.type === "connected") {
+              setConnected(true);
               if (data.telemetry && data.telemetry.timestamp) {
                 setTelemetry(data.telemetry);
                 setLastUpdateTime(data.telemetry.timestamp);
@@ -141,6 +146,7 @@ export function useTelemetryStream(): TelemetryStreamState {
               setTelemetry(data);
               setLastUpdateTime(data.timestamp);
               setHasData(true);
+              setConnected(true);
             }
           } catch {
             // Ignore parse errors (heartbeat lines etc.)
@@ -149,7 +155,7 @@ export function useTelemetryStream(): TelemetryStreamState {
 
         es.onerror = () => {
           if (!cancelled) {
-            setConnected(false);
+            // Don't immediately drop connected status if we have recent polled data
             es.close();
             reconnectTimerRef.current = setTimeout(connect, RECONNECT_DELAY_MS);
           }
@@ -177,5 +183,6 @@ export function useTelemetryStream(): TelemetryStreamState {
     };
   }, [fetchTelemetry]);
 
-  return { connected, hasData, telemetry, lastUpdateTime };
+  return { connected, hasData, telemetry, lastUpdateTime, refresh: fetchTelemetry };
 }
+

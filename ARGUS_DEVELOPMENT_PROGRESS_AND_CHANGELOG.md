@@ -8,7 +8,7 @@ This document tracks all development milestones, historical changes, active impl
 
 | # | Feature / Subsystem | Baseline % | Current % | Operational Status | Verification Method |
 |---|---|:---:|:---:|---|---|
-| 1 | **Process Monitoring & Explorer** | 95% | 95% | 🟢 Live Windows OS | `psutil` differential process polling (2s) |
+| 1 | **Process Monitoring & Explorer** | 95% | **100%** | 🟢 Complete Upgrade | Dual Graph/Table view, real-time search, PID/path inspector, live Windows stream |
 | 2 | **Network Connections & Sockets** | 95% | 95% | 🟢 Live Windows OS | Active TCP/UDP socket polling & IP classification |
 | 3 | **Port Intelligence & Wildcard Audit** | 100% | 100% | 🟢 Live Windows OS | Listening port discovery & wildcard binding check |
 | 4 | **Network Topology Mapping** | 90% | 90% | 🟢 Live Windows OS | Interface discovery, gateway & subnet graph |
@@ -16,9 +16,9 @@ This document tracks all development milestones, historical changes, active impl
 | 6 | **Filesystem Threat Scanner** | 85% | 85% | 🟢 Live Windows OS | High-risk directory scanner (`AppData`, `Temp`, etc.) |
 | 7 | **Deterministic Detection Engine** | 100% | 100% | 🟢 Complete Backend | 21 pure rules (PROC/NET/FILE) with 100% unit tests |
 | 8 | **Threats Management Feed** | 85% | 85% | 🟡 Hybrid Live/Demo | Live correlation hook; status is React-state only |
-| 9 | **Live Monitoring & System Vitals** | 75% | **95%** | 🟢 Complete Upgrade | Live host stream + demo fallback + top processes + bandwidth rate |
+| 9 | **Live Monitoring & System Vitals** | 75% | **100%** | 🟢 Complete Upgrade | Live host stream + demo fallback + top processes + bandwidth rate + resilient connection |
 | 10 | **Active Endpoint Containment** | 15% | 15% | 🔴 Simulated UI | Confirmation dialogs; OS netsh/firewall pending |
-| 11 | **Process Kill / Remediation** | 15% | 15% | 🔴 Simulated UI | Removes from UI; OS `taskkill`/terminate pending |
+| 11 | **Process Kill / Remediation** | 15% | **80%** | 🟢 Live Remediation | `POST /api/processes/:pid/terminate` with OS `taskkill`, PID 0/4 protection, SSE broadcast |
 | 12 | **File Quarantine Action & Vault** | 15% | 15% | 🔴 Simulated UI | React inventory; physical `.quarantine` pending |
 | 13 | **Exposure Analysis & Blast Radius** | 90% | 90% | 🟢 Complete | Risk scoring & compromised asset blast radius |
 | 14 | **Exposure Window View** | 95% | 95% | 🟢 Complete | Timeline tracking first suspicious activity → containment |
@@ -30,7 +30,7 @@ This document tracks all development milestones, historical changes, active impl
 | 20 | **Autonomous Demo Simulation** | 100% | 100% | 🟢 Complete | 8-stage automated walkthrough mode |
 | 21 | **Data Persistence & Database** | 15% | 15% | 🔴 Dormant | Schema in `lib/db`; API server runs in-memory |
 | 22 | **Authentication & RBAC** | 15% | 15% | 🔴 Simulated | Client-side visual login; no backend JWT/session |
-| 23 | **Frontend Code Architecture** | 40% | **45%** | 🟡 Modularizing | Extracted `monitoring-page.tsx`; continuing per page |
+| 23 | **Frontend Code Architecture** | 40% | **55%** | 🟡 Modularizing | Extracted `monitoring-page.tsx` & `processes-page.tsx`; continuing per page |
 
 ---
 
@@ -91,4 +91,40 @@ This document tracks all development milestones, historical changes, active impl
   * Real-time sensor indicator shows connection status dynamically (Waiting on port 5000 vs. Sensor streaming live).
 * **Production Build Verified**:
   * Successfully built client bundle (`vite build`) and verified static asset serving.
+
+### Session 3: Process Activity Modernization & Standalone Sensor Agent Fix (COMPLETED)
+
+#### Problem Statement & Root Cause Analysis
+1. **Sensor Connection Failure**:
+   * Previously, `start-sensor.bat` ran `python artifacts/security-engine/main.py --api --snapshot`. When remote users or friends downloaded `start-sensor.bat` into their `Downloads` folder, the relative file path did not exist on their machine, causing Python to fail immediately (`No such file or directory`).
+   * The status check in `MonitoringPage` relied strictly on `telemetry.connected` (the open SSE socket), causing the UI to flip to "ENGINE OFFLINE" whenever SSE reconnected or in proxy/serverless environments.
+   * When live telemetry was active, the "Connect My PC Sensor" button was completely removed from the page, preventing users from opening setup instructions for secondary machines.
+2. **Process Activity Limitations**:
+   * `ProcessesPage` was hardcoded inside `App.tsx` (over 120 lines).
+   * It lacked search, resource-level filtering, and an explorer table for navigating 300+ live Windows host processes.
+   * Windows root process discovery in `ProcessGraph` failed because Windows processes report integer parent PIDs (`0`, `4`, etc.) rather than `null`.
+   * Process termination was 100% simulated without a real backend execution endpoint.
+
+#### New Changes & Verification
+* **Standalone Sensor Agent (`argus_sensor.py`)**:
+  * Created [`artifacts/argus/public/argus_sensor.py`](file:///d:/PROJECT/ARGUS-main/artifacts/argus/public/argus_sensor.py) as a completely self-contained Python sensor.
+  * Auto-installs missing dependencies (`psutil`, `requests`) via `pip` on first run.
+  * Streams real hardware vitals (CPU, RAM, Disks, Network interfaces) and full process snapshots to any ARGUS dashboard (local or remote/Vercel).
+* **Self-Contained Launchers (`start-sensor.bat` & `start-sensor.ps1`)**:
+  * Updated [`artifacts/argus/public/start-sensor.bat`](file:///d:/PROJECT/ARGUS-main/artifacts/argus/public/start-sensor.bat) to download `argus_sensor.py` dynamically if run outside the repository.
+  * Added 1-line direct PowerShell execution support: `powershell -ExecutionPolicy Bypass -Command "irm '<target>/start-sensor.ps1' | iex"`.
+* **Resilient Telemetry Connection**:
+  * Updated [`artifacts/argus/src/hooks/use-telemetry-stream.ts`](file:///d:/PROJECT/ARGUS-main/artifacts/argus/src/hooks/use-telemetry-stream.ts) and [`artifacts/argus/src/pages/monitoring-page.tsx`](file:///d:/PROJECT/ARGUS-main/artifacts/argus/src/pages/monitoring-page.tsx) to treat recent polled data as an active live connection.
+  * Added persistent "Sensor Agent Setup" button with an instant "Check Status" trigger.
+* **Process Activity Subsystem Upgrade**:
+  * Created dedicated [`artifacts/argus/src/pages/processes-page.tsx`](file:///d:/PROJECT/ARGUS-main/artifacts/argus/src/pages/processes-page.tsx).
+  * Dual View Modes: **Interactive Process Graph** and **Sortable Process Explorer Table**.
+  * Real-time search across Name, PID, User, and Path.
+  * Filter by resource intensity (High CPU ≥ 2.0%, High RAM ≥ 150 MB).
+  * Forensic Process Inspector with PID copy, executable path copy, and cross-subsystem links to Network and Files.
+  * Real OS Process Termination endpoint: `POST /api/processes/:pid/terminate` with Windows `taskkill /F`, protected core PIDs (0/4), and SSE event broadcasting.
+* **Verification**:
+  * Tested live telemetry streaming in browser (`live_monitoring_page_1791103415182.png`): Confirmed `((o)) REAL WINDOWS TELEMETRY` active on 12 cores with 315 live processes.
+  * Tested process explorer and search filter (`process_filtered_inspection_1791100880826.png`).
+
 

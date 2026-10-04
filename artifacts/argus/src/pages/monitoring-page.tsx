@@ -171,7 +171,12 @@ const fallbackTopProcesses = [
 
 export default function MonitoringPage({ processMonitor, onNavigate }: MonitoringPageProps) {
   const telemetry = useTelemetryStream();
-  const isOnline = telemetry.connected && telemetry.hasData && telemetry.telemetry != null;
+  const isFresh = telemetry.lastUpdateTime
+    ? Math.abs(Date.now() - new Date(telemetry.lastUpdateTime).getTime()) < 35000
+    : false;
+  const isOnline =
+    ((telemetry.connected && telemetry.hasData) || isFresh || Boolean(processMonitor?.hasData)) &&
+    telemetry.telemetry != null;
   const latest = telemetry.telemetry;
 
   // Track network throughput rate (Upload/Download delta velocity)
@@ -296,17 +301,15 @@ export default function MonitoringPage({ processMonitor, onNavigate }: Monitorin
         actions={
           <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
             {statusBadge}
-            {!isOnline && (
-              <button
-                type="button"
-                className="btn btn-primary"
-                style={{ fontSize: 11, padding: '5px 10px' }}
-                onClick={() => setShowSensorModal(true)}
-              >
-                <Radio size={11} style={{ marginRight: 5 }} />
-                Connect My PC Sensor
-              </button>
-            )}
+            <button
+              type="button"
+              className={cn('btn', isOnline ? 'btn-ghost' : 'btn-primary')}
+              style={{ fontSize: 11, padding: '5px 10px' }}
+              onClick={() => setShowSensorModal(true)}
+            >
+              <Radio size={11} style={{ marginRight: 5 }} />
+              {isOnline ? 'Sensor Agent Setup' : 'Connect My PC Sensor'}
+            </button>
           </div>
         }
       />
@@ -390,10 +393,10 @@ export default function MonitoringPage({ processMonitor, onNavigate }: Monitorin
               Web browsers run in a strict security sandbox and cannot read your PC's hardware or processes directly. Running the lightweight ARGUS sensor on your machine grants permission to stream your live telemetry.
             </p>
 
-            <div style={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 6, padding: 14, marginBottom: 14 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, marginBottom: 6 }}>Option 1: 1-Click Windows Launcher</div>
+            <div style={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 6, padding: 14, marginBottom: 12 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, marginBottom: 4 }}>Option 1: 1-Click Windows Launcher</div>
               <p style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))', margin: '0 0 10px' }}>
-                Download the launcher and double-click to start streaming. Requires Python 3.10+.
+                Self-contained launcher: downloads and runs the local Python sensor to stream this PC's live hardware and processes to this dashboard.
               </p>
               <a
                 href="/start-sensor.bat"
@@ -405,10 +408,47 @@ export default function MonitoringPage({ processMonitor, onNavigate }: Monitorin
               </a>
             </div>
 
-            <div style={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 6, padding: 14, marginBottom: 16 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, marginBottom: 6 }}>Option 2: Run in Terminal (PowerShell / CMD)</div>
+            <div style={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 6, padding: 14, marginBottom: 12 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, marginBottom: 4 }}>Option 2: 1-Line PowerShell (Direct streaming)</div>
               <p style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))', margin: '0 0 8px' }}>
-                Run this single command inside your project folder:
+                Paste into Windows PowerShell (no download needed):
+              </p>
+              <div
+                style={{
+                  background: 'hsl(var(--background))',
+                  border: '1px solid hsl(var(--border))',
+                  borderRadius: 4,
+                  padding: '8px 12px',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                }}
+              >
+                <code className="mono" style={{ fontSize: 10, color: 'hsl(var(--primary))', wordBreak: 'break-all' }}>
+                  {typeof window !== 'undefined'
+                    ? `powershell -ExecutionPolicy Bypass -Command "irm '${window.location.origin}/start-sensor.ps1' | iex"`
+                    : `powershell -ExecutionPolicy Bypass -Command "irm 'http://localhost:5000/start-sensor.ps1' | iex"`}
+                </code>
+                <button
+                  type="button"
+                  className="btn btn-ghost"
+                  style={{ padding: '3px 7px', fontSize: 10, marginLeft: 8 }}
+                  onClick={() =>
+                    copyCommand(
+                      `powershell -ExecutionPolicy Bypass -Command "irm '${window.location.origin}/start-sensor.ps1' | iex"`
+                    )
+                  }
+                  title="Copy command"
+                >
+                  {copied ? <Check size={12} className="signal-good" /> : <Copy size={12} />}
+                </button>
+              </div>
+            </div>
+
+            <div style={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 6, padding: 14, marginBottom: 16 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, marginBottom: 4 }}>Option 3: Cloned Repository Terminal</div>
+              <p style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))', margin: '0 0 8px' }}>
+                If you have cloned the project locally, run:
               </p>
               <div
                 style={{
@@ -435,7 +475,7 @@ export default function MonitoringPage({ processMonitor, onNavigate }: Monitorin
               </div>
             </div>
 
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 10, borderTop: '1px solid hsl(var(--border))' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 10, borderTop: '1px solid hsl(var(--border))', flexWrap: 'wrap', gap: 8 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11 }}>
                 <span
                   className="event-dot"
@@ -445,8 +485,17 @@ export default function MonitoringPage({ processMonitor, onNavigate }: Monitorin
                   }}
                 />
                 <span className="mono muted">
-                  {isOnline ? 'Sensor detected · live telemetry streaming' : 'Waiting for sensor on port 5000...'}
+                  {isOnline ? 'Sensor detected · streaming live' : 'Waiting for sensor data...'}
                 </span>
+                <button
+                  type="button"
+                  className="btn btn-ghost"
+                  style={{ padding: '2px 8px', fontSize: 10, marginLeft: 4 }}
+                  onClick={() => telemetry.refresh()}
+                  title="Check sensor status now"
+                >
+                  <RefreshCw size={11} style={{ marginRight: 4 }} /> Check Status
+                </button>
               </div>
               <button
                 type="button"
