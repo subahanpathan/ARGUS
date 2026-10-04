@@ -95,7 +95,8 @@ export function LiveChart({
     for (let i = 0; i < buf.length; i++) {
       const s = buf[i];
       const age = Math.max(0, lastT - s.t);
-      xs.push(VIEW_W * (0.04 + 0.96 * (1 - age / usable)));
+      const progress = Math.max(0, Math.min(1, 1 - age / usable));
+      xs.push(VIEW_W * (0.02 + 0.98 * progress));
       const ratio = Math.max(0, Math.min(1, s.v / currentMax));
       ys.push(VIEW_H - PAD_BOT - ratio * (VIEW_H - PAD_TOP - PAD_BOT));
     }
@@ -114,15 +115,18 @@ export function LiveChart({
 
     let points = '';
     for (let i = 0; i < smooth.length; i++) {
-      points += `${i === 0 ? '' : ' '}${xs[i].toFixed(1)},${smooth[i].toFixed(1)}`;
+      const clampedX = Math.max(0, Math.min(VIEW_W, xs[i]));
+      points += `${i === 0 ? '' : ' '}${clampedX.toFixed(1)},${smooth[i].toFixed(1)}`;
     }
     line.setAttribute('points', points);
-    area.setAttribute('points', `0,${VIEW_H} ${points} ${VIEW_W},${VIEW_H}`);
 
-    const lastX = xs[smooth.length - 1] ?? VIEW_W;
+    const firstX = Math.max(0, Math.min(VIEW_W, xs[0] ?? 0));
+    const lastX = Math.max(0, Math.min(VIEW_W, xs[smooth.length - 1] ?? VIEW_W));
+    area.setAttribute('points', `${firstX.toFixed(1)},${VIEW_H} ${points} ${lastX.toFixed(1)},${VIEW_H}`);
+
     const lastY = smooth[smooth.length - 1] ?? 0;
-    const xPct = (lastX / VIEW_W) * 100;
-    const yPct = (lastY / VIEW_H) * 100;
+    const xPct = Math.max(2, Math.min(98, (lastX / VIEW_W) * 100));
+    const yPct = Math.max(5, Math.min(95, (lastY / VIEW_H) * 100));
     if (dot) dot.style.transform = `translate(${xPct}%, ${yPct}%) translate(-50%, -50%)`;
     if (tag) {
       const f = formatRef.current ?? ((n: number) => String(Math.round(n)));
@@ -140,7 +144,7 @@ export function LiveChart({
     const newest = buf[buf.length - 1].t;
     let cut = -1;
     for (let i = 0; i < buf.length - 1; i++) {
-      if (buf[i].t < newest - usable * 1.25) cut = i;
+      if (buf[i].t < newest - usable) cut = i;
     }
     if (cut >= 0) buf.splice(0, cut + 1);
     if (buf.length > MAX_SAMPLES) buf.splice(0, buf.length - MAX_SAMPLES);
@@ -226,6 +230,7 @@ export function LiveChart({
               className="live-chart-svg"
               viewBox={`0 0 ${VIEW_W} ${VIEW_H}`}
               preserveAspectRatio="none"
+              style={{ overflow: 'hidden' }}
               aria-hidden
             >
               <defs>
@@ -233,8 +238,16 @@ export function LiveChart({
                   <stop offset="0%" stopColor={tone.stroke} stopOpacity="0.22" />
                   <stop offset="100%" stopColor={tone.stroke} stopOpacity="0.02" />
                 </linearGradient>
+                <clipPath id={`clip-${gradientId}`}>
+                  <rect x="0" y="0" width={VIEW_W} height={VIEW_H} />
+                </clipPath>
               </defs>
-              <polygon ref={areaRef} className="live-chart-area" fill={`url(#${gradientId})`} />
+              <polygon
+                ref={areaRef}
+                className="live-chart-area"
+                fill={`url(#${gradientId})`}
+                clipPath={`url(#clip-${gradientId})`}
+              />
               <polyline
                 ref={lineRef}
                 className="live-chart-line"
@@ -244,6 +257,7 @@ export function LiveChart({
                 strokeLinejoin="round"
                 strokeLinecap="round"
                 vectorEffect="non-scaling-stroke"
+                clipPath={`url(#clip-${gradientId})`}
               />
             </svg>
             <div ref={dotRef} className="live-chart-dot" style={{ background: tone.stroke }} />

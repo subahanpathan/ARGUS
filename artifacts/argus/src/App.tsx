@@ -36,6 +36,7 @@ import { useFileScan } from '@/hooks/use-file-scan';
 import { ProcessGraph, buildGraphFromSeed, buildGraphFromTelemetry } from '@/motion/process-graph';
 import { LiveChart } from '@/motion/live-chart';
 import NotFound from '@/pages/not-found';
+import MonitoringPage from '@/pages/monitoring-page';
 
 const queryClient = new QueryClient();
 
@@ -328,61 +329,7 @@ function fmtUptime(seconds?: number): string {
   return `${s}s`;
 }
 
-function MonitoringPage() {
-  const telemetry = useTelemetryStream();
-  const isOnline = telemetry.connected && telemetry.hasData && telemetry.telemetry != null;
-  const latest = telemetry.telemetry;
-  const cpu = latest?.cpu;
-  const mem = latest?.memory;
-  const disk = latest?.disk;
-  const proc = latest?.processes;
-  const sys = latest?.system;
-  const net = latest?.network;
-
-  const statusBadge = isOnline
-    ? <span className="badge badge-low" style={{ background: 'hsl(142 71% 20%)', color: 'hsl(142 71% 70%)', border: '1px solid hsl(142 71% 30%)' }}><Radio size={10} style={{ marginRight: 4, verticalAlign: 'middle' }} />REAL WINDOWS TELEMETRY</span>
-    : <span className="badge badge-muted" style={{ background: 'hsl(var(--muted))', color: 'hsl(var(--muted-foreground))', border: '1px solid hsl(var(--border))' }}><AlertTriangle size={10} style={{ marginRight: 4, verticalAlign: 'middle' }} />MONITORING ENGINE OFFLINE</span>;
-
-  return <div className="animate-page-enter">
-    <PageHeading eyebrow="Host telemetry · streaming" title="Live monitoring" subtitle="Real Windows system telemetry collected from this machine via psutil." actions={statusBadge} />
-    {!isOnline && <div className="scan-strip" style={{ marginBottom: 14, background: 'hsl(var(--muted))' }} data-testid="telemetry-offline-banner"><div className="scan-status" style={{ color: 'hsl(var(--muted-foreground))' }}><AlertTriangle size={15} /><div><b>MONITORING ENGINE OFFLINE</b><small> · Start the ARGUS security engine and API server to stream real Windows telemetry. Values below are not displayed, as the stream is disconnected.</small></div></div></div>}
-    <div className={isOnline ? "grid live-telemetry-grid" : "grid metrics"}>
-      {isOnline ? (
-        <div className="live-telemetry-row">
-          <Card className="card-pad live-telemetry-cell"><LiveChart value={cpu?.percent ?? null} label="CPU utilization" max={100} format={(n) => `${n.toFixed(1)}%`} color="primary" height={140} /></Card>
-          <Card className="card-pad live-telemetry-cell"><LiveChart value={mem?.percent ?? null} label="Memory pressure" max={100} format={(n) => `${n.toFixed(1)}%`} color="accent" height={140} /></Card>
-          <Card className="card-pad live-telemetry-cell"><LiveChart value={disk?.percent ?? null} label="Disk utilization" max={100} format={(n) => `${n.toFixed(1)}%`} color="warn" height={140} /></Card>
-        </div>
-      ) : (
-        <>
-          <StatCard label="CPU" value={isOnline && cpu?.percent != null ? `${cpu.percent.toFixed(1)}%` : '—'} note={isOnline ? `${cpu?.count ?? '?'} logical · ${cpu?.physical_count ?? '?'} physical cores` : 'Stream disconnected'} tone="info" icon={Cpu} />
-          <StatCard label="Memory" value={isOnline && mem?.percent != null ? `${mem.percent.toFixed(1)}%` : '—'} note={isOnline ? `${fmtBytes(mem?.used_bytes)} of ${fmtBytes(mem?.total_bytes)}` : 'Stream disconnected'} tone="good" icon={Database} />
-          <StatCard label="Disk" value={isOnline && disk?.percent != null ? `${disk.percent.toFixed(1)}%` : '—'} note={isOnline ? `${fmtBytes(disk?.free_bytes)} free on ${disk?.mount ?? 'system'}` : 'Stream disconnected'} tone="good" icon={FolderOpen} />
-          <StatCard label="Processes" value={isOnline && proc?.running != null ? String(proc.running) : '—'} note={isOnline ? 'running on this host' : 'Stream disconnected'} tone="good" icon={TerminalSquare} />
-        </>
-      )}
-    </div>
-    <div className="grid split-grid" style={{ marginTop: 14 }}>
-      <Card className="card-pad">
-        <PanelTitle title="System" detail="UPTIME & OS" />
-        <div className="kpi-line"><span className="muted">Uptime</span><b className="mono">{isOnline ? fmtUptime(sys?.uptime_seconds) : '—'}</b></div>
-        <div className="kpi-line"><span className="muted">Boot time</span><b className="mono">{isOnline && sys?.boot_time ? new Date(sys.boot_time * 1000).toLocaleString() : '—'}</b></div>
-        <div className="kpi-line"><span className="muted">Source</span><b className="mono">{latest?.source ?? '—'}</b></div>
-        <div className="kpi-line"><span className="muted">Observed</span><b className="mono">{latest?.observed ? 'true' : 'false'}</b></div>
-        <div className="kpi-line"><span className="muted">Last update</span><b className="mono">{telemetry.hasData ? fmtTime(telemetry.lastUpdateTime ?? undefined) : '—'}</b></div>
-      </Card>
-      <Card className="card-pad">
-        <PanelTitle title="Network interfaces" detail={`${isOnline ? `${net?.active_count ?? 0} ACTIVE / ${net?.total_count ?? 0} TOTAL` : '—'}`} />
-        {(isOnline && net?.interfaces?.length) ? net.interfaces.slice(0, 6).map((iface) => (
-          <div className="kpi-line" key={iface.name}>
-            <span>{iface.name}<br /><span className="muted mono">{iface.addresses?.join(', ') || (iface.is_up ? 'up · no address' : 'down')}</span></span>
-            <span style={{ textAlign: 'right' }}><span className={iface.is_up ? 'signal-good' : 'signal-warn'}>{iface.is_up ? 'UP' : 'DOWN'}</span><br /><span className="mono muted">{fmtBytes(iface.bytes_sent)} ↑ · {fmtBytes(iface.bytes_recv)} ↓</span></span>
-          </div>
-        )) : <div className="empty"><h3>No network telemetry</h3><p>{isOnline ? 'No interface data received.' : 'Connect the engine to see interface state.'}</p></div>}
-      </Card>
-    </div>
-  </div>;
-}
+// MonitoringPage extracted to @/pages/monitoring-page
 
 type ProcessesPageProps = {
   toast: (t: string, b: string) => void;
@@ -1121,7 +1068,7 @@ function AppContent() {
     if (location === '/threats') return <ThreatsPage threats={threats} onContain={containThreat} toast={toast} setModal={setModal} setLocation={setLocation} threatAnalysis={threatAnalysis} demoReached={autoDemo.state.demoReached} />;
     if (location === '/detections') return <DetectionsPage detections={detections} toast={toast} setLocation={setLocation} />;
     if (location === '/detections/rules') return <RuleCatalogPage detections={detections} />;
-    if (location === '/monitoring') return <MonitoringPage />;
+    if (location === '/monitoring') return <MonitoringPage processMonitor={processMonitor} onNavigate={setLocation} />;
     if (location === '/processes') return <ProcessesPage toast={toast} contained={contained} monitorData={processMonitor} />;
     if (location === '/files') return <FilesPage toast={toast} />;
     if (location === '/network') return <NetworkPage toast={toast} contained={contained} />;

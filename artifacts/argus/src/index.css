@@ -253,15 +253,15 @@ button:disabled { cursor: not-allowed; opacity: .55; }
 .event-time { color:hsl(var(--muted-foreground)); font:10px var(--app-font-mono); white-space:nowrap; }
 
 /* === Live telemetry chart (premium) === */
-.live-chart { display:flex; flex-direction:column; gap:8px; min-width:0; }
+.live-chart { display:flex; flex-direction:column; gap:8px; min-width:0; overflow:hidden; }
 .live-chart-head { display:flex; align-items:baseline; justify-content:space-between; gap:12px; }
 .live-chart-label { font:500 10px var(--app-font-mono); text-transform:uppercase; letter-spacing:.1em; color:hsl(var(--muted-foreground)); }
 .live-chart-value { font:800 18px var(--app-font-sans); letter-spacing:-.04em; font-variant-numeric:tabular-nums; }
 .live-chart-value.muted { color:hsl(var(--muted-foreground)); }
-.live-chart-body { position:relative; flex:1; min-height:0; }
+.live-chart-body { position:relative; flex:1; min-height:0; overflow:hidden; }
 .live-chart-grid { position:absolute; inset:0; display:flex; flex-direction:column; justify-content:space-between; pointer-events:none; }
 .live-chart-grid i { border-top:1px dashed hsl(var(--border)/.6); display:block; }
-.live-chart-svg { position:absolute; inset:0; width:100%; height:100%; overflow:visible; }
+.live-chart-svg { position:absolute; inset:0; width:100%; height:100%; overflow:hidden; }
 .live-chart-area { transition:opacity var(--dur-fast) var(--ease-standard); }
 .live-chart-line { vector-effect:non-scaling-stroke; shape-rendering:geometricPrecision; }
 .live-chart-dot { position:absolute; width:7px; height:7px; border-radius:50%; pointer-events:none; will-change:transform; box-shadow:0 0 0 3px hsl(var(--background)); animation: chartDotPulse 2.8s var(--ease-in-out) infinite; }
@@ -271,7 +271,8 @@ button:disabled { cursor: not-allowed; opacity: .55; }
 
 /* === Live telemetry dashboard grid === */
 .live-telemetry-row { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px; }
-.live-telemetry-cell .live-chart { height:100%; }
+.live-telemetry-cell { overflow:hidden; }
+.live-telemetry-cell .live-chart { height:100%; overflow:hidden; }
 .scan-strip { border:1px solid hsl(var(--primary)/.3); background:linear-gradient(90deg,rgba(71,215,239,.1),rgba(71,215,239,.02)); border-radius:7px; padding:15px 17px; display:flex; justify-content:space-between; align-items:center; gap:16px; margin-bottom:17px; position:relative; overflow:hidden; }
 .scan-strip:after { content:''; position:absolute; top:0; bottom:0; width:30%; background:linear-gradient(90deg,transparent,hsl(var(--primary)/.12),transparent); animation:scan 4s ease-in-out infinite; }
 .scan-status { display:flex; gap:9px; align-items:center; font-size:12px; font-weight:700; position:relative; z-index:1; }

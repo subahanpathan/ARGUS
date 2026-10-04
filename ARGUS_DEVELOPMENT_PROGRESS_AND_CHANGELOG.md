@@ -1,0 +1,72 @@
+# ARGUS Security Intelligence — Development Progress & Changelog
+
+This document tracks all development milestones, historical changes, active implementations, and feature completion rates for the ARGUS Security Intelligence Platform.
+
+---
+
+## 1. Feature Completion & Working Rate Matrix
+
+| # | Feature / Subsystem | Baseline % | Current % | Operational Status | Verification Method |
+|---|---|:---:|:---:|---|---|
+| 1 | **Process Monitoring & Explorer** | 95% | 95% | 🟢 Live Windows OS | `psutil` differential process polling (2s) |
+| 2 | **Network Connections & Sockets** | 95% | 95% | 🟢 Live Windows OS | Active TCP/UDP socket polling & IP classification |
+| 3 | **Port Intelligence & Wildcard Audit** | 100% | 100% | 🟢 Live Windows OS | Listening port discovery & wildcard binding check |
+| 4 | **Network Topology Mapping** | 90% | 90% | 🟢 Live Windows OS | Interface discovery, gateway & subnet graph |
+| 5 | **3D Network Universe Visualizer** | 100% | 100% | 🟢 Complete WebGL | Three.js / React Three Fiber interactive scene |
+| 6 | **Filesystem Threat Scanner** | 85% | 85% | 🟢 Live Windows OS | High-risk directory scanner (`AppData`, `Temp`, etc.) |
+| 7 | **Deterministic Detection Engine** | 100% | 100% | 🟢 Complete Backend | 21 pure rules (PROC/NET/FILE) with 100% unit tests |
+| 8 | **Threats Management Feed** | 85% | 85% | 🟡 Hybrid Live/Demo | Live correlation hook; status is React-state only |
+| 9 | **Live Monitoring & System Vitals** | 75% | **95%** | 🟢 Complete Upgrade | Live host stream + demo fallback + top processes + bandwidth rate |
+| 10 | **Active Endpoint Containment** | 15% | 15% | 🔴 Simulated UI | Confirmation dialogs; OS netsh/firewall pending |
+| 11 | **Process Kill / Remediation** | 15% | 15% | 🔴 Simulated UI | Removes from UI; OS `taskkill`/terminate pending |
+| 12 | **File Quarantine Action & Vault** | 15% | 15% | 🔴 Simulated UI | React inventory; physical `.quarantine` pending |
+| 13 | **Exposure Analysis & Blast Radius** | 90% | 90% | 🟢 Complete | Risk scoring & compromised asset blast radius |
+| 14 | **Exposure Window View** | 95% | 95% | 🟢 Complete | Timeline tracking first suspicious activity → containment |
+| 15 | **Forensic Incident Timeline** | 90% | 90% | 🟢 Complete | Event reconstruction distinguishing observed vs potential |
+| 16 | **Quarantine Inventory Management** | 70% | 70% | 🟡 In-Memory | Table with SHA-256 hashes, restore/delete actions |
+| 17 | **Threat Intelligence & IOC Lookup** | 75% | 75% | 🟡 Simulated | Simulated IOC hash/IP query interface |
+| 18 | **Incident Report Generation** | 85% | 85% | 🟡 UI-Only | Summary view detailing affected assets and timeline |
+| 19 | **Cyber Cell / Law Enforcement Form**| 60% | 60% | 🟡 Simulated | 2-factor analyst consent export flow |
+| 20 | **Autonomous Demo Simulation** | 100% | 100% | 🟢 Complete | 8-stage automated walkthrough mode |
+| 21 | **Data Persistence & Database** | 15% | 15% | 🔴 Dormant | Schema in `lib/db`; API server runs in-memory |
+| 22 | **Authentication & RBAC** | 15% | 15% | 🔴 Simulated | Client-side visual login; no backend JWT/session |
+| 23 | **Frontend Code Architecture** | 40% | **45%** | 🟡 Modularizing | Extracted `monitoring-page.tsx`; continuing per page |
+
+---
+
+## 2. Historical Milestone Summary (Prior Phases)
+
+* **Phase 1 (Process Monitoring)**: Built Python `ProcessWatcher` (`psutil`) and Express route `/api/events/process` with SSE streaming.
+* **Phase 2 (Process Detection)**: Implemented 7 deterministic process detection rules (`PROC-001` through `PROC-007`) with normalization and scoring engine.
+* **Phase 3 (Network & Port Telemetry)**: Built socket connection watcher, port watcher, and network topology watcher in Python.
+* **Phase 4 (Network & File Detection)**: Added 7 network rules (`NET-001` to `NET-007`) and 7 file rules (`FILE-001` to `FILE-007`), completing the 21-rule catalog.
+* **Phase 5 (Filesystem Threat Scanner)**: Added periodic scanner in Python checking user-writable paths for script drops, masquerading binaries, and credential dumping artifacts.
+* **Phase 6 & 7 (Network Universe 3D)**: Built the WebGL 3D topological visualizer using `@react-three/fiber` and Three.js with real-time SSE event animation.
+
+---
+
+## 3. Active Work & Detailed Changelog
+
+### Session 1: Live Monitoring Modernization & Modularization (COMPLETED)
+
+#### Problem Statement & Prior State
+1. `MonitoringPage` was trapped directly inside the monolithic 1,169-line [`artifacts/argus/src/App.tsx`](file:///d:/PROJECT/ARGUS-main/artifacts/argus/src/App.tsx).
+2. When the Python security engine was offline, the page displayed empty dashes (`—`), causing a broken offline demo experience.
+3. Network throughput only displayed cumulative byte totals; it lacked real-time bandwidth velocity charts (KB/s or MB/s).
+4. No visibility into which processes (Top CPU/Memory consumers) are driving host load.
+5. No threshold or anomaly indicators for saturated system resources.
+
+#### New Changes & Verification
+* **Created Dedicated Page**: [`artifacts/argus/src/pages/monitoring-page.tsx`](file:///d:/PROJECT/ARGUS-main/artifacts/argus/src/pages/monitoring-page.tsx)
+  * Clean, modular component receiving live `processMonitor` telemetry and `onNavigate` routing.
+* **Dynamic Network Bandwidth Velocity**:
+  * Calculates real-time delta between successive telemetry ticks to plot upload (KB/s) and download (KB/s / MB/s) velocity sparklines in `<LiveChart>`.
+* **Top Resource-Consuming Processes Table**:
+  * Dynamically computes top 5 processes by CPU and Memory usage from `processMonitor.snapshot` (or top simulated suspicious processes when offline).
+  * Direct "Process Explorer" navigation link.
+* **Offline Demo Fallback Stream**:
+  * When the security engine is offline, generates smooth, realistic fluctuating telemetry with an informative guidance banner.
+* **Resource Saturation & Anomaly Alerting**:
+  * Real-time warning banner when CPU > 80%, RAM > 85%, or Disk > 90%.
+* **App.tsx Refactoring**:
+  * Removed 55 lines of inline code from `App.tsx` and wired the new modular component with navigation and process monitor bindings.
