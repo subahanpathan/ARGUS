@@ -238,6 +238,44 @@ This document tracks all development milestones, historical changes, active impl
 * **Verification**:
   * Frontend compilation verified with 0 errors via `corepack pnpm --filter @workspace/argus run build`.
 
+### Session 8: Quarantine & Cryptographic Evidence Vault (COMPLETED)
+
+#### Problem Statement & Analyst Needs
+1. `QuarantinePage` was previously a rudimentary ~15-line table stub embedded directly inside `App.tsx` lacking search, filtering, and deep forensic inspection.
+2. No cryptographic hash integrity verification (seals) to prove that isolated artifacts have not been tampered with or corrupted while retained in the vault.
+3. No legal Chain of Custody audit logs or defensible evidentiary tracking for SOC/legal compliance.
+4. No ability for security analysts to manually isolate suspicious host files into the vault during live triage, nor batch operations (batch restore / batch purge).
+
+#### New Changes & Verification
+* **Dedicated Modular Quarantine Page ([`artifacts/argus/src/pages/quarantine-page.tsx`](file:///d:/PROJECT/ARGUS-main/artifacts/argus/src/pages/quarantine-page.tsx))**:
+  * Extracted from `App.tsx` and refactored into a full-featured cryptographic evidence vault manager.
+  * **4-Card KPI Analytics Strip**:
+    * Vault Artifacts (`1` / dynamic count across endpoints).
+    * High & Critical Risk (`1` / dynamic execution locks active).
+    * Integrity Seal (`100% Valid` with live verification timestamp).
+    * Total Vault Volume (`0.74 MB` with 30-day legal preservation policy).
+  * **Interactive Search & Multi-Filter Bar**:
+    * Full-text search across artifact filename, host path, source process, SHA-256 hash, and reason.
+    * Severity filter (`Critical`, `High`, `Medium`, `Low`) and Vault Status filter.
+    * Multi-select checkboxes with batch controls (Batch Restore, Batch Purge).
+  * **Forensic Dossier Drawer Inspector**:
+    * Slide-over forensic inspector for isolated binaries.
+    * Full cryptographic fingerprints (SHA-256 with copy button, File Size, Entropy Score e.g. `7.82 / 8.00 Packed`, MITRE ATT&CK technique tags).
+    * Direct external VirusTotal hash search link.
+    * Defensible Chain-of-Custody Timeline tracking isolation, cryptographic stamping, and verification.
+    * Cross-subsystem pivots: View in File Explorer (`/files`) and Inspect Parent PID in Process Monitor (`/processes`).
+  * **Cryptographic Seal Verification**:
+    * Interactive "Verify Vault Seals" action running SHA-256 checksum checks across all stored items to guarantee evidence immutability.
+  * **Manual Artifact Isolation Modal**:
+    * Modal interface allowing analysts to manually input file paths, parent processes, severity levels, and forensic notes to isolate suspect artifacts into the vault.
+  * **1-Click Forensic Manifest & Data Exports**:
+    * **Signed JSON Manifest** (`INC-2024-1042-quarantine-manifest.json`): Structured legal schema including integrity audit, SHA-256 hashes, MITRE tags, and chain-of-custody logs.
+    * **Tabular CSV Export** (`ARGUS_quarantine_inventory.csv`).
+* **Verification**:
+  * Frontend compilation verified with 0 errors via `corepack pnpm --filter @workspace/argus build`.
+  * Verified end-to-end in the live browser via browser subagent (`quarantine_vault_test_1791120811888.webp`): verified 4 KPI cards, opened dossier drawer, checked SHA-256 and entropy metrics, ran vault seal verification, tested manual isolation modal, and confirmed all UI components.
+
+
 
 
 

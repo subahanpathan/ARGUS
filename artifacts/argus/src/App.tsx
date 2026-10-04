@@ -41,6 +41,7 @@ import FilesPage from '@/pages/files-page';
 import ExposurePage from '@/pages/exposure-page';
 import TimelinePage from '@/pages/timeline-page';
 import ExposureWindowPage from '@/pages/exposure-window-page';
+import QuarantinePage from '@/pages/quarantine-page';
 
 const queryClient = new QueryClient();
 
@@ -603,15 +604,7 @@ function NetworkPage({ toast, contained }: { toast: (t: string, b: string) => vo
 // ExposurePage extracted to @/pages/exposure-page
 // TimelinePage extracted to @/pages/timeline-page
 
-function QuarantinePage({ items, setItems, toast, setModal, setLocation }: { items: QuarantineItem[]; setItems: (items: QuarantineItem[]) => void; toast: (t: string, b: string) => void; setModal: (m: ModalState) => void; setLocation: (path: string) => void }) {
-  const action = (id: string, kind: 'restore' | 'delete') => setModal({ title: `${kind === 'delete' ? 'Permanently delete' : 'Restore'} item?`, body: kind === 'delete' ? 'This removes the artifact from the quarantine vault. The action cannot be undone.' : 'Restoring makes this file available to the endpoint again. Only do this with confirmed intent.', confirm: kind === 'delete' ? 'Permanently delete' : 'Restore item', danger: kind === 'delete', onConfirm: () => { setItems(items.filter((i) => i.id !== id)); toast(kind === 'delete' ? 'Artifact deleted' : 'Artifact restored', 'Quarantine inventory updated successfully.'); } });
-  const exportManifest = () => {
-    const payload = { incidentId: 'INC-2024-1042', items, synthetic: true };
-    downloadTextFile('INC-2024-1042-quarantine-manifest.json', JSON.stringify(payload, null, 2), 'application/json');
-    toast('Vault inventory exported', 'Quarantine manifest downloaded locally.');
-  };
-  return <div className="animate-rise"><PageHeading eyebrow="Response controls · secured vault" title="Quarantine" subtitle="Manage isolated artifacts with a deliberate confirmation step for every destructive action." actions={<Button icon={Download} onClick={exportManifest} testId="button-export-quarantine">Export manifest</Button>} />{items.length ? <Card><div className="table-wrap"><table className="data-table" style={{ minWidth: 850 }}><thead><tr><th>Artifact</th><th>Source process</th><th>Quarantined</th><th>SHA-256</th><th>Status</th><th>Actions</th></tr></thead><tbody>{items.map((item) => <tr key={item.id} data-testid={`row-quarantine-${item.id}`}><td><b>{item.name}</b><div className="muted mono">{item.path}</div></td><td className="mono">{item.source}</td><td className="mono">{item.date}</td><td className="mono">{shortHash(item.hash)}</td><td><Badge value="safe" /></td><td><div className="actions"><Button icon={Eye} onClick={() => { toast('Artifact investigation opened', `${item.name} is isolated and safe to inspect.`); setLocation('/files'); }} testId={`button-investigate-${item.id}`}>Investigate</Button><Button icon={ArrowLeft} onClick={() => action(item.id, 'restore')} testId={`button-restore-${item.id}`}>Restore</Button><Button kind="danger" icon={Trash2} onClick={() => action(item.id, 'delete')} testId={`button-delete-${item.id}`}>Delete</Button></div></td></tr>)}</tbody></table></div></Card> : <div className="empty" data-testid="quarantine-empty"><Archive size={24} /><h3>Quarantine is clear</h3><p>Isolated artifacts will appear here after a containment action.</p></div>}</div>;
-}
+// QuarantinePage extracted to @/pages/quarantine-page
 
 function IntelligencePage({ toast }: { toast: (t: string, b: string) => void }) {
   const [followed, setFollowed] = useState(false);
