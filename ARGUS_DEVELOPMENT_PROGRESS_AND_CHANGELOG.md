@@ -155,5 +155,129 @@ This document tracks all development milestones, historical changes, active impl
   * Added **System Critical Process Warning** in the termination confirmation modal if terminating core Windows subsystems (`explorer.exe`, `dwm.exe`, `csrss.exe`, `lsass.exe`, `services.exe`, `smss.exe`, `svchost.exe`).
   * Added checkbox toggle for `Terminate entire child process tree (/T)`.
 
+### Session 5: File Activity & Filesystem Threat Surveillance (COMPLETED)
+
+#### Problem Statement & Analyst Needs
+1. `FilesPage` was a 10-line static dummy component inside `App.tsx` that ignored the real security engine's file scanner.
+2. Lack of live host filesystem surveillance, cryptographic SHA-256 fingerprint verification, and directory categorization.
+3. Lack of a dedicated forensic inspector for examining file security reasons, touching processes, and executing isolation/quarantine workflows.
+
+#### New Changes & Verification
+* **Dedicated Modular Files Subsystem (`artifacts/argus/src/pages/files-page.tsx`)**:
+  * Extracted and replaced the inline dummy component with a comprehensive forensic investigation suite.
+  * Connected live SSE / REST feed from `useFileScan` consuming `/api/files/scan` and `/api/files/scan/stream`.
+  * Dual-mode telemetry badge: `((o)) REAL WINDOWS FILESYSTEM (X FINDINGS)` when connected, gracefully falling back to `DEMO INCIDENT FILE TELEMETRY` on cloud/Vercel.
+* **4-Card KPI Analytics Strip**:
+  * Real-time metrics for Monitored Target Files, Critical Threats, High Risk Inbound/Scripts, and Staging & Temp Artifacts.
+* **Dual View Modes (Explorer Table & Directory Map)**:
+  * **Explorer Table**: Interactive, sortable table displaying Time, Touching Process, File Name & Path, Operation, Classification, Severity Badge, SHA-256 Fingerprint (with 1-click copy), Size, and Remediation Actions.
+  * **Directory Map**: Grouped forensic view across 4 surveillance vectors (Downloads & Inbound, Staging & Temp, Confidential & Sensitive DLP, Startup & Persistence).
+* **Forensic Artifact Inspector Drawer/Modal**:
+  * Complete target path with 1-click copy.
+  * Cryptographic SHA-256 hash with copy and external VirusTotal threat intelligence lookup (`https://www.virustotal.com/gui/search/<hash>`).
+  * Detailed Heuristic Analysis explaining the detection primitive.
+  * Direct pivot link to `/processes` for the touching process.
+  * Safe Quarantine/Isolation action adding artifacts directly into the ARGUS Quarantine Vault.
+* **Search, Filters & 1-Click Forensic Exports**:
+  * Real-time search across file path, process, classification, and SHA-256.
+  * Category dropdown: `All File Events`, `Threats & Anomalies`, `Downloads & Inbound`, `Temp & Archive Staging`, `Startup & Persistence`, `Confidential / DLP`.
+  * Dedicated DLP toggle button (`Filter Sensitive (DLP)`).
+  * 1-Click **Export CSV** and **Export JSON** for incident reports and SIEM integration.
+* **Verification**:
+  * Tested live on Windows host via browser subagent: verified real telemetry connection with 2 live findings (`start-sensor.bat` scripts in Downloads), inspected modal with real SHA-256 hash, and captured screenshots (`files_forensic_inspector_local.png` and `files_directory_map_local.png`).
+
+### Session 6: Exposure Assessment & Blast Radius Intelligence (COMPLETED)
+
+#### Problem Statement & Analyst Needs
+1. `ExposurePage` was an inline 15-line stub inside `App.tsx` with static scores and limited decision-support context.
+2. Lack of a multi-tab investigation suite separating Kill-Chain progression, lateral asset blast radius, risk factor decomposition, and containment playbooks.
+3. Lack of comprehensive export capabilities (CSV matrix, structured JSON incident dossier, and executive memo).
+
+#### New Changes & Verification
+* **Dedicated Modular Exposure Subsystem (`artifacts/argus/src/pages/exposure-page.tsx`)**:
+  * Replaced inline stub with a decision-support and blast-radius analysis dashboard.
+  * Connects to live threat analysis (`useThreatAnalysis`), process monitoring, and filesystem telemetry to calculate dynamic composite risk scores (`LIVE TELEMETRY EXPOSURE (RISK 96/100)`).
+* **Hero Assessed Risk Score & Severity Dial**:
+  * Multi-segment glowing risk meter with baseline scale: Baseline (0), Monitored (25), Elevated (50), High (75), Critical (100).
+  * Direct host containment status indicator (`ENDPOINT ISOLATED` vs `EGRESS ACTIVE`).
+* **4-Card KPI Analytics Strip**:
+  * Primary Affected Host (`WS-0427`), Sensitive Documents Touched (`5 Files`), Staged / Inferred Flow (`18.4 KB`), and Confirmed Exfiltration (`None · Protected by DLP boundary`).
+* **4 Subsystem Investigation Tabs**:
+  * **Kill-Chain Evidence Chain**: 5-stage progression (Initial Vector, Collection, Staging, Potential Exfiltration, Confirmed Exfiltration) alongside the **ARGUS Defensible Evidence Model** card.
+  * **Blast Radius & Asset Impact**: Asset cards covering Affected Host, User Identity (`CORP\mira.alvarez`), Data Repositories, and Adjacent VLAN Peers.
+  * **Contributing Risk Factors**: Decomposes Data Sensitivity (84%), Process Novelty (78%), Destination Reputation (65%), Payload Visibility (32%), and Correlation Confidence (94%).
+  * **Incident Response Playbook**: Immediate containment actions (Host Isolation toggle, Process Tree Termination pivot, Quarantine Vault pivot, Identity & Perimeter Safeguards).
+* **1-Click Forensic Incident Exports**:
+  * **Export CSV**: Complete tabular matrix of exposure stages, entities, status, and evidence models.
+  * **Export JSON**: Structured incident response schema for SIEM/SOAR ingestion.
+  * **Executive Memo**: Pre-formatted incident briefing memorandum.
+* **Verification**:
+  * Verified locally on dev server via browser subagent with live risk calculation (`96/100`), tab switching, and screenshot captures (`exposure_blast_radius_local_1791114536731.png` and `exposure_playbook_local_1791114576060.png`).
+
+### Session 7: Forensic Timeline & Signature Exposure Window (COMPLETED)
+
+#### Problem Statement & Analyst Needs
+1. `TimelinePage` and `ExposureWindowPage` were 10-line inline stubs inside `App.tsx` lacking interactive playback, scrub controls, speed multipliers, and live host process event feeds.
+2. Inability to step through attack milestones chronologically or inspect deep subsystem pivots for individual events.
+3. Lack of tabular CSV and structured JSON forensic exports for attack chronology.
+
+#### New Changes & Verification
+* **Dedicated Modular Timeline Page (`artifacts/argus/src/pages/timeline-page.tsx`)**:
+  * Replaced inline stub with a scrubable forensic attack reconstruction suite.
+  * Connects to live host telemetry (`processMonitor.events`), streaming real-time process lifecycle events (`PROCESS_STARTED`, `PROCESS_TERMINATED`) alongside the 8-stage APT kill-chain sequence.
+  * Interactive playback bar: Play/Pause, Step Next/Prev, Reset, Scrubber range slider, and speed controls (`1x`, `2x`, `5x`).
+  * Subsystem filters (`Process`, `File`, `Network`, `Detection`, `Containment`) and real-time query search.
+  * Event Detail Inspector displaying chronological timestamps, entity tags, sensor confidence meters, legal defensible evidence notes, and direct pivot links to `/processes`, `/files`, and `/network`.
+* **Dedicated Modular Exposure Window Page (`artifacts/argus/src/pages/exposure-window-page.tsx`)**:
+  * Visual signature interval timeline (09:37:14 — 09:47:11 UTC) with animated scrub head and clickable milestone nodes.
+  * 4-Card KPI Strip: Total Exposure Duration (`9m 57s`), Dwell Time (`8m 49s`), Mean Time to Contain (`1m 08s`), and Exfiltration Verdict (`Not Established`).
+  * Legal & compliance interpretation analyzing bounded forensic exposure.
+* **1-Click Forensic Incident Exports**:
+  * **Timeline CSV & JSON**: Full chronological sequence export.
+  * **Exposure Window CSV & JSON**: Bounded milestone and dwell time analysis export.
+* **Verification**:
+  * Frontend compilation verified with 0 errors via `corepack pnpm --filter @workspace/argus run build`.
+
+### Session 8: Quarantine & Cryptographic Evidence Vault (COMPLETED)
+
+#### Problem Statement & Analyst Needs
+1. `QuarantinePage` was previously a rudimentary ~15-line table stub embedded directly inside `App.tsx` lacking search, filtering, and deep forensic inspection.
+2. No cryptographic hash integrity verification (seals) to prove that isolated artifacts have not been tampered with or corrupted while retained in the vault.
+3. No legal Chain of Custody audit logs or defensible evidentiary tracking for SOC/legal compliance.
+4. No ability for security analysts to manually isolate suspicious host files into the vault during live triage, nor batch operations (batch restore / batch purge).
+
+#### New Changes & Verification
+* **Dedicated Modular Quarantine Page ([`artifacts/argus/src/pages/quarantine-page.tsx`](file:///d:/PROJECT/ARGUS-main/artifacts/argus/src/pages/quarantine-page.tsx))**:
+  * Extracted from `App.tsx` and refactored into a full-featured cryptographic evidence vault manager.
+  * **4-Card KPI Analytics Strip**:
+    * Vault Artifacts (`1` / dynamic count across endpoints).
+    * High & Critical Risk (`1` / dynamic execution locks active).
+    * Integrity Seal (`100% Valid` with live verification timestamp).
+    * Total Vault Volume (`0.74 MB` with 30-day legal preservation policy).
+  * **Interactive Search & Multi-Filter Bar**:
+    * Full-text search across artifact filename, host path, source process, SHA-256 hash, and reason.
+    * Severity filter (`Critical`, `High`, `Medium`, `Low`) and Vault Status filter.
+    * Multi-select checkboxes with batch controls (Batch Restore, Batch Purge).
+  * **Forensic Dossier Drawer Inspector**:
+    * Slide-over forensic inspector for isolated binaries.
+    * Full cryptographic fingerprints (SHA-256 with copy button, File Size, Entropy Score e.g. `7.82 / 8.00 Packed`, MITRE ATT&CK technique tags).
+    * Direct external VirusTotal hash search link.
+    * Defensible Chain-of-Custody Timeline tracking isolation, cryptographic stamping, and verification.
+    * Cross-subsystem pivots: View in File Explorer (`/files`) and Inspect Parent PID in Process Monitor (`/processes`).
+  * **Cryptographic Seal Verification**:
+    * Interactive "Verify Vault Seals" action running SHA-256 checksum checks across all stored items to guarantee evidence immutability.
+  * **Manual Artifact Isolation Modal**:
+    * Modal interface allowing analysts to manually input file paths, parent processes, severity levels, and forensic notes to isolate suspect artifacts into the vault.
+  * **1-Click Forensic Manifest & Data Exports**:
+    * **Signed JSON Manifest** (`INC-2024-1042-quarantine-manifest.json`): Structured legal schema including integrity audit, SHA-256 hashes, MITRE tags, and chain-of-custody logs.
+    * **Tabular CSV Export** (`ARGUS_quarantine_inventory.csv`).
+* **Verification**:
+  * Frontend compilation verified with 0 errors via `corepack pnpm --filter @workspace/argus build`.
+  * Verified end-to-end in the live browser via browser subagent (`quarantine_vault_test_1791120811888.webp`): verified 4 KPI cards, opened dossier drawer, checked SHA-256 and entropy metrics, ran vault seal verification, tested manual isolation modal, and confirmed all UI components.
+
+
+
+
+
 
 
