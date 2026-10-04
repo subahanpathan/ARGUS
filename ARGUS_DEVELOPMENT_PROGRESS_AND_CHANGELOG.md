@@ -74,3 +74,21 @@ This document tracks all development milestones, historical changes, active impl
   * Fixed `buildCommand` to build both backend and frontend (`node ./artifacts/api-server/build.mjs && pnpm --filter @workspace/argus run build`).
   * Set `outputDirectory` to `artifacts/argus/dist/public`.
   * Added `filesystem` handling and SPA rewrite fallback (`/(.*)` -> `/index.html`) so direct navigation to `/monitoring`, `/dashboard`, etc. on Vercel serves the React app instead of 404 `Cannot GET /monitoring`.
+
+### Session 2: Remote User Permission & 1-Click PC Sensor Connection (COMPLETED)
+
+#### Problem Statement & Remote User Requirement
+1. When friends or remote users open ARGUS on Vercel or in their browser, the web sandbox blocks browsers from accessing the user's host hardware, CPU, RAM, or processes directly without local agent permission.
+2. Users needed an intuitive 1-click method to grant permission and connect their local PC telemetry to the dashboard.
+
+#### New Changes & Verification
+* **1-Click Windows Launcher Scripts**:
+  * Added [`artifacts/argus/public/start-sensor.bat`](file:///d:/PROJECT/ARGUS-main/artifacts/argus/public/start-sensor.bat) and [`scripts/start-sensor.bat`](file:///d:/PROJECT/ARGUS-main/scripts/start-sensor.bat) to check for Python, install required dependencies (`psutil`, `requests`), and launch the security engine.
+  * Added [`artifacts/argus/public/start-sensor.ps1`](file:///d:/PROJECT/ARGUS-main/artifacts/argus/public/start-sensor.ps1) with configurable `TARGET_URL` / `ApiUrl` for remote deployments.
+* **Sensor Connection Modal & Top Action in Live Monitoring**:
+  * Added **"Connect My PC Sensor"** button on the Live Monitoring page header and in the demo banner.
+  * Interactive modal provides Option 1 (1-Click `.bat` download) and Option 2 (copyable terminal command `python artifacts/security-engine/main.py --api --snapshot`).
+  * Real-time sensor indicator shows connection status dynamically (Waiting on port 5000 vs. Sensor streaming live).
+* **Production Build Verified**:
+  * Successfully built client bundle (`vite build`) and verified static asset serving.
+

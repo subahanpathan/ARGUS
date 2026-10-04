@@ -278,13 +278,37 @@ export default function MonitoringPage({ processMonitor, onNavigate }: Monitorin
     </span>
   );
 
+  const [showSensorModal, setShowSensorModal] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const copyCommand = (cmd: string) => {
+    navigator.clipboard.writeText(cmd);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
   return (
     <div className="animate-page-enter">
       <PageHeading
         eyebrow="Host telemetry · real-time diagnostics"
         title="Live Monitoring"
         subtitle="Real-time host vitals, hardware resource metrics, interface bandwidth, and top consumer processes."
-        actions={statusBadge}
+        actions={
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+            {statusBadge}
+            {!isOnline && (
+              <button
+                type="button"
+                className="btn btn-primary"
+                style={{ fontSize: 11, padding: '5px 10px' }}
+                onClick={() => setShowSensorModal(true)}
+              >
+                <Radio size={11} style={{ marginRight: 5 }} />
+                Connect My PC Sensor
+              </button>
+            )}
+          </div>
+        }
       />
 
       {/* Anomaly warning strip */}
@@ -312,7 +336,7 @@ export default function MonitoringPage({ processMonitor, onNavigate }: Monitorin
         </div>
       )}
 
-      {/* Offline guidance banner */}
+      {/* Offline guidance banner with 1-Click Connect Button */}
       {!isOnline && (
         <div
           className="scan-strip"
@@ -325,10 +349,112 @@ export default function MonitoringPage({ processMonitor, onNavigate }: Monitorin
               <b>DEMO TELEMETRY ACTIVE:</b>
               <small>
                 {' '}
-                The Python security engine is not streaming. Synthetic host telemetry is shown for demonstration. Run{' '}
-                <code className="mono" style={{ color: 'hsl(var(--primary))' }}>python artifacts/security-engine/main.py</code>{' '}
-                for live Windows metrics.
+                Browser security prevents webpages from reading your PC without an agent. To stream your actual Windows CPU, RAM, and processes, run the local sensor.
               </small>
+            </div>
+          </div>
+          <button
+            type="button"
+            className="btn btn-primary"
+            style={{ fontSize: 11, padding: '6px 12px', whiteSpace: 'nowrap' }}
+            onClick={() => setShowSensorModal(true)}
+          >
+            <Radio size={12} style={{ marginRight: 6 }} />
+            Connect My PC Sensor
+          </button>
+        </div>
+      )}
+
+      {/* Sensor Connection Modal */}
+      {showSensorModal && (
+        <div className="modal-backdrop" role="presentation" onClick={() => setShowSensorModal(false)}>
+          <div
+            className="modal"
+            style={{ maxWidth: 540 }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+              <div className="eyebrow" style={{ margin: 0 }}>Endpoint Agent</div>
+              <button
+                type="button"
+                className="btn btn-ghost"
+                style={{ padding: 4 }}
+                onClick={() => setShowSensorModal(false)}
+              >
+                <X size={15} />
+              </button>
+            </div>
+
+            <h2 style={{ fontSize: 18, margin: '0 0 6px' }}>Connect Your Windows PC Sensor</h2>
+            <p style={{ fontSize: 12, lineHeight: 1.5, color: 'hsl(var(--muted-foreground))', margin: '0 0 16px' }}>
+              Web browsers run in a strict security sandbox and cannot read your PC's hardware or processes directly. Running the lightweight ARGUS sensor on your machine grants permission to stream your live telemetry.
+            </p>
+
+            <div style={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 6, padding: 14, marginBottom: 14 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, marginBottom: 6 }}>Option 1: 1-Click Windows Launcher</div>
+              <p style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))', margin: '0 0 10px' }}>
+                Download the launcher and double-click to start streaming. Requires Python 3.10+.
+              </p>
+              <a
+                href="/start-sensor.bat"
+                download="start-sensor.bat"
+                className="btn btn-primary"
+                style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11, padding: '7px 14px' }}
+              >
+                <Download size={13} /> Download start-sensor.bat
+              </a>
+            </div>
+
+            <div style={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 6, padding: 14, marginBottom: 16 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, marginBottom: 6 }}>Option 2: Run in Terminal (PowerShell / CMD)</div>
+              <p style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))', margin: '0 0 8px' }}>
+                Run this single command inside your project folder:
+              </p>
+              <div
+                style={{
+                  background: 'hsl(var(--background))',
+                  border: '1px solid hsl(var(--border))',
+                  borderRadius: 4,
+                  padding: '8px 12px',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                }}
+              >
+                <code className="mono" style={{ fontSize: 11, color: 'hsl(var(--primary))' }}>
+                  python artifacts/security-engine/main.py --api --snapshot
+                </code>
+                <button
+                  type="button"
+                  className="btn btn-ghost"
+                  style={{ padding: '3px 7px', fontSize: 10 }}
+                  onClick={() => copyCommand('python artifacts/security-engine/main.py --api --snapshot')}
+                >
+                  {copied ? <Check size={12} className="signal-good" /> : <Copy size={12} />}
+                </button>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 10, borderTop: '1px solid hsl(var(--border))' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11 }}>
+                <span
+                  className="event-dot"
+                  style={{
+                    margin: 0,
+                    background: isOnline ? 'hsl(var(--accent))' : 'hsl(var(--chart-3))',
+                  }}
+                />
+                <span className="mono muted">
+                  {isOnline ? 'Sensor detected · live telemetry streaming' : 'Waiting for sensor on port 5000...'}
+                </span>
+              </div>
+              <button
+                type="button"
+                className="btn btn-ghost"
+                onClick={() => setShowSensorModal(false)}
+              >
+                Close
+              </button>
             </div>
           </div>
         </div>
