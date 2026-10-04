@@ -214,6 +214,31 @@ This document tracks all development milestones, historical changes, active impl
 * **Verification**:
   * Verified locally on dev server via browser subagent with live risk calculation (`96/100`), tab switching, and screenshot captures (`exposure_blast_radius_local_1791114536731.png` and `exposure_playbook_local_1791114576060.png`).
 
+### Session 7: Forensic Timeline & Signature Exposure Window (COMPLETED)
+
+#### Problem Statement & Analyst Needs
+1. `TimelinePage` and `ExposureWindowPage` were 10-line inline stubs inside `App.tsx` lacking interactive playback, scrub controls, speed multipliers, and live host process event feeds.
+2. Inability to step through attack milestones chronologically or inspect deep subsystem pivots for individual events.
+3. Lack of tabular CSV and structured JSON forensic exports for attack chronology.
+
+#### New Changes & Verification
+* **Dedicated Modular Timeline Page (`artifacts/argus/src/pages/timeline-page.tsx`)**:
+  * Replaced inline stub with a scrubable forensic attack reconstruction suite.
+  * Connects to live host telemetry (`processMonitor.events`), streaming real-time process lifecycle events (`PROCESS_STARTED`, `PROCESS_TERMINATED`) alongside the 8-stage APT kill-chain sequence.
+  * Interactive playback bar: Play/Pause, Step Next/Prev, Reset, Scrubber range slider, and speed controls (`1x`, `2x`, `5x`).
+  * Subsystem filters (`Process`, `File`, `Network`, `Detection`, `Containment`) and real-time query search.
+  * Event Detail Inspector displaying chronological timestamps, entity tags, sensor confidence meters, legal defensible evidence notes, and direct pivot links to `/processes`, `/files`, and `/network`.
+* **Dedicated Modular Exposure Window Page (`artifacts/argus/src/pages/exposure-window-page.tsx`)**:
+  * Visual signature interval timeline (09:37:14 — 09:47:11 UTC) with animated scrub head and clickable milestone nodes.
+  * 4-Card KPI Strip: Total Exposure Duration (`9m 57s`), Dwell Time (`8m 49s`), Mean Time to Contain (`1m 08s`), and Exfiltration Verdict (`Not Established`).
+  * Legal & compliance interpretation analyzing bounded forensic exposure.
+* **1-Click Forensic Incident Exports**:
+  * **Timeline CSV & JSON**: Full chronological sequence export.
+  * **Exposure Window CSV & JSON**: Bounded milestone and dwell time analysis export.
+* **Verification**:
+  * Frontend compilation verified with 0 errors via `corepack pnpm --filter @workspace/argus run build`.
+
+
 
 
 
