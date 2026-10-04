@@ -4,8 +4,12 @@ import {
   AlertTriangle,
   ArrowDownRight,
   ArrowUpRight,
+  Check,
+  Copy,
   Cpu,
   Database,
+  Download,
+  ExternalLink,
   FolderOpen,
   Layers,
   Radio,
@@ -13,7 +17,7 @@ import {
   ShieldAlert,
   TerminalSquare,
   Wifi,
-  ExternalLink,
+  X,
 } from 'lucide-react';
 import { useTelemetryStream, type SystemTelemetry } from '@/hooks/use-telemetry-stream';
 import type { RealProcessEvent, RealProcessInfo } from '@/hooks/use-process-monitor';
