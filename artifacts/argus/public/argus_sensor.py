@@ -13,6 +13,7 @@ import os
 import platform
 import subprocess
 import json
+import traceback
 
 # Ensure dependencies are available
 def ensure_packages():
@@ -39,12 +40,94 @@ ensure_packages()
 import psutil
 import requests
 
+def get_sensor_dir() -> str:
+    if platform.system() == "Windows":
+        app_data = os.environ.get("APPDATA") or os.path.expanduser("~\\AppData\\Roaming")
+        d = os.path.join(app_data, "Argus")
+    else:
+        d = os.path.expanduser("~/.argus")
+    os.makedirs(d, exist_ok=True)
+    return d
+
+def get_pid_file() -> str:
+    return os.path.join(get_sensor_dir(), "sensor.pid")
+
+def get_log_file() -> str:
+    return os.path.join(get_sensor_dir(), "sensor.log")
+
+def log_uncaught_exception(exctype, value, tb):
+    try:
+        with open(get_log_file(), "a", encoding="utf-8") as f:
+            f.write("\n" + "=" * 50 + "\nCRITICAL UNCAUGHT EXCEPTION:\n")
+            traceback.print_exception(exctype, value, tb, file=f)
+            f.write("=" * 50 + "\n")
+            f.flush()
+    except Exception:
+        pass
+
+sys.excepthook = log_uncaught_exception
+
+def stop_sensor():
+    pid_file = get_pid_file()
+    if not os.path.exists(pid_file):
+        print("[!] No active ARGUS sensor PID found.")
+        return
+    try:
+        with open(pid_file, "r") as f:
+            pid = int(f.read().strip())
+        if psutil.pid_exists(pid):
+            p = psutil.Process(pid)
+            p.terminate()
+            try:
+                p.wait(timeout=3)
+            except Exception:
+                p.kill()
+            print(f"[+] ARGUS sensor (PID {pid}) stopped successfully.")
+        else:
+            print(f"[*] Sensor process (PID {pid}) is already stopped.")
+    except Exception as e:
+        print(f"[!] Error stopping sensor: {e}")
+    finally:
+        if os.path.exists(pid_file):
+            try:
+                os.remove(pid_file)
+            except Exception:
+                pass
+
+def check_sensor_status():
+    pid_file = get_pid_file()
+    if not os.path.exists(pid_file):
+        print("[-] ARGUS sensor is NOT running (no PID file).")
+        return
+    try:
+        with open(pid_file, "r") as f:
+            pid = int(f.read().strip())
+        if psutil.pid_exists(pid):
+            p = psutil.Process(pid)
+            print("[+] ARGUS sensor is RUNNING silently in background.")
+            print(f"    PID        : {pid}")
+            try:
+                print(f"    CPU %      : {p.cpu_percent(interval=0.1):.1f}%")
+                print(f"    Memory RSS : {p.memory_info().rss / (1024*1024):.1f} MB")
+            except Exception:
+                pass
+            print(f"    Log File   : {get_log_file()}")
+        else:
+            print(f"[-] Stale PID file found (PID {pid} is no longer running).")
+            os.remove(pid_file)
+    except Exception as e:
+        print(f"[!] Error checking sensor status: {e}")
+
 def get_target_url() -> str:
-    if len(sys.argv) > 1 and sys.argv[1].strip():
-        url = sys.argv[1].strip().rstrip("/")
-        if not url.startswith("http://") and not url.startswith("https://"):
-            url = f"http://{url}"
-        return url
+    for arg in sys.argv[1:]:
+        arg_clean = arg.strip()
+        if arg_clean.startswith("-"):
+            continue
+        if arg_clean.startswith("http://") or arg_clean.startswith("https://") or ":" in arg_clean or "vercel.app" in arg_clean or "localhost" in arg_clean:
+            url = arg_clean.rstrip("/")
+            if not url.startswith("http://") and not url.startswith("https://"):
+                url = f"http://{url}"
+            return url
     env_url = os.environ.get("ARGUS_API_BASE_URL", "").strip().rstrip("/")
     if env_url:
         return env_url
@@ -164,9 +247,37 @@ def sample_process_snapshot():
     }
 
 def main():
+    if "--stop" in sys.argv:
+        stop_sensor()
+        return
+
+    if "--status" in sys.argv:
+        check_sensor_status()
+        return
+
+    is_daemon = "--daemon" in sys.argv or "--background" in sys.argv or "pythonw" in os.path.basename(sys.executable).lower()
+
+    if is_daemon:
+        try:
+            log_fp = open(get_log_file(), "a", encoding="utf-8", buffering=1)
+            sys.stdout = log_fp
+            sys.stderr = log_fp
+        except Exception as e:
+            pass
+
+    # Save active PID
+    pid_file = get_pid_file()
+    try:
+        with open(pid_file, "w") as f:
+            f.write(str(os.getpid()))
+    except Exception:
+        pass
+
     print("=" * 65)
     print("       ARGUS Real-Time Windows Endpoint Sensor")
     print("=" * 65)
+    print(f"[*] PID              : {os.getpid()}")
+    print(f"[*] Mode             : {'Silent Background Daemon' if is_daemon else 'Interactive Console'}")
     print(f"[*] Dashboard Target : {TARGET_URL}")
     print(f"[*] Host OS          : {platform.system()} {platform.release()} ({platform.machine()})")
     print(f"[*] Hostname         : {platform.node()}")
@@ -184,7 +295,8 @@ def main():
         print(f"[!] Will continue streaming directly to {TARGET_URL}/api/system/telemetry")
 
     print("[+] Sensor operational! Streaming live host vitals and processes...")
-    print("    Press Ctrl+C to terminate sensor.")
+    if not is_daemon:
+        print("    Press Ctrl+C to terminate sensor.")
     print("-" * 65)
 
     # First CPU sample prime
@@ -192,48 +304,58 @@ def main():
     time.sleep(0.5)
 
     cycle = 0
-    while True:
-        cycle += 1
-        try:
-            # 1. System telemetry
-            telem = sample_system_telemetry()
-            res_telem = session.post(
-                f"{TARGET_URL}/api/system/telemetry",
-                json=telem,
-                timeout=4,
-                headers={"Content-Type": "application/json"}
-            )
-
-            # 2. Process snapshot every 3 cycles (6s) or initial cycle
-            if cycle == 1 or cycle % 3 == 0:
-                snap = sample_process_snapshot()
-                session.post(
-                    f"{TARGET_URL}/api/processes",
-                    json=snap,
-                    timeout=6,
+    try:
+        while True:
+            cycle += 1
+            try:
+                # 1. System telemetry
+                telem = sample_system_telemetry()
+                res_telem = session.post(
+                    f"{TARGET_URL}/api/system/telemetry",
+                    json=telem,
+                    timeout=4,
                     headers={"Content-Type": "application/json"}
                 )
 
-            cpu_val = telem["cpu"]["percent"]
-            mem_val = telem["memory"]["percent"]
-            mem_gb = telem["memory"]["used_bytes"] / (1024 ** 3)
-            proc_cnt = telem["processes"]["running"]
+                # 2. Process snapshot every 3 cycles (6s) or initial cycle
+                if cycle == 1 or cycle % 3 == 0:
+                    snap = sample_process_snapshot()
+                    session.post(
+                        f"{TARGET_URL}/api/processes",
+                        json=snap,
+                        timeout=6,
+                        headers={"Content-Type": "application/json"}
+                    )
 
-            status_code = res_telem.status_code
-            status_text = "STREAMING OK" if status_code in (200, 201) else f"HTTP {status_code}"
+                cpu_val = telem["cpu"]["percent"]
+                mem_val = telem["memory"]["percent"]
+                mem_gb = telem["memory"]["used_bytes"] / (1024 ** 3)
+                proc_cnt = telem["processes"]["running"]
 
-            print(
-                f"[{time.strftime('%H:%M:%S')}] CPU: {cpu_val:4.1f}% | "
-                f"RAM: {mem_val:4.1f}% ({mem_gb:4.1f} GB) | "
-                f"{proc_cnt:3d} Processes -> {status_text}"
-            )
-        except KeyboardInterrupt:
-            print("\n[*] ARGUS sensor safely stopped.")
-            break
-        except Exception as e:
-            print(f"[{time.strftime('%H:%M:%S')}] [!] Connection retry: {e}")
+                status_code = res_telem.status_code
+                status_text = "STREAMING OK" if status_code in (200, 201) else f"HTTP {status_code}"
 
-        time.sleep(2.0)
+                print(
+                    f"[{time.strftime('%H:%M:%S')}] CPU: {cpu_val:4.1f}% | "
+                    f"RAM: {mem_val:4.1f}% ({mem_gb:4.1f} GB) | "
+                    f"{proc_cnt:3d} Processes -> {status_text}",
+                    flush=True
+                )
+            except Exception as e:
+                print(f"[{time.strftime('%H:%M:%S')}] [!] Connection retry: {e}", flush=True)
+
+            time.sleep(2.0)
+    except KeyboardInterrupt:
+        print("\n[*] ARGUS sensor safely stopped.", flush=True)
+    finally:
+        if os.path.exists(pid_file):
+            try:
+                with open(pid_file, "r") as f:
+                    saved_pid = int(f.read().strip())
+                if saved_pid == os.getpid():
+                    os.remove(pid_file)
+            except Exception:
+                pass
 
 if __name__ == "__main__":
     main()

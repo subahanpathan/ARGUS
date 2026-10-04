@@ -398,24 +398,30 @@ export default function MonitoringPage({ processMonitor, onNavigate }: Monitorin
             </p>
 
             <div style={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 6, padding: 14, marginBottom: 12 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, marginBottom: 4 }}>Option 1: 1-Click Windows Launcher</div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                <div style={{ fontSize: 11, fontWeight: 700 }}>Option 1: 1-Click Automated Background Service (Recommended)</div>
+                <span className="badge badge-accent" style={{ fontSize: 9, padding: '1px 6px' }}>Zero Window</span>
+              </div>
               <p style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))', margin: '0 0 10px' }}>
-                Self-contained launcher: downloads and runs the local Python sensor to stream this PC's live hardware and processes to this dashboard.
+                Self-contained launcher: registers the sensor to Windows Startup and runs silently via <code className="mono">pythonw.exe</code> (no open terminal window). Telemetry automatically streams whenever this PC turns on.
               </p>
-              <a
-                href="/start-sensor.bat"
-                download="start-sensor.bat"
-                className="btn btn-primary"
-                style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11, padding: '7px 14px' }}
-              >
-                <Download size={13} /> Download start-sensor.bat
-              </a>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                <a
+                  href="/start-sensor.bat"
+                  download="start-sensor.bat"
+                  className="btn btn-primary"
+                  style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11, padding: '7px 14px' }}
+                >
+                  <Download size={13} /> Download start-sensor.bat
+                </a>
+                <span style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))' }}>Includes auto-install, live status, and 1-click stop menu</span>
+              </div>
             </div>
 
             <div style={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 6, padding: 14, marginBottom: 12 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, marginBottom: 4 }}>Option 2: 1-Line PowerShell (Direct streaming)</div>
+              <div style={{ fontSize: 11, fontWeight: 700, marginBottom: 4 }}>Option 2: 1-Line PowerShell (Silent Background Auto-Start)</div>
               <p style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))', margin: '0 0 8px' }}>
-                Paste into Windows PowerShell (no download needed):
+                Paste into Windows PowerShell to install and launch the silent background service instantly:
               </p>
               <div
                 style={{
@@ -430,8 +436,8 @@ export default function MonitoringPage({ processMonitor, onNavigate }: Monitorin
               >
                 <code className="mono" style={{ fontSize: 10, color: 'hsl(var(--primary))', wordBreak: 'break-all' }}>
                   {typeof window !== 'undefined'
-                    ? `powershell -ExecutionPolicy Bypass -Command "irm '${window.location.origin}/start-sensor.ps1' | iex"`
-                    : `powershell -ExecutionPolicy Bypass -Command "irm 'http://localhost:5000/start-sensor.ps1' | iex"`}
+                    ? `powershell -ExecutionPolicy Bypass -Command "irm '${window.location.origin}/start-sensor.ps1' | iex" -ArgumentList "-Background"`
+                    : `powershell -ExecutionPolicy Bypass -Command "irm 'http://localhost:5000/start-sensor.ps1' | iex" -ArgumentList "-Background"`}
                 </code>
                 <button
                   type="button"
@@ -439,7 +445,7 @@ export default function MonitoringPage({ processMonitor, onNavigate }: Monitorin
                   style={{ padding: '3px 7px', fontSize: 10, marginLeft: 8 }}
                   onClick={() =>
                     copyCommand(
-                      `powershell -ExecutionPolicy Bypass -Command "irm '${window.location.origin}/start-sensor.ps1' | iex"`
+                      `powershell -ExecutionPolicy Bypass -Command "irm '${window.location.origin}/start-sensor.ps1' | iex" -ArgumentList "-Background"`
                     )
                   }
                   title="Copy command"
@@ -450,9 +456,9 @@ export default function MonitoringPage({ processMonitor, onNavigate }: Monitorin
             </div>
 
             <div style={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 6, padding: 14, marginBottom: 16 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, marginBottom: 4 }}>Option 3: Cloned Repository Terminal</div>
+              <div style={{ fontSize: 11, fontWeight: 700, marginBottom: 4 }}>Option 3: Foreground Console (Live Terminal Logs)</div>
               <p style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))', margin: '0 0 8px' }}>
-                If you have cloned the project locally, run:
+                Run in an open terminal to monitor sensor communication logs in real time:
               </p>
               <div
                 style={{
@@ -465,14 +471,22 @@ export default function MonitoringPage({ processMonitor, onNavigate }: Monitorin
                   alignItems: 'center',
                 }}
               >
-                <code className="mono" style={{ fontSize: 11, color: 'hsl(var(--primary))' }}>
-                  python artifacts/security-engine/main.py --api --snapshot
+                <code className="mono" style={{ fontSize: 10, color: 'hsl(var(--primary))', wordBreak: 'break-all' }}>
+                  {typeof window !== 'undefined'
+                    ? `powershell -ExecutionPolicy Bypass -Command "irm '${window.location.origin}/start-sensor.ps1' | iex" -ArgumentList "-Foreground"`
+                    : `python artifacts/security-engine/main.py --api --snapshot`}
                 </code>
                 <button
                   type="button"
                   className="btn btn-ghost"
-                  style={{ padding: '3px 7px', fontSize: 10 }}
-                  onClick={() => copyCommand('python artifacts/security-engine/main.py --api --snapshot')}
+                  style={{ padding: '3px 7px', fontSize: 10, marginLeft: 8 }}
+                  onClick={() =>
+                    copyCommand(
+                      typeof window !== 'undefined'
+                        ? `powershell -ExecutionPolicy Bypass -Command "irm '${window.location.origin}/start-sensor.ps1' | iex" -ArgumentList "-Foreground"`
+                        : `python artifacts/security-engine/main.py --api --snapshot`
+                    )
+                  }
                 >
                   {copied ? <Check size={12} className="signal-good" /> : <Copy size={12} />}
                 </button>
