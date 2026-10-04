@@ -1,7 +1,8 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": null,
-  "buildCommand": "cd artifacts/api-server && node ./build.mjs",
+  "buildCommand": "node ./artifacts/api-server/build.mjs && pnpm --filter @workspace/argus run build",
+  "outputDirectory": "artifacts/argus/dist/public",
   "functions": {
     "api/index.ts": {
       "maxDuration": 60
@@ -9,8 +10,15 @@
   },
   "routes": [
     {
-      "src": "/(.*)",
+      "src": "/api/(.*)",
       "dest": "/api/index"
+    },
+    {
+      "handle": "filesystem"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/index.html"
     }
   ]
 }

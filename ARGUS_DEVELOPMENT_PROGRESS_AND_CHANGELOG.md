@@ -70,3 +70,7 @@ This document tracks all development milestones, historical changes, active impl
   * Real-time warning banner when CPU > 80%, RAM > 85%, or Disk > 90%.
 * **App.tsx Refactoring**:
   * Removed 55 lines of inline code from `App.tsx` and wired the new modular component with navigation and process monitor bindings.
+* **Vercel SPA Deployment Fix (`vercel.json`)**:
+  * Fixed `buildCommand` to build both backend and frontend (`node ./artifacts/api-server/build.mjs && pnpm --filter @workspace/argus run build`).
+  * Set `outputDirectory` to `artifacts/argus/dist/public`.
+  * Added `filesystem` handling and SPA rewrite fallback (`/(.*)` -> `/index.html`) so direct navigation to `/monitoring`, `/dashboard`, etc. on Vercel serves the React app instead of 404 `Cannot GET /monitoring`.
