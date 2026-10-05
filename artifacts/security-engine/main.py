@@ -17,6 +17,7 @@ import json
 import logging
 import signal
 import sys
+import threading
 import time
 from typing import Any
 
@@ -55,6 +56,7 @@ class ArgusEngine:
         self._topology_monitor: NetworkTopologyWatcher | None = None
         self._port_monitor: PortIntelligenceWatcher | None = None
         self._file_monitor: FileMonitorWatcher | None = None
+        self._snapshot_thread: threading.Thread | None = None
         self._last_running_paths: set[str] = set()
         self._event_buffer: list[dict[str, Any]] = []
         self._flush_interval = 2.0  # seconds
@@ -77,15 +79,10 @@ class ArgusEngine:
                 )
 
         if self._send_snapshot and self._api_client:
-            logger.info("Taking initial process snapshot...")
-            snapshot = take_snapshot()
-            logger.info(
-                "Snapshot: %d processes (%d access-denied)",
-                snapshot.total_count,
-                snapshot.access_denied_count,
+            self._snapshot_thread = threading.Thread(
+                target=self._snapshot_loop, daemon=True, name="argus-process-snapshot"
             )
-            self._last_running_paths = running_process_paths(snapshot.processes)
-            self._api_client.send_snapshot(snapshot.to_dict())
+            self._snapshot_thread.start()
 
         self._watcher = ProcessWatcher(
             poll_interval_ms=Config.PROCESS_POLL_INTERVAL_MS,
@@ -138,6 +135,33 @@ class ArgusEngine:
             Config.FILE_POLL_INTERVAL_MS,
         )
         logger.info("Press Ctrl+C to stop")
+
+    def _snapshot_loop(self) -> None:
+        """Periodically take full process snapshot and deliver to API."""
+        first = True
+        while self._running:
+            try:
+                if first:
+                    logger.info("Taking initial process snapshot...")
+                snapshot = take_snapshot()
+                if first:
+                    logger.info(
+                        "Snapshot: %d processes (%d access-denied)",
+                        snapshot.total_count,
+                        snapshot.access_denied_count,
+                    )
+                    first = False
+                self._last_running_paths = running_process_paths(snapshot.processes)
+                if self._api_client:
+                    self._api_client.send_snapshot(snapshot.to_dict())
+            except Exception:
+                logger.exception("Error taking/sending process snapshot")
+
+            # Sleep 10 seconds between process snapshots
+            for _ in range(20):
+                if not self._running:
+                    return
+                time.sleep(0.5)
 
     def _on_telemetry_snapshot(self, snapshot: Any) -> None:
         """Callback invoked by the system monitor each sampling cycle."""
@@ -227,6 +251,9 @@ class ArgusEngine:
         """Gracefully shut down the engine."""
         logger.info("Shutting down ARGUS Security Engine...")
         self._running = False
+
+        if self._snapshot_thread and self._snapshot_thread.is_alive():
+            self._snapshot_thread.join(timeout=2.0)
 
         if self._system_monitor:
             self._system_monitor.stop()

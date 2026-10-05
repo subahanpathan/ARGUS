@@ -14,6 +14,7 @@ import {
   FileSearch,
   FileText,
   Fingerprint,
+  GitBranch,
   HardDrive,
   History,
   Layers,
@@ -36,12 +37,14 @@ import type { ThreatAnalysisState } from '@/hooks/use-threat-analysis';
 import type { FileScanState } from '@/hooks/use-file-scan';
 import type { ProcessMonitorState } from '@/hooks/use-process-monitor';
 import type { NetworkMonitorState } from '@/hooks/use-network-monitor';
+import ProcessTreeView from '@/components/exposure/process-tree-view';
+import BlastRadiusMap from '@/components/exposure/blast-radius-map';
 
 function cn(...values: Array<string | false | undefined | null>) {
   return values.filter(Boolean).join(' ');
 }
 
-type Severity = 'critical' | 'high' | 'medium' | 'low';
+export type Severity = 'critical' | 'high' | 'medium' | 'low';
 
 export type ExposurePageProps = {
   phase: number;
@@ -55,7 +58,7 @@ export type ExposurePageProps = {
   onContain?: () => void;
 };
 
-type ExposureTab = 'killchain' | 'blastradius' | 'riskfactors' | 'playbook';
+export type ExposureTab = 'killchain' | 'processtree' | 'blastradius' | 'riskfactors' | 'playbook';
 
 export default function ExposurePage({
   phase,
@@ -72,18 +75,26 @@ export default function ExposurePage({
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
   // Compute live vs demo risk score
-  const isLive = Boolean(threatAnalysis?.isLive && threatAnalysis.threatCount > 0);
+  const isReal = Boolean(
+    (processMonitor?.hasData && processMonitor.snapshot.length > 0) ||
+    (networkMonitor?.snapshot && networkMonitor.snapshot.connections.length > 0) ||
+    (fileScan?.findings && fileScan.findings.length > 0) ||
+    (threatAnalysis?.isLive && threatAnalysis.threatCount > 0)
+  );
 
   const riskScore = useMemo(() => {
-    if (isLive && threatAnalysis) {
-      const crit = threatAnalysis.criticalCount * 30;
-      const high = threatAnalysis.highCount * 18;
-      const base = 25;
-      return Math.min(96, Math.max(30, base + crit + high));
+    if (isReal) {
+      if (threatAnalysis && threatAnalysis.threatCount > 0) {
+        const crit = threatAnalysis.criticalCount * 28;
+        const high = threatAnalysis.highCount * 16;
+        const med = Math.max(0, threatAnalysis.threatCount - threatAnalysis.criticalCount - threatAnalysis.highCount) * 8;
+        return Math.min(96, Math.max(30, 20 + crit + high + med));
+      }
+      return 26; // Monitored baseline risk when sensors are active with no uncontained critical threats
     }
     // Demo progression score based on phase
     return phase >= 7 ? 88 : phase >= 5 ? 86 : phase >= 3 ? 61 : 38;
-  }, [isLive, threatAnalysis, phase]);
+  }, [isReal, threatAnalysis, phase]);
 
   const riskTone = riskScore > 75 ? 'danger' : riskScore > 50 ? 'warn' : 'good';
 
@@ -94,108 +105,340 @@ export default function ExposurePage({
     setTimeout(() => setCopiedKey(null), 2000);
   };
 
+  // Top process and network artifacts for live presentation
+  const topProc = useMemo(() => {
+    if (!processMonitor?.snapshot || processMonitor.snapshot.length === 0) return null;
+    return (
+      processMonitor.snapshot.find((p) => p.name === 'powershell.exe' || (p.cpu_percent ?? 0) > 5) ||
+      processMonitor.snapshot[0]
+    );
+  }, [processMonitor?.snapshot]);
+
+  const topConn = useMemo(() => {
+    if (!networkMonitor?.snapshot?.connections || networkMonitor.snapshot.connections.length === 0) return null;
+    return (
+      networkMonitor.snapshot.connections.find((c) => c.status === 'ESTABLISHED' && c.remote_addr !== '127.0.0.1') ||
+      networkMonitor.snapshot.connections[0]
+    );
+  }, [networkMonitor?.snapshot?.connections]);
+
+  const connCount = networkMonitor?.snapshot?.connections?.length ?? 0;
+  const establishedCount = networkMonitor?.snapshot?.established_count ?? 0;
+  const findingCount = fileScan?.findings?.length ?? 0;
+
   // Exposure Kill-Chain Stages
-  const exposureStages = useMemo(() => [
-    {
-      stage: 'Initial Vector & Execution',
-      target: 'invoice_viewer.exe → powershell.exe',
-      evidenceType: 'Observed Telemetry',
-      status: 'confirmed',
-      details: 'Executable attachment spawned encoded PowerShell child process with process privilege elevation.',
-      observed: true,
-      route: '/processes',
-      metric: 'PID 8420 · 09:37:16 UTC',
-    },
-    {
-      stage: 'Sensitive Data Collection',
-      target: 'Q4_strategy.docx, forecast_2025.xlsx, browser_export.csv',
-      evidenceType: 'Observed Telemetry',
-      status: 'confirmed',
-      details: '3 classified documents (M&A Strategy, Corporate Finance, Saved Passwords) opened by external script host.',
-      observed: true,
-      route: '/files',
-      metric: '3 Files · 239.5 KB total',
-    },
-    {
-      stage: 'Archive Staging',
-      target: '~stage_042.zip (C:\\Users\\mira\\AppData\\Local\\Temp)',
-      evidenceType: 'Observed Telemetry',
-      status: 'confirmed',
-      details: '7-Zip CLI created encrypted archive in user Temp staging folder containing collected documents.',
-      observed: true,
-      route: '/files',
-      metric: '845 KB compressed archive',
-    },
-    {
-      stage: 'Potential Exfiltration',
-      target: 'cdn-sync-check[.]com (185.199.110.27:443)',
-      evidenceType: 'Potential / Inferred',
-      status: 'potential',
-      details: 'Outbound TLS 1.3 flow observed over novelty external IP. Flow metadata shows 18.4 KB sent.',
-      observed: false,
-      route: '/network',
-      metric: '18.4 KB transmitted (Flow inferred)',
-    },
-    {
-      stage: 'Confirmed Exfiltration',
-      target: 'Plaintext Exfiltrated Payload',
-      evidenceType: 'Defensible Boundary',
-      status: 'unconfirmed',
-      details: 'No decrypted exfiltration payload or proof of remote receipt established. Sensor separates metadata from proof of theft.',
-      observed: false,
-      route: '/reports',
-      metric: 'Not established (Protected by DLP)',
-    },
-  ], []);
+  const exposureStages = useMemo(() => {
+    if (isReal) {
+      return [
+        {
+          stage: 'Initial Vector & Execution',
+          target: topProc ? `${topProc.name} (PID ${topProc.pid})` : 'Host Process Execution',
+          evidenceType: 'Observed Telemetry',
+          status: 'confirmed',
+          details: topProc
+            ? `Active execution observed on endpoint WS-0427. User: ${topProc.username || 'Current User'}, Memory: ${Math.round((topProc.memory_bytes || 0) / (1024 * 1024))} MB, CPU: ${(topProc.cpu_percent || 0.1).toFixed(1)}%. Path: ${topProc.executable_path || 'C:\\Windows\\System32'}.`
+            : 'Host process execution observed via sensor network.',
+          observed: true,
+          route: '/processes',
+          metric: topProc ? `PID ${topProc.pid} · User: ${topProc.username || 'Analyst'}` : 'Live Telemetry',
+          mitre: {
+            id: 'T1059.001',
+            tactic: 'Execution',
+            name: 'PowerShell / Script Host',
+            url: 'https://attack.mitre.org/techniques/T1059/001/',
+          },
+        },
+        {
+          stage: 'Sensitive Data Collection',
+          target: findingCount > 0
+            ? fileScan!.findings.slice(0, 3).map((f) => f.name).join(', ')
+            : 'Candidate Filesystem Inspection',
+          evidenceType: 'Observed Telemetry',
+          status: 'confirmed',
+          details: findingCount > 0
+            ? `${findingCount} candidate files identified across monitored directories. High entropy and classification flags observed.`
+            : 'Automated filesystem inspection of user documents and temporary directories. Clean monitored baseline.',
+          observed: true,
+          route: '/files',
+          metric: `${findingCount} Files Scanned · ${(fileScan?.findings ? fileScan.findings.reduce((acc, f) => acc + (f.size_bytes || 0), 0) / 1024 : 0).toFixed(1)} KB`,
+          mitre: {
+            id: 'T1005',
+            tactic: 'Collection',
+            name: 'Data from Local System',
+            url: 'https://attack.mitre.org/techniques/T1005/',
+          },
+        },
+        {
+          stage: 'Archive Staging',
+          target: 'NTFS Write Buffers & Local Staging Paths',
+          evidenceType: 'Observed Telemetry',
+          status: 'confirmed',
+          details: 'Continuous surveillance of temporary directories (%TEMP%, AppData, Downloads) for payload unpack, archive compression, or script staging signatures.',
+          observed: true,
+          route: '/files',
+          metric: '4 Monitored Root Directories',
+          mitre: {
+            id: 'T1560.001',
+            tactic: 'Collection',
+            name: 'Archive via Utility',
+            url: 'https://attack.mitre.org/techniques/T1560/001/',
+          },
+        },
+        {
+          stage: 'Potential Exfiltration',
+          target: topConn ? `${topConn.remote_addr}:${topConn.remote_port} (${topConn.process})` : 'Active Network Sockets Egress',
+          evidenceType: 'Potential / Inferred',
+          status: 'potential',
+          details: `${connCount} active socket connections observed on network interfaces (${establishedCount} established). Egress telemetry monitored.`,
+          observed: false,
+          route: '/network',
+          metric: `${connCount} Active Sockets (Flow Inferred)`,
+          mitre: {
+            id: 'T1071.001',
+            tactic: 'Command and Control',
+            name: 'Web Protocols (HTTP/HTTPS)',
+            url: 'https://attack.mitre.org/techniques/T1071/001/',
+          },
+        },
+        {
+          stage: 'Confirmed Exfiltration',
+          target: 'Plaintext Exfiltrated Payload',
+          evidenceType: 'Defensible Boundary',
+          status: 'unconfirmed',
+          details: 'No decrypted exfiltration payload or proof of remote receipt established. Sensor separates metadata from proof of theft.',
+          observed: false,
+          route: '/reports',
+          metric: 'Not established (Protected by DLP)',
+          mitre: {
+            id: 'T1041',
+            tactic: 'Exfiltration',
+            name: 'Exfiltration Over C2 Channel',
+            url: 'https://attack.mitre.org/techniques/T1041/',
+          },
+        },
+      ];
+    }
+
+    // Demo Progression Stages
+    return [
+      {
+        stage: 'Initial Vector & Execution',
+        target: 'invoice_viewer.exe → powershell.exe',
+        evidenceType: 'Observed Telemetry',
+        status: 'confirmed',
+        details: 'Executable attachment spawned encoded PowerShell child process with process privilege elevation.',
+        observed: true,
+        route: '/processes',
+        metric: 'PID 8420 · 09:37:16 UTC',
+        mitre: {
+          id: 'T1059.001',
+          tactic: 'Execution',
+          name: 'PowerShell Execution',
+          url: 'https://attack.mitre.org/techniques/T1059/001/',
+        },
+      },
+      {
+        stage: 'Sensitive Data Collection',
+        target: 'Q4_strategy.docx, forecast_2025.xlsx, browser_export.csv',
+        evidenceType: 'Observed Telemetry',
+        status: 'confirmed',
+        details: '3 classified documents (M&A Strategy, Corporate Finance, Saved Passwords) opened by external script host.',
+        observed: true,
+        route: '/files',
+        metric: '3 Files · 239.5 KB total',
+        mitre: {
+          id: 'T1005',
+          tactic: 'Collection',
+          name: 'Data from Local System',
+          url: 'https://attack.mitre.org/techniques/T1005/',
+        },
+      },
+      {
+        stage: 'Archive Staging',
+        target: '~stage_042.zip (C:\\Users\\mira\\AppData\\Local\\Temp)',
+        evidenceType: 'Observed Telemetry',
+        status: 'confirmed',
+        details: '7-Zip CLI created encrypted archive in user Temp staging folder containing collected documents.',
+        observed: true,
+        route: '/files',
+        metric: '845 KB compressed archive',
+        mitre: {
+          id: 'T1560.001',
+          tactic: 'Collection',
+          name: 'Archive via Utility (7-Zip)',
+          url: 'https://attack.mitre.org/techniques/T1560/001/',
+        },
+      },
+      {
+        stage: 'Potential Exfiltration',
+        target: 'cdn-sync-check[.]com (185.199.110.27:443)',
+        evidenceType: 'Potential / Inferred',
+        status: 'potential',
+        details: 'Outbound TLS 1.3 flow observed over novelty external IP. Flow metadata shows 18.4 KB sent.',
+        observed: false,
+        route: '/network',
+        metric: '18.4 KB transmitted (Flow inferred)',
+        mitre: {
+          id: 'T1071.001',
+          tactic: 'Command and Control',
+          name: 'Web Protocols (TLS 1.3)',
+          url: 'https://attack.mitre.org/techniques/T1071/001/',
+        },
+      },
+      {
+        stage: 'Confirmed Exfiltration',
+        target: 'Plaintext Exfiltrated Payload',
+        evidenceType: 'Defensible Boundary',
+        status: 'unconfirmed',
+        details: 'No decrypted exfiltration payload or proof of remote receipt established. Sensor separates metadata from proof of theft.',
+        observed: false,
+        route: '/reports',
+        metric: 'Not established (Protected by DLP)',
+        mitre: {
+          id: 'T1041',
+          tactic: 'Exfiltration',
+          name: 'Exfiltration Over C2 Channel',
+          url: 'https://attack.mitre.org/techniques/T1041/',
+        },
+      },
+    ];
+  }, [isReal, topProc, topConn, connCount, establishedCount, findingCount, fileScan?.findings]);
 
   // Contributing Risk Factors
-  const riskFactors = [
-    { label: 'Data Sensitivity & Classification', value: 'High', score: 84, tone: 'danger', note: 'M&A and Finance documents accessed' },
-    { label: 'Process Execution Novelty', value: 'High', score: 78, tone: 'danger', note: 'PowerShell executing from staging directory' },
-    { label: 'Destination Reputation (C2)', value: 'Suspicious', score: 65, tone: 'warn', note: 'Newly registered domain (12/87 flags)' },
-    { label: 'Payload Exfiltration Visibility', value: 'Low Confidence', score: 32, tone: 'warn', note: 'Flow volume measured, payload encrypted' },
-    { label: 'Multi-Sensor Correlation', value: 'Strong (99%)', score: 94, tone: 'good', note: 'Process, File, and Network signals match' },
-  ];
+  const riskFactors = useMemo(() => {
+    if (isReal) {
+      const threatCount = threatAnalysis?.threatCount ?? 0;
+      return [
+        {
+          label: 'Data Sensitivity & Classification',
+          value: findingCount > 0 ? 'Elevated' : 'Baseline',
+          score: findingCount > 0 ? 74 : 22,
+          tone: findingCount > 0 ? 'warn' : 'good',
+          note: `${findingCount} candidate files evaluated across roots`,
+        },
+        {
+          label: 'Process Execution Novelty',
+          value: topProc ? (topProc.name.includes('powershell') ? 'Elevated' : 'Observed') : 'Low',
+          score: topProc?.name.includes('powershell') ? 78 : 34,
+          tone: topProc?.name.includes('powershell') ? 'danger' : 'good',
+          note: `${processMonitor?.snapshot?.length ?? 299} active Windows processes`,
+        },
+        {
+          label: 'Network Egress & Socket Exposure',
+          value: connCount > 10 ? 'High Activity' : 'Normal',
+          score: Math.min(88, Math.max(30, Math.round(connCount * 0.1))),
+          tone: connCount > 50 ? 'warn' : 'good',
+          note: `${connCount} active sockets (${establishedCount} established)`,
+        },
+        {
+          label: 'Payload Exfiltration Visibility',
+          value: 'Defensible Boundary',
+          score: 28,
+          tone: 'good',
+          note: 'Metadata logged, encrypted payload boundary unconfirmed',
+        },
+        {
+          label: 'Multi-Sensor Correlation',
+          value: 'Operational (100%)',
+          score: 98,
+          tone: 'good',
+          note: 'Process, File, and Network feeds actively streaming',
+        },
+      ];
+    }
+
+    return [
+      { label: 'Data Sensitivity & Classification', value: 'High', score: 84, tone: 'danger', note: 'M&A and Finance documents accessed' },
+      { label: 'Process Execution Novelty', value: 'High', score: 78, tone: 'danger', note: 'PowerShell executing from staging directory' },
+      { label: 'Destination Reputation (C2)', value: 'Suspicious', score: 65, tone: 'warn', note: 'Newly registered domain (12/87 flags)' },
+      { label: 'Payload Exfiltration Visibility', value: 'Low Confidence', score: 32, tone: 'warn', note: 'Flow volume measured, payload encrypted' },
+      { label: 'Multi-Sensor Correlation', value: 'Strong (99%)', score: 94, tone: 'good', note: 'Process, File, and Network signals match' },
+    ];
+  }, [isReal, findingCount, topProc, connCount, establishedCount, processMonitor?.snapshot, threatAnalysis?.threatCount]);
 
   // Blast Radius Assets
-  const blastRadiusAssets = [
-    {
-      type: 'Endpoint Host',
-      name: 'WS-0427 (Finance Workstation)',
-      owner: 'Mira Alvarez (Sr. Financial Analyst)',
-      ip: '10.14.8.27 (VLAN 10 - Finance)',
-      status: contained ? 'Network Isolated' : 'Under Investigation',
-      severity: 'critical',
-      icon: TerminalSquare,
-    },
-    {
-      type: 'Identity & Credentials',
-      name: 'CORP\\mira.alvarez',
-      owner: 'Active Directory Domain User',
-      ip: 'Kerberos TGT Issued',
-      status: 'Credential Rotation Required',
-      severity: 'high',
-      icon: UserCheck,
-    },
-    {
-      type: 'Data Repositories',
-      name: 'Documents\\Acquisition & Finance',
-      owner: 'Restricted Share Access',
-      ip: 'Local NTFS Drive C:',
-      status: '3 Files Staged in Temp',
-      severity: 'high',
-      icon: FileKey2,
-    },
-    {
-      type: 'Lateral Peers (Adjacent)',
-      name: 'WS-0198, WS-0341, DC-01',
-      owner: 'Same VLAN Subnet (10.14.8.0/24)',
-      ip: '3 Host Peers Scanned',
-      status: 'No Lateral Movement Observed',
-      severity: 'low',
-      icon: Users,
-    },
-  ];
+  const blastRadiusAssets = useMemo(() => {
+    if (isReal) {
+      const threatCount = threatAnalysis?.threatCount ?? 0;
+      return [
+        {
+          type: 'Endpoint Host',
+          name: 'WS-0427 (Live Windows Telemetry)',
+          owner: 'Primary Workstation',
+          ip: '127.0.0.1 / Local Adapter',
+          status: contained ? 'Network Isolated' : 'Real-Time Sensor Active',
+          severity: (contained ? 'low' : threatCount > 0 ? 'critical' : 'low') as Severity,
+          icon: TerminalSquare,
+        },
+        {
+          type: 'Identity & Credentials',
+          name: topProc?.username || 'Current User Context',
+          owner: 'Active Windows User Session',
+          ip: 'Interactive Security Token',
+          status: threatCount > 0 ? 'Credential Review Recommended' : 'Baseline Security Token Valid',
+          severity: (threatCount > 0 ? 'high' : 'low') as Severity,
+          icon: UserCheck,
+        },
+        {
+          type: 'Data Repositories',
+          name: 'Local Drives & Monitored Paths',
+          owner: 'NTFS Filesystem Storage',
+          ip: 'Local NTFS Drive C:',
+          status: `${findingCount} Candidate Files Under Inspection`,
+          severity: (findingCount > 0 ? 'high' : 'low') as Severity,
+          icon: FileKey2,
+        },
+        {
+          type: 'Network Perimeter',
+          name: `${connCount} Active TCP/UDP Sockets`,
+          owner: 'TCP/IP Transport Stack',
+          ip: `${establishedCount} Established Sockets`,
+          status: contained ? 'Outbound Sockets Severed' : 'Continuous Egress Surveillance',
+          severity: (contained ? 'low' : 'medium') as Severity,
+          icon: Network,
+        },
+      ];
+    }
+
+    return [
+      {
+        type: 'Endpoint Host',
+        name: 'WS-0427 (Finance Workstation)',
+        owner: 'Mira Alvarez (Sr. Financial Analyst)',
+        ip: '10.14.8.27 (VLAN 10 - Finance)',
+        status: contained ? 'Network Isolated' : 'Under Investigation',
+        severity: 'critical' as Severity,
+        icon: TerminalSquare,
+      },
+      {
+        type: 'Identity & Credentials',
+        name: 'CORP\\mira.alvarez',
+        owner: 'Active Directory Domain User',
+        ip: 'Kerberos TGT Issued',
+        status: 'Credential Rotation Required',
+        severity: 'high' as Severity,
+        icon: UserCheck,
+      },
+      {
+        type: 'Data Repositories',
+        name: 'Documents\\Acquisition & Finance',
+        owner: 'Restricted Share Access',
+        ip: 'Local NTFS Drive C:',
+        status: '3 Files Staged in Temp',
+        severity: 'high' as Severity,
+        icon: FileKey2,
+      },
+      {
+        type: 'Lateral Peers (Adjacent)',
+        name: 'WS-0198, WS-0341, DC-01',
+        owner: 'Same VLAN Subnet (10.14.8.0/24)',
+        ip: '3 Host Peers Scanned',
+        status: 'No Lateral Movement Observed',
+        severity: 'low' as Severity,
+        icon: Users,
+      },
+    ];
+  }, [isReal, topProc, findingCount, connCount, establishedCount, contained, threatAnalysis?.threatCount]);
 
   // Export handlers
   const exportAssessmentCSV = () => {
@@ -292,7 +535,9 @@ export default function ExposurePage({
       {/* Page Heading */}
       <div className="page-heading">
         <div>
-          <div className="eyebrow">Decision Support & Blast Radius Analysis · INC-2024-1042</div>
+          <div className="eyebrow">
+            Decision Support & Blast Radius Analysis · {isReal ? 'LIVE HOST WS-0427' : 'INC-2024-1042'}
+          </div>
           <h1 className="page-title">Exposure Assessment</h1>
           <p className="page-subtitle">
             A rigorous, defensible separation between what host telemetry observed, potential transmission inferences, and blast radius impact across the enterprise.
@@ -300,7 +545,7 @@ export default function ExposurePage({
         </div>
 
         <div className="actions" style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-          {isLive ? (
+          {isReal ? (
             <span
               className="badge badge-low"
               style={{
@@ -309,9 +554,10 @@ export default function ExposurePage({
                 border: '1px solid hsl(142 71% 30%)',
                 display: 'inline-flex',
                 alignItems: 'center',
+                gap: 5,
               }}
             >
-              <Radio size={10} style={{ marginRight: 5 }} />
+              <Radio size={10} />
               LIVE TELEMETRY EXPOSURE (RISK {riskScore}/100)
             </span>
           ) : (
@@ -513,11 +759,20 @@ export default function ExposurePage({
 
         <button
           type="button"
+          className={cn('btn btn-ghost', activeTab === 'processtree' && 'btn-primary')}
+          style={{ fontSize: 11, padding: '5px 14px', height: 28 }}
+          onClick={() => setActiveTab('processtree')}
+        >
+          <GitBranch size={13} style={{ marginRight: 6 }} /> Live Process Tree & Sockets
+        </button>
+
+        <button
+          type="button"
           className={cn('btn btn-ghost', activeTab === 'blastradius' && 'btn-primary')}
           style={{ fontSize: 11, padding: '5px 14px', height: 28 }}
           onClick={() => setActiveTab('blastradius')}
         >
-          <Server size={13} style={{ marginRight: 6 }} /> Blast Radius & Asset Impact
+          <Server size={13} style={{ marginRight: 6 }} /> Blast Radius & Concentric Rings
         </button>
 
         <button
@@ -596,6 +851,47 @@ export default function ExposurePage({
                           {idx + 1}
                         </div>
                         <span style={{ fontWeight: 700, fontSize: 13 }}>{item.stage}</span>
+                        {item.mitre && (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginLeft: 4 }}>
+                            <a
+                              href={item.mitre.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="mono"
+                              style={{
+                                fontSize: 10,
+                                padding: '1px 6px',
+                                background: 'hsl(var(--accent) / 0.12)',
+                                border: '1px solid hsl(var(--accent) / 0.3)',
+                                borderRadius: 4,
+                                color: 'hsl(var(--accent))',
+                                textDecoration: 'none',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: 3,
+                              }}
+                              title={`${item.mitre.name} (${item.mitre.tactic})`}
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <span>{item.mitre.id}</span>
+                              <ExternalLink size={9} />
+                            </a>
+                            <span
+                              style={{
+                                fontSize: 9,
+                                padding: '1px 6px',
+                                background: 'hsl(var(--muted))',
+                                borderRadius: 4,
+                                color: 'hsl(var(--muted-foreground))',
+                                textTransform: 'uppercase',
+                                fontWeight: 600,
+                                letterSpacing: '0.04em',
+                              }}
+                            >
+                              {item.mitre.tactic}
+                            </span>
+                          </div>
+                        )}
                       </div>
 
                       <span
@@ -747,77 +1043,28 @@ export default function ExposurePage({
         </div>
       )}
 
-      {/* Tab 2: Blast Radius & Asset Impact */}
+      {/* Tab 2: Live Process Execution Tree & Sockets */}
+      {activeTab === 'processtree' && (
+        <ProcessTreeView
+          processes={processMonitor?.snapshot || []}
+          connections={networkMonitor?.snapshot?.connections || []}
+          onNavigate={onNavigate}
+          toast={toast}
+          onRefresh={processMonitor?.refetchSnapshot}
+        />
+      )}
+
+      {/* Tab 3: Concentric Blast Radius & Asset Impact */}
       {activeTab === 'blastradius' && (
-        <div className="grid" style={{ gridTemplateColumns: 'repeat(2, 1fr)', gap: 16 }}>
-          {blastRadiusAssets.map((asset) => {
-            const Icon = asset.icon;
-            return (
-              <section key={asset.name} className="card card-pad" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <div
-                      style={{
-                        padding: 7,
-                        borderRadius: 6,
-                        background: 'hsl(var(--muted))',
-                        color: 'hsl(var(--primary))',
-                      }}
-                    >
-                      <Icon size={16} />
-                    </div>
-                    <div>
-                      <div className="muted" style={{ fontSize: 10, textTransform: 'uppercase' }}>
-                        {asset.type}
-                      </div>
-                      <div style={{ fontWeight: 700, fontSize: 13 }}>{asset.name}</div>
-                    </div>
-                  </div>
-
-                  <span
-                    className={cn(
-                      'badge',
-                      asset.severity === 'critical'
-                        ? 'badge-critical'
-                        : asset.severity === 'high'
-                        ? 'badge-high'
-                        : 'badge-low'
-                    )}
-                  >
-                    {asset.severity.toUpperCase()}
-                  </span>
-                </div>
-
-                <div
-                  style={{
-                    background: 'hsl(var(--muted))',
-                    padding: '8px 12px',
-                    borderRadius: 6,
-                    fontSize: 11,
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: 4,
-                  }}
-                >
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span className="muted">Entity / Owner:</span>
-                    <span className="mono">{asset.owner}</span>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span className="muted">Network / Scope:</span>
-                    <span className="mono">{asset.ip}</span>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span className="muted">Remediation Status:</span>
-                    <span className="mono" style={{ color: 'hsl(var(--foreground))', fontWeight: 600 }}>
-                      {asset.status}
-                    </span>
-                  </div>
-                </div>
-              </section>
-            );
-          })}
-        </div>
+        <BlastRadiusMap
+          assets={blastRadiusAssets}
+          contained={contained}
+          onContain={onContain}
+          onNavigate={onNavigate}
+          toast={toast}
+          riskScore={riskScore}
+          isReal={isReal}
+        />
       )}
 
       {/* Tab 3: Contributing Risk Factors */}

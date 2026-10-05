@@ -49,11 +49,13 @@ export type ProcessMonitorState = {
   eventCount: number;
   /** Timestamp of last received event */
   lastEventTime: string | null;
+  /** Manually trigger snapshot refresh */
+  refetchSnapshot: () => Promise<void>;
 };
 
 const MAX_EVENTS = 200;
 const RECONNECT_DELAY_MS = 3000;
-const SNAPSHOT_POLL_MS = 10000;
+const SNAPSHOT_POLL_MS = 4000;
 
 export function useProcessMonitor(): ProcessMonitorState {
   const [connected, setConnected] = useState(false);
@@ -150,5 +152,5 @@ export function useProcessMonitor(): ProcessMonitorState {
     };
   }, [fetchSnapshot]);
 
-  return { connected, hasData, events, snapshot, eventCount, lastEventTime };
+  return { connected, hasData, events, snapshot, eventCount, lastEventTime, refetchSnapshot: fetchSnapshot };
 }

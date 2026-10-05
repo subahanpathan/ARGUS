@@ -44,6 +44,12 @@ import ExposurePage from '@/pages/exposure-page';
 import TimelinePage from '@/pages/timeline-page';
 import ExposureWindowPage from '@/pages/exposure-window-page';
 import QuarantinePage from '@/pages/quarantine-page';
+import IntelligencePage from '@/pages/intelligence-page';
+import ReportsPage from '@/pages/reports-page';
+import HistoryPage from '@/pages/history-page';
+import CyberCellPage from '@/pages/cyber-cell-page';
+import { useQuarantine } from '@/hooks/use-quarantine';
+import { useReports } from '@/hooks/use-reports';
 
 const queryClient = new QueryClient();
 
@@ -417,11 +423,12 @@ function NetworkPage({ toast, contained }: { toast: (t: string, b: string) => vo
   const [activeTab, setActiveTab] = useState<'universe' | 'ports' | 'port-intel' | 'events' | 'stats'>('universe');
   const [cameraMode, setCameraMode] = useState<'3d' | '2d' | 'top'>('3d');
   const [paused, setPaused] = useState(false);
+  const [mode, setMode] = useState<'live' | 'simulated'>('live');
 
-  const isLive = topology.connected && topology.hasData && topology.snapshot != null;
-  const sim = useSimulatedNetwork(!isLive);
-  const mode: NetworkMode = isLive ? 'live' : sim.data ? 'simulated' : 'offline';
-  const dataActive = mode !== 'offline';
+  const liveAvailable = topology.hasData && topology.snapshot != null;
+  const isLive = mode === 'live' && liveAvailable;
+  const sim = useSimulatedNetwork(mode === 'simulated' || !liveAvailable);
+  const effectiveMode: NetworkMode = isLive ? 'live' : sim.data ? 'simulated' : 'offline';
 
   const topoData: NetworkTopologyData | null = isLive ? topology.snapshot : sim.data;
   const realConns: TopologyConnection[] = topoData?.connections ?? [];
@@ -472,22 +479,56 @@ function NetworkPage({ toast, contained }: { toast: (t: string, b: string) => vo
       eyebrow={isLive ? 'Real-time · observed Windows network universe' : mode === 'simulated' ? 'Simulated preview · generated in real time' : 'Network universe offline'}
       title="Network Universe"
       subtitle={isLive
-        ? `Observing this laptop, ${universeModel.stats.processes} processes, ${universeModel.stats.connections} connections, and ${universeModel.stats.interfaces} interfaces from the real Windows networking stack.`
+        ? `Observing ${topoData?.hostname || 'this laptop'}, ${universeModel.stats.processes} processes, ${universeModel.stats.connections} connections, and ${universeModel.stats.interfaces} interfaces from the real Windows networking stack.`
         : mode === 'simulated'
           ? `Synthesized telemetry for ${universeModel.stats.processes} processes, ${universeModel.stats.connections} connections, and ${universeModel.stats.interfaces} interfaces. Real engine data replaces this automatically when the security engine connects.`
           : 'No network telemetry is streaming. Start the security engine to observe the real network universe.'}
       actions={<>
+        <div style={{ display: 'flex', gap: '6px', background: 'hsl(var(--surface-2))', padding: '3px', borderRadius: '8px', border: '1px solid hsl(var(--border))' }}>
+          <button
+            type="button"
+            className={`btn btn-sm ${mode === 'live' ? 'btn-primary' : 'btn-ghost'}`}
+            style={{ fontSize: '11px', padding: '4px 10px', height: 'auto', fontWeight: 600 }}
+            onClick={() => setMode('live')}
+          >
+            ⚡ Live Host Universe
+          </button>
+          <button
+            type="button"
+            className={`btn btn-sm ${mode === 'simulated' ? 'btn-primary' : 'btn-ghost'}`}
+            style={{ fontSize: '11px', padding: '4px 10px', height: 'auto', fontWeight: 600 }}
+            onClick={() => setMode('simulated')}
+          >
+            🧪 Simulated 3D Universe
+          </button>
+        </div>
         <Button icon={Download} onClick={exportNetwork} testId="button-export-network">Export topology</Button>
         {isLive
-          ? <span className="badge badge-low" style={{ background: 'hsl(142 71% 20%)', color: 'hsl(142 71% 70%)', border: '1px solid hsl(142 71% 30%)' }}><Radio size={10} style={{ marginRight: 4, verticalAlign: 'middle' }} />REAL NETWORK DATA</span>
-          : mode === 'simulated'
-            ? <span className="badge" style={{ background: 'hsl(46 80% 12%)', color: 'hsl(46 90% 66%)', border: '1px solid hsl(46 80% 32%)' }}><Radio size={10} style={{ marginRight: 4, verticalAlign: 'middle' }} />SIMULATED PREVIEW</span>
-            : <span className="badge badge-high"><AlertTriangle size={10} style={{ marginRight: 4, verticalAlign: 'middle' }} />TELEMETRY OFFLINE</span>}
+          ? <span className="badge badge-low" style={{ background: 'hsl(142 71% 20%)', color: 'hsl(142 71% 70%)', border: '1px solid hsl(142 71% 30%)' }}><Radio size={10} style={{ marginRight: 4, verticalAlign: 'middle' }} />REAL HOST NETWORK DATA</span>
+          : <span className="badge" style={{ background: 'hsl(46 80% 12%)', color: 'hsl(46 90% 66%)', border: '1px solid hsl(46 80% 32%)' }}><Radio size={10} style={{ marginRight: 4, verticalAlign: 'middle' }} />SIMULATED PREVIEW</span>}
       </>} />
 
     {contained && <div className="scan-strip" data-testid="network-contained-banner"><div className="scan-status"><ShieldCheck size={15} /><div>Containment applied<small> · outbound sessions on this host were terminated; the observed connection history is retained for review.</small></div></div></div>}
-    {!isLive && mode === 'simulated' && <div className="scan-strip" style={{ background: 'hsl(46 60% 7%)' }}><div className="scan-status" style={{ color: 'hsl(46 85% 66%)' }}><AlertTriangle size={15} /><div><b>SIMULATED PREVIEW ACTIVE</b><small> · No engine connection yet — the universe is generated locally in real time and switches to live telemetry the moment ARGUS connects (python main.py --api).</small></div></div></div>}
-    {!isLive && mode === 'offline' && <div className="scan-strip" style={{ background: 'hsl(var(--muted))' }}><div className="scan-status" style={{ color: 'hsl(var(--muted-foreground))' }}><AlertTriangle size={15} /><div><b>NETWORK TELEMETRY OFFLINE</b><small> · Start ARGUS (python main.py --api) to stream the real network universe.</small></div></div></div>}
+    
+    {isLive && (
+      <div className="scan-strip" style={{ background: 'hsl(142 50% 8% / 0.8)', borderColor: 'hsl(142 60% 25%)', color: 'hsl(142 70% 75%)', padding: '10px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div className="scan-status" style={{ color: 'hsl(142 70% 75%)', display: 'flex', gap: '10px', alignItems: 'center' }}>
+          <span style={{ display: 'inline-block', width: '8px', height: '8px', borderRadius: '50%', background: 'hsl(142 71% 45%)', boxShadow: '0 0 8px hsl(142 71% 45%)' }} />
+          <div>
+            <b>LIVE HOST NETWORKING ACTIVE</b>
+            <small style={{ marginLeft: 8, color: 'hsl(142 70% 85%)' }}>
+              Host: <strong>{topoData?.hostname || 'Nikhil'}</strong> · Interface: <strong>{topoData?.interfaces?.find(i => i.is_up)?.name || 'Wi-Fi'}</strong> · Gateway: <strong>{topoData?.default_gateway?.next_hop || '10.102.49.54'}</strong> · <strong>{realConns.length}</strong> active sockets · <strong>{((portSnapshot?.tcp_listening ?? []).length)}</strong> listening ports
+            </small>
+          </div>
+        </div>
+        <span style={{ fontSize: '11px', fontFamily: 'monospace', color: 'hsl(142 60% 70%)' }}>
+          STREAMING (4s cadence)
+        </span>
+      </div>
+    )}
+
+    {!isLive && mode === 'simulated' && <div className="scan-strip" style={{ background: 'hsl(46 60% 7%)' }}><div className="scan-status" style={{ color: 'hsl(46 85% 66%)' }}><AlertTriangle size={15} /><div><b>SIMULATED PREVIEW ACTIVE</b><small> · Synthetic 3D topology drill active. Click "Live Host Universe" above to switch back to real host telemetry.</small></div></div></div>}
+    {!isLive && mode === 'live' && !liveAvailable && <div className="scan-strip" style={{ background: 'hsl(var(--muted))' }}><div className="scan-status" style={{ color: 'hsl(var(--muted-foreground))' }}><AlertTriangle size={15} /><div><b>NETWORK TELEMETRY OFFLINE</b><small> · Start ARGUS (python main.py --api) to stream the real network universe.</small></div></div></div>}
 
     <UniverseStatusBar stats={universeModel.stats} isLive={isLive} lastUpdate={lastUpdate} />
 
@@ -607,73 +648,12 @@ function NetworkPage({ toast, contained }: { toast: (t: string, b: string) => vo
 // TimelinePage extracted to @/pages/timeline-page
 
 // QuarantinePage extracted to @/pages/quarantine-page
+// IntelligencePage extracted to @/pages/intelligence-page
 
-function IntelligencePage({ toast }: { toast: (t: string, b: string) => void }) {
-  const [followed, setFollowed] = useState(false);
-  return <div className="animate-rise"><PageHeading eyebrow="Context layer · curated synthetic feeds" title="Threat intelligence" subtitle="Reputation and context are supporting signals, not a substitute for endpoint evidence." actions={<Button icon={RefreshCw} onClick={() => toast('Feeds refreshed', 'Three synthetic intelligence sources returned current context.')} testId="button-refresh-intelligence">Refresh feeds</Button>} /><div className="grid metrics"><StatCard label="Indicators tracked" value="12,842" note="+184 this week" tone="info" icon={Radar} /><StatCard label="Newly observed" value="27" note="Across 6 sources" tone="warn" icon={Sparkles} /><StatCard label="Feed health" value="3 / 3" note="Last sync 4 min ago" tone="good" icon={Wifi} /><StatCard label="Correlated today" value="08" note="2 require review" tone="danger" icon={Fingerprint} /></div><div className="grid split-grid" style={{ marginTop: 14 }}><Card className="card-pad"><PanelTitle title="Indicator dossier" detail="DOMAIN · cdn-sync-check[.]com" /><div className="eyebrow">Domain reputation</div><div style={{ display: 'flex', gap: 15, alignItems: 'center', margin: '10px 0 18px' }}><div style={{ fontSize: 34, fontWeight: 800 }} className="signal-danger">12</div><div className="muted" style={{ fontSize: 11 }}>of 87 engines flag this indicator</div></div><div className="kpi-line"><span className="muted">First registered</span><b className="mono">2024-10-11</b></div><div className="kpi-line"><span className="muted">Registrar pattern</span><b>Disposable infrastructure</b></div><div className="kpi-line"><span className="muted">Internal sightings</span><b>1 · today</b></div><Button kind={followed ? 'primary' : ''} icon={followed ? Check : Plus} onClick={() => { setFollowed(!followed); toast(followed ? 'Indicator unfollowed' : 'Indicator followed', followed ? 'No further alerts will be generated.' : 'ARGUS will surface future sightings in this workspace.'); }} style={{ marginTop: 17 }} testId="button-follow-indicator">{followed ? 'Following indicator' : 'Follow indicator'}</Button></Card><Card className="card-pad"><PanelTitle title="Source coverage" detail="SYNTHETIC DATASETS" />{[['Northstar DNS telemetry', 'Live', '2 min ago'], ['ARGUS community exchange', 'Live', '4 min ago'], ['Sandbox reputation set', 'Live', '4 min ago'], ['Internal sightings', 'Live', '12 sec ago']].map(([a, b, c]) => <div className="kpi-line" key={a}><span><b>{a}</b><br /><span className="mono muted">{c}</span></span><span className="signal-good"><CheckCircle2 size={14} style={{ verticalAlign: 'middle', marginRight: 5 }} />{b}</span></div>)}<div style={{ marginTop: 20, padding: 13, border: '1px solid hsl(var(--border))', borderRadius: 5, fontSize: 10, lineHeight: 1.5 }}><Info size={13} style={{ verticalAlign: 'middle', marginRight: 6, color: 'hsl(var(--primary))' }} />Reputation is one input to the risk model. Review process and file evidence before escalating.</div></Card></div></div>;
-}
+// ReportsPage extracted to @/pages/reports-page
+// HistoryPage extracted to @/pages/history-page
 
-function ReportsPage({ phase, incidentStatus, quarantineCount, toast }: { phase: number; incidentStatus: string; quarantineCount: number; toast: (t: string, b: string) => void }) {
-  const [generated, setGenerated] = useState(false); const [format, setFormat] = useState<'TXT' | 'JSON'>('TXT');
-  const risk = phase >= 5 ? 86 : phase >= 3 ? 61 : 38;
-  const generate = () => { setGenerated(true); toast('Report generated', 'INC-2024-1042 report is ready to review and share.'); };
-  const downloadReport = () => {
-    if (format === 'JSON') {
-      const payload = {
-        incidentId: 'INC-2024-1042',
-        endpoint: 'WS-0427',
-        riskScore: risk,
-        status: incidentStatus,
-        quarantineArtifacts: quarantineCount,
-        evidenceNote: 'Potential transmission is inferred from connection metadata; confirmed exfiltration is not established.',
-        observed: { files: 5, connections: 4, timelineEvents: Math.min(phase || 8, 8) },
-        synthetic: true,
-      };
-      downloadTextFile('INC-2024-1042-evidence.json', JSON.stringify(payload, null, 2), 'application/json');
-    } else {
-      const text = [
-        'ARGUS Security Intelligence — Synthetic Incident Report',
-        '=====================================================',
-        'Incident: INC-2024-1042',
-        'Endpoint: WS-0427',
-        `Status: ${incidentStatus}`,
-        `Assessed risk: ${risk}/100 (demonstration score — not proof of data theft)`,
-        `Quarantine artifacts: ${quarantineCount}`,
-        '',
-        'Summary',
-        '-------',
-        'A critical PowerShell detection correlated with sensitive file access, local staging,',
-        'and a novel network destination. Process tree: explorer → outlook → invoice_viewer → powershell → rundll32.',
-        '',
-        'Evidence boundaries',
-        '-------------------',
-        'Observed: process, file, and network metadata from synthetic sensors.',
-        'Potential / inferred: transmission volume from connection timing/bytes.',
-        'Confirmed exfiltration: Not established.',
-        '',
-        'This file is generated locally for demonstration. No data was sent externally.',
-      ].join('\n');
-      downloadTextFile('INC-2024-1042-report.txt', text, 'text/plain');
-    }
-    toast('Download started', `${format} synthetic report saved locally.`);
-  };
-  return <div className="animate-rise"><PageHeading eyebrow="Decision artifact · defensible narrative" title="Incident reports" subtitle="Turn correlated evidence into a reviewable record with clear limits on inference." actions={<Button icon={FileText} kind="primary" onClick={generate} testId="button-generate-report">Generate incident report</Button>} /><div className="grid split-grid"><Card className="card-pad"><PanelTitle title="Report builder" detail="INC-2024-1042" /><div className="field"><label>Report title</label><input defaultValue="Exposure assessment · WS-0427" data-testid="input-report-title" /></div><div className="field"><label>Audience</label><select className="select" style={{ width: '100%' }} defaultValue="Security leadership" data-testid="select-report-audience"><option>Security leadership</option><option>Legal & compliance</option><option>Incident response</option></select></div><div className="field"><label>Export format</label><div className="actions"><Button kind={format === 'TXT' ? 'primary' : ''} onClick={() => setFormat('TXT')} testId="button-format-txt">Report (TXT)</Button><Button kind={format === 'JSON' ? 'primary' : ''} onClick={() => setFormat('JSON')} testId="button-format-json">JSON evidence</Button></div></div><div style={{ padding: 13, background: 'hsl(var(--muted))', borderRadius: 5, fontSize: 11, lineHeight: 1.5, marginTop: 17 }}><CheckCircle2 size={14} className="signal-good" style={{ verticalAlign: 'middle', marginRight: 6 }} />Includes timeline, files, connections, quarantine count ({quarantineCount}), and exposure confidence notes. Downloads stay on this device.</div>{generated && <div style={{ marginTop: 14 }}><Button icon={Download} onClick={downloadReport} testId="button-download-report">Download Report</Button><Button icon={Send} onClick={() => toast('Share link copied', 'A local review link was copied to your clipboard.')} testId="button-share-report">Share</Button></div>}</Card><Card className="card-pad"><PanelTitle title="Preview" detail={generated ? 'READY TO REVIEW' : 'DRAFT'} /><div style={{ border: '1px solid hsl(var(--border))', borderRadius: 5, padding: 20, minHeight: 350, background: 'hsl(216 33% 9%)' }}><div className="eyebrow">ARGUS · CONFIDENTIAL</div><h2 style={{ margin: '14px 0 6px', fontSize: 22 }}>Exposure assessment</h2><div className="mono muted">INC-2024-1042 / WS-0427 / 14 OCT 2024</div><div style={{ height: 1, background: 'hsl(var(--border))', margin: '20px 0' }} /><p style={{ fontSize: 11, lineHeight: 1.7, color: 'hsl(var(--muted-foreground))' }}>A critical PowerShell detection correlated with sensitive file access, local staging, and a novel network destination. Potential transmission is inferred from connection metadata; confirmed exfiltration is not established by available sensor evidence.</p><div className="grid metrics" style={{ gridTemplateColumns: 'repeat(3,1fr)', marginTop: 20 }}><StatCard label="Risk" value={String(risk)} note="/ 100" tone="danger" /><StatCard label="Evidence" value="17" note="linked records" tone="info" /><StatCard label="Status" value={incidentStatus} note="shared incident state" tone="warn" /></div></div></Card></div></div>;
-}
-
-function HistoryPage({ toast }: { toast: (t: string, b: string) => void }) {
-  return <div className="animate-rise"><PageHeading eyebrow="Decision archive · 14 reports" title="Report history" subtitle="A review trail for decisions made from ARGUS evidence." actions={<Button icon={Download} onClick={() => toast('History exported', 'Report index CSV downloaded.')} testId="button-export-history">Export index</Button>} /><Card><div className="table-wrap"><table className="data-table"><thead><tr><th>Report</th><th>Incident</th><th>Author</th><th>Created</th><th>Format</th><th>Status</th><th /></tr></thead><tbody>{[['Exposure assessment · WS-0427', 'INC-2024-1042', 'Mira Alvarez', 'Today, 09:49', 'PDF', 'Ready'], ['Unsigned binary review · WS-0198', 'INC-2024-1039', 'Mira Alvarez', 'Yesterday, 18:32', 'PDF', 'Shared'], ['Quarterly endpoint review', 'BATCH-2024-Q3', 'Jon Bell', 'Oct 01, 2024', 'JSON', 'Archived']].map((r, i) => <tr key={r[0]}><td><b>{r[0]}</b><div className="muted mono">RPT-00{i + 41}</div></td><td className="mono">{r[1]}</td><td>{r[2]}</td><td className="mono">{r[3]}</td><td><Badge value={r[4]} /></td><td><Badge value={r[5]} /></td><td><Button icon={Eye} onClick={() => toast('Report opened', `${r[0]} is available in review mode.`)} testId={`button-open-report-${i}`}>Open</Button></td></tr>)}</tbody></table></div></Card></div>;
-}
-
-function CyberCellPage({ toast, incidentStatus, phase, quarantineCount, submitted, onSubmitted, onResetSubmission }: { toast: (t: string, b: string) => void; incidentStatus: string; phase: number; quarantineCount: number; submitted: boolean; onSubmitted: () => void; onResetSubmission: () => void }) {
-  const [consentShare, setConsentShare] = useState(false);
-  const [consentSynthetic, setConsentSynthetic] = useState(false);
-  const canSubmit = consentShare && consentSynthetic;
-  const summary = `Critical PowerShell activity on WS-0427 correlated with sensitive file access, staging, and a novel destination. Shared incident status: ${incidentStatus}. Demo sequence ${Math.min(phase || 0, 8)}/8. Quarantine artifacts: ${quarantineCount}. Confirmed exfiltration not established.`;
-  return <div className="animate-rise"><PageHeading eyebrow="Escalation channel · consent required" title="Cyber Cell" subtitle="Submit a concise incident brief to the response coordination team when internal action needs a second set of hands." />{submitted ? <Card className="card-pad" style={{ maxWidth: 720, margin: '20px auto', textAlign: 'center', padding: 50 }}><div className="brand-mark" style={{ margin: '0 auto 18px' }}><CheckCircle2 size={18} /></div><h2 style={{ fontSize: 21 }}>Submission recorded locally</h2><p className="muted" style={{ fontSize: 12, lineHeight: 1.6 }}>Case CC-2024-188 is queued in this synthetic demo only. Nothing was transmitted to an external Cyber Cell service. Incident status remains <b>{incidentStatus}</b>.</p><Button icon={ArrowLeft} onClick={() => { setConsentShare(false); setConsentSynthetic(false); onResetSubmission(); }} testId="button-new-submission">Create another submission</Button></Card> : <Card className="card-pad" style={{ maxWidth: 720, margin: '20px auto' }}><PanelTitle title="Incident submission" detail="LOCAL SYNTHETIC WORKSPACE" /><div className="field"><label>Incident summary</label><textarea rows={4} defaultValue={summary} key={summary} data-testid="input-cell-summary" /></div><div className="field"><label>Requested support</label><select className="select" style={{ width: '100%' }} defaultValue="Forensic review" data-testid="select-cell-support"><option>Forensic review</option><option>Threat hunting support</option><option>Legal / compliance guidance</option></select></div>
-    <div style={{ display: 'flex', gap: 10, alignItems: 'start', padding: 14, background: 'hsl(var(--muted))', borderRadius: 5, margin: '18px 0 10px' }}><button type="button" onClick={() => setConsentShare(!consentShare)} style={{ background: 'transparent', border: 0, padding: 0, color: consentShare ? 'hsl(var(--accent))' : 'hsl(var(--muted-foreground))' }} data-testid="button-consent-share" aria-pressed={consentShare}><CheckCircle2 size={17} /></button><div style={{ fontSize: 11, lineHeight: 1.5 }}><b>Consent to share this incident brief</b><div className="muted">I understand this report may be visible to the Cyber Cell review queue in a real deployment.</div></div></div>
-    <div style={{ display: 'flex', gap: 10, alignItems: 'start', padding: 14, background: 'hsl(var(--muted))', borderRadius: 5, margin: '0 0 18px' }}><button type="button" onClick={() => setConsentSynthetic(!consentSynthetic)} style={{ background: 'transparent', border: 0, padding: 0, color: consentSynthetic ? 'hsl(var(--accent))' : 'hsl(var(--muted-foreground))' }} data-testid="button-consent-synthetic" aria-pressed={consentSynthetic}><CheckCircle2 size={17} /></button><div style={{ fontSize: 11, lineHeight: 1.5 }}><b>Confirm synthetic / local-only submission</b><div className="muted">I confirm this is demonstration data and ARGUS will not send it to any external service.</div></div></div>
-    <Button kind="primary" icon={Send} disabled={!canSubmit} onClick={() => { onSubmitted(); toast('Submission recorded', 'Local Cyber Cell intake acknowledged the synthetic report. No external transmission.'); }} testId="button-submit-cell">Submit to Cyber Cell</Button><span className="mono muted" style={{ marginLeft: 12 }}>{canSubmit ? 'Both consents recorded' : 'Both consents required'}</span></Card>}</div>;
-}
+// CyberCellPage extracted to @/pages/cyber-cell-page
 
 function SettingsPage({ toast }: { toast: (t: string, b: string) => void }) {
   const [saved, setSaved] = useState(false); const [darkContrast, setDarkContrast] = useState(true);
@@ -784,7 +764,9 @@ function AppContent() {
   const [phase, setPhase] = useState(0);
   const [demoState, setDemoState] = useState<DemoRunState>('idle');
   const [threats, setThreats] = useState(threatsSeed);
-  const [quarantine, setQuarantine] = useState<QuarantineItem[]>(quarantineSeed);
+  const quarantineManager = useQuarantine();
+  const { items: quarantine, setItems: setQuarantine } = quarantineManager;
+  const reportsManager = useReports();
   const [cyberCellSubmitted, setCyberCellSubmitted] = useState(false);
   const [modal, setModal] = useState<ModalState>(null);
   const [toasts, setToasts] = useState<Array<{ id: number; title: string; body: string }>>([]);
@@ -821,7 +803,15 @@ function AppContent() {
     setQuarantine((prev) => {
       const next = [...prev];
       for (const item of containmentQuarantineItems) {
-        if (!next.some((q) => q.id === item.id)) next.unshift(item);
+        if (!next.some((q) => q.id === item.id)) {
+          next.unshift(item);
+          quarantineManager.addQuarantine({
+            path: item.path,
+            name: item.name,
+            reason: item.quarantineReason || 'Host containment applied',
+            severity: item.severity,
+          });
+        }
       }
       return next;
     });
@@ -924,20 +914,28 @@ function AppContent() {
     if (location === '/detections/rules') return <RuleCatalogPage detections={detections} />;
     if (location === '/monitoring') return <MonitoringPage processMonitor={processMonitor} onNavigate={setLocation} />;
     if (location === '/processes') return <ProcessesPage toast={toast} contained={contained} monitorData={processMonitor} onNavigate={setLocation} />;
-    if (location === '/files') return <FilesPage toast={toast} fileScan={fileScan} onNavigate={setLocation} onQuarantine={(item) => setQuarantine((prev) => [item, ...prev])} />;
+    if (location === '/files') return <FilesPage toast={toast} fileScan={fileScan} telemetry={telemetryStream} onNavigate={setLocation} onQuarantine={(item) => {
+      quarantineManager.addQuarantine({
+        path: item.path,
+        name: item.name,
+        reason: item.quarantineReason || 'Suspicious file quarantined from filesystem triage',
+        severity: item.severity,
+      });
+      setQuarantine((prev) => [item, ...prev]);
+    }} />;
     if (location === '/network') return <NetworkPage toast={toast} contained={contained} />;
     if (location === '/exposure') return <ExposurePage phase={phase} toast={toast} threatAnalysis={threatAnalysis} fileScan={fileScan} processMonitor={processMonitor} networkMonitor={networkMonitor} onNavigate={setLocation} contained={contained} onContain={() => containThreat('thr-1')} />;
-    if (location === '/exposure-window') return <ExposureWindowPage phase={phase} toast={toast} onNavigate={setLocation} />;
-    if (location === '/timeline') return <TimelinePage phase={phase} toast={toast} processMonitor={processMonitor} threatAnalysis={threatAnalysis} fileScan={fileScan} onNavigate={setLocation} />;
-    if (location === '/quarantine') return <QuarantinePage items={quarantine} setItems={setQuarantine} toast={toast} setModal={setModal} setLocation={setLocation} />;
-    if (location === '/intelligence') return <IntelligencePage toast={toast} />;
-    if (location === '/reports') return <ReportsPage phase={phase} incidentStatus={incidentStatus} quarantineCount={quarantine.length} toast={toast} />;
-    if (location === '/history') return <HistoryPage toast={toast} />;
-    if (location === '/cyber-cell') return <CyberCellPage toast={toast} incidentStatus={incidentStatus} phase={phase} quarantineCount={quarantine.length} submitted={cyberCellSubmitted} onSubmitted={() => setCyberCellSubmitted(true)} onResetSubmission={() => setCyberCellSubmitted(false)} />;
+    if (location === '/exposure-window') return <ExposureWindowPage phase={phase} toast={toast} threatAnalysis={threatAnalysis} processMonitor={processMonitor} networkMonitor={networkMonitor} fileScan={fileScan} telemetry={telemetryStream} contained={contained} onNavigate={setLocation} />;
+    if (location === '/timeline') return <TimelinePage phase={phase} toast={toast} processMonitor={processMonitor} networkMonitor={networkMonitor} threatAnalysis={threatAnalysis} fileScan={fileScan} telemetry={telemetryStream} contained={contained} onNavigate={setLocation} />;
+    if (location === '/quarantine') return <QuarantinePage items={quarantineManager.items} setItems={quarantineManager.setItems} toast={toast} setModal={setModal} setLocation={setLocation} onAddQuarantine={quarantineManager.addQuarantine} onRestore={quarantineManager.restoreQuarantine} onPurge={quarantineManager.purgeQuarantine} onVerify={quarantineManager.verifyIntegrity} vaultPath={quarantineManager.vaultPath} />;
+    if (location === '/intelligence') return <IntelligencePage toast={toast} processMonitor={processMonitor} networkMonitor={networkMonitor} fileScan={fileScan} threatAnalysis={threatAnalysis} telemetry={telemetryStream} onNavigate={setLocation} />;
+    if (location === '/reports') return <ReportsPage phase={phase} incidentStatus={incidentStatus} quarantineItems={quarantineManager.items} processMonitor={processMonitor} networkMonitor={networkMonitor} threatAnalysis={threatAnalysis} telemetry={telemetryStream} toast={toast} onSaveToHistory={reportsManager.createReport} onNavigate={setLocation} vaultPath={reportsManager.vaultPath} />;
+    if (location === '/history') return <HistoryPage reports={reportsManager.reports} onDeleteReport={reportsManager.deleteReport} toast={toast} onNavigate={setLocation} vaultPath={reportsManager.vaultPath} />;
+    if (location === '/cyber-cell') return <CyberCellPage toast={toast} incidentStatus={incidentStatus} phase={phase} quarantineCount={quarantine.length} submitted={cyberCellSubmitted} onSubmitted={() => setCyberCellSubmitted(true)} onResetSubmission={() => setCyberCellSubmitted(false)} telemetry={telemetryStream} processMonitor={processMonitor} networkMonitor={networkMonitor} fileScan={fileScan} threatAnalysis={threatAnalysis} />;
     if (location === '/settings') return <SettingsPage toast={toast} />;
     if (location === '/about') return <AboutPage />;
     return <NotFound />;
-  }, [location, phase, demoState, threats, quarantine, incidentStatus, contained, cyberCellSubmitted, processMonitor, telemetryStream, networkMonitor, threatAnalysis, detections, autoDemo.state, fileScan]);
+  }, [location, phase, demoState, threats, quarantine, quarantineManager, reportsManager, incidentStatus, contained, cyberCellSubmitted, processMonitor, telemetryStream, networkMonitor, threatAnalysis, detections, autoDemo.state, fileScan]);
 
   const toastStack = <div className="toast-stack">{toasts.map((t) => <div className="toast" key={t.id} data-testid={`toast-${t.id}`}><strong>{t.title}</strong><p>{t.body}</p></div>)}</div>;
 

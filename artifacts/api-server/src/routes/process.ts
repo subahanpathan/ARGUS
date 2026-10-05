@@ -1,6 +1,11 @@
+
 import { Router, type IRouter, type Request, type Response } from "express";
+import { exec } from "node:child_process";
+import { promisify } from "node:util";
 import { eventHub, type ProcessEvent, type ProcessSnapshot } from "../lib/event-hub";
 import { detectionEngine } from "../detection/engine";
+
+const execAsync = promisify(exec);
 
 const router: IRouter = Router();
 
@@ -176,11 +181,56 @@ router.post("/processes", (req: Request, res: Response) => {
 });
 
 /**
+ * Fallback: query running Windows processes directly via PowerShell if the security
+ * engine has not yet delivered a psutil snapshot.
+ */
+async function queryWindowsProcesses(): Promise<ProcessSnapshot | null> {
+  try {
+    const { stdout } = await execAsync(
+      `powershell -NoProfile -Command "Get-CimInstance Win32_Process | Select-Object ProcessId, Name, ParentProcessId, CommandLine, ExecutablePath, WorkingSetSize | ConvertTo-Json -Compress"`,
+      { maxBuffer: 15 * 1024 * 1024, timeout: 6000 }
+    );
+    if (!stdout.trim()) return null;
+    const raw = JSON.parse(stdout);
+    const list = Array.isArray(raw) ? raw : [raw];
+    const processes = list
+      .filter((p: any) => p && p.ProcessId != null)
+      .map((p: any) => ({
+        pid: Number(p.ProcessId) || 0,
+        name: String(p.Name || "unknown.exe"),
+        executable_path: p.ExecutablePath ? String(p.ExecutablePath) : undefined,
+        command_line: p.CommandLine ? String(p.CommandLine) : undefined,
+        parent_pid: p.ParentProcessId != null ? Number(p.ParentProcessId) : undefined,
+        memory_bytes: p.WorkingSetSize ? Number(p.WorkingSetSize) : undefined,
+        cpu_percent: 0.1,
+        status: "running",
+      }));
+
+    return {
+      timestamp: new Date().toISOString(),
+      total_count: processes.length,
+      access_denied_count: 0,
+      processes,
+    };
+  } catch {
+    return null;
+  }
+}
+
+/**
  * GET /api/processes
  * Retrieve the current process snapshot.
  */
-router.get("/processes", (_req: Request, res: Response) => {
-  const snapshot = eventHub.getSnapshot();
+router.get("/processes", async (_req: Request, res: Response) => {
+  let snapshot = eventHub.getSnapshot();
+  if (!snapshot || snapshot.processes.length === 0) {
+    const fallback = await queryWindowsProcesses();
+    if (fallback && fallback.processes.length > 0) {
+      eventHub.setSnapshot(fallback);
+      snapshot = fallback;
+    }
+  }
+
   if (!snapshot) {
     res.json({
       timestamp: null,

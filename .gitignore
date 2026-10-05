@@ -58,3 +58,9 @@ Thumbs.db
 __pycache__/
 .venv/
 .app.pid
+
+# Quarantine isolated files and runtime vault
+*.quarantined
+**/quarantine_vault/
+**/reports_vault/
+artifacts/api-server/artifacts/

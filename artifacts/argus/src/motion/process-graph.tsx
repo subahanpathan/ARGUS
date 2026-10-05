@@ -161,18 +161,18 @@ function ProcessCard({
 
 function Branch({
   node,
-  nodes,
+  childrenMap,
   onSelect,
   openPid,
   isRoot,
 }: {
   node: ProcessGraphNode;
-  nodes: ProcessGraphNode[];
+  childrenMap: Map<number, ProcessGraphNode[]>;
   onSelect: (pid: number) => void;
   openPid: number | null;
   isRoot: boolean;
 }) {
-  const children = useMemo(() => nodes.filter((n) => n.parentPid === node.pid), [nodes, node.pid]);
+  const children = childrenMap.get(node.pid) ?? [];
   const expanded = openPid === node.pid;
   const flowsToSuspicious = children.some((c) => c.verdict === 'suspicious' || c.verdict === 'malicious');
 
@@ -209,7 +209,7 @@ function Branch({
             <Branch
               key={child.id}
               node={child}
-              nodes={nodes}
+              childrenMap={childrenMap}
               onSelect={onSelect}
               openPid={openPid}
               isRoot={false}
@@ -237,24 +237,35 @@ function Branch({
 export function ProcessGraph({ nodes, selected, onSelect }: ProcessGraphProps) {
   const [openPid, setOpenPid] = useState<number | null>(selected);
 
+  // Pre-build O(1) lookup structures once per nodes change
+  const { pidMap, childrenMap } = useMemo(() => {
+    const pidMap = new Map(nodes.map((n) => [n.pid, n]));
+    const childrenMap = new Map<number, ProcessGraphNode[]>();
+    for (const n of nodes) {
+      if (n.parentPid != null && n.parentPid > 0) {
+        const arr = childrenMap.get(n.parentPid) ?? [];
+        arr.push(n);
+        childrenMap.set(n.parentPid, arr);
+      }
+    }
+    return { pidMap, childrenMap };
+  }, [nodes]);
+
   const roots = useMemo(() => {
     if (nodes.length === 0) return [];
     const pids = new Set(nodes.map((n) => n.pid));
-    // A root is any process whose parent is not in the snapshot, or parentPid is null or <= 0
     const list = nodes.filter((n) => n.parentPid == null || n.parentPid <= 0 || !pids.has(n.parentPid));
 
-    // When there are many roots (e.g. real Windows environment with 300+ processes),
-    // prioritize roots that have children, the selected process root, or elevated verdicts.
     if (list.length > 6) {
       const childParentPids = new Set(nodes.map((n) => n.parentPid));
       const selectedChainRoots = new Set<number>();
-      let cur = nodes.find((n) => n.pid === selected);
+      let cur = pidMap.get(selected);
       while (cur) {
         if (cur.parentPid == null || cur.parentPid <= 0 || !pids.has(cur.parentPid)) {
           selectedChainRoots.add(cur.pid);
           break;
         }
-        cur = nodes.find((n) => n.pid === cur!.parentPid);
+        cur = cur.parentPid != null ? pidMap.get(cur.parentPid) : undefined;
       }
 
       const prioritized = list.filter(
@@ -265,13 +276,11 @@ export function ProcessGraph({ nodes, selected, onSelect }: ProcessGraphProps) {
           childParentPids.has(r.pid),
       );
 
-      if (prioritized.length > 0) {
-        return prioritized.slice(0, 8);
-      }
+      if (prioritized.length > 0) return prioritized.slice(0, 8);
       return list.slice(0, 8);
     }
     return list.length > 0 ? list : nodes.slice(0, 5);
-  }, [nodes, selected]);
+  }, [nodes, selected, pidMap]);
 
   if (roots.length === 0) {
     return <div className="empty">No processes observed in this snapshot.</div>;
@@ -299,14 +308,14 @@ export function ProcessGraph({ nodes, selected, onSelect }: ProcessGraphProps) {
     for (const n of nodes) {
       if (n.verdict === 'suspicious' || n.verdict === 'malicious') {
         let current: ProcessGraphNode | undefined = n;
-        while (current && current.parentPid != null) {
-          current = nodes.find((x) => x.pid === current!.parentPid);
+        while (current && current.parentPid != null && current.parentPid > 0) {
+          current = pidMap.get(current.parentPid);
           if (current) ids.add(current.id);
         }
       }
     }
     return ids;
-  }, [nodes]);
+  }, [nodes, pidMap]);
 
   return (
     <div>
@@ -330,7 +339,7 @@ export function ProcessGraph({ nodes, selected, onSelect }: ProcessGraphProps) {
           <Branch
             key={root.id}
             node={{ ...root, flow: root.contained ? false : markFlowOnChain.has(root.id) || root.flow }}
-            nodes={nodes}
+            childrenMap={childrenMap}
             onSelect={handleSelect}
             openPid={openPid}
             isRoot
