@@ -25,6 +25,41 @@ router.get("/detections/rules", (_req: Request, res: Response) => {
 });
 
 /**
+ * POST /api/detections/probe
+ * Inject a benign probe event to demonstrate live detection firing,
+ * correlation, and real-time SSE stream delivery.
+ */
+router.post("/detections/probe", (_req: Request, res: Response) => {
+  const probePid = 10000 + Math.floor(Math.random() * 80000);
+  const probeEvent = {
+    id: `probe-${Date.now()}`,
+    event_type: "PROCESS_STARTED",
+    timestamp: new Date().toISOString(),
+    pid: probePid,
+    process_name: "certutil.exe",
+    executable_path: "C:\\Windows\\System32\\certutil.exe",
+    command_line: "certutil.exe -urlcache -split -f https://internal.argus.local/test-probe.bin C:\\Users\\nikhi\\AppData\\Local\\Temp\\test-probe.bin",
+    parent_pid: 4120,
+    parent_process_name: "cmd.exe",
+    source: "argus_live_probe",
+    observed: true,
+  };
+
+  eventHub.addEvent(probeEvent);
+  const newDetections = detectionEngine.ingestEvent(probeEvent);
+  for (const det of newDetections) {
+    eventHub.addDetection(det);
+  }
+
+  res.json({
+    success: true,
+    message: "Live test probe ingested into detection engine.",
+    detections_triggered: newDetections.length,
+    detections: newDetections,
+  });
+});
+
+/**
  * GET /api/detections
  * Retrieve recent detections, optionally filtered.
  */

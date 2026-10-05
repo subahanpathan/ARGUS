@@ -36,6 +36,8 @@ export type ScanPhase = "idle" | "scanning" | "complete";
 
 export type ThreatAnalysisState = {
   threats: LiveThreat[];
+  liveThreats: LiveThreat[];
+  simulatedThreats: LiveThreat[];
   isLive: boolean;
   scanStatus: ScanPhase;
   scanProgress: number;
@@ -79,10 +81,11 @@ const CREDENTIAL_PARENTS = [/rundll32/i, /mimikatz/i, /procdump/i];
 const SUSPICIOUS_PORTS = [4444, 5555, 6666, 7777, 8888, 9999, 31337, 1234, 4321];
 const KNOWN_SAFE_DOMAINS = [/microsoft\.com$/i, /windowsupdate/i, /office\.com$/i, /googleapis\.com$/i, /cloudflare\.com$/i, /amazonaws\.com$/i];
 
-function isEncodedPowerShell(name: string, exePath?: string): boolean {
+function isEncodedPowerShell(name: string, exePath?: string, cmdline?: string): boolean {
   if (!/powershell/i.test(name)) return false;
-  if (!exePath) return false;
-  return ENCODED_PATTERNS.some((p) => p.test(exePath));
+  if (cmdline && ENCODED_PATTERNS.some((p) => p.test(cmdline))) return true;
+  if (exePath && ENCODED_PATTERNS.some((p) => p.test(exePath))) return true;
+  return false;
 }
 
 function isSuspiciousPath(exePath?: string): boolean {
@@ -119,7 +122,8 @@ function analyzeProcesses(
   };
 
   for (const proc of snapshot) {
-    if (isEncodedPowerShell(proc.name, proc.executable_path)) {
+    const cmdline = (proc as any).cmdline || (proc as any).command_line || "";
+    if (isEncodedPowerShell(proc.name, proc.executable_path, cmdline)) {
       threats.push({
         id: `live-thr-${proc.pid}-enc-ps`,
         name: "Encoded PowerShell execution detected",
@@ -130,6 +134,24 @@ function analyzeProcesses(
         process: proc.name,
         hash: realHash(proc.executable_path),
         reason: "Encoded or obfuscated PowerShell command detected in running process. Commonly used for C2 communication and payload delivery.",
+        status: "detected",
+        source: "live",
+        pid: proc.pid,
+        parentPid: proc.parent_pid ?? undefined,
+      });
+    }
+
+    if (/certutil\.exe/i.test(proc.name) && (/urlcache/i.test(cmdline) || /split/i.test(cmdline))) {
+      threats.push({
+        id: `live-thr-${proc.pid}-certutil-dl`,
+        name: "LOLBIN certutil download cradle",
+        severity: "high",
+        className: "Command & Control",
+        timestamp: now,
+        path: proc.executable_path || "C:\\Windows\\System32\\certutil.exe",
+        process: proc.name,
+        hash: realHash(proc.executable_path),
+        reason: `certutil.exe invoked with urlcache download flags: ${cmdline}. Living-off-the-Land persistence/download technique.`,
         status: "detected",
         source: "live",
         pid: proc.pid,
@@ -453,6 +475,8 @@ export function useThreatAnalysis(
 
   return {
     threats: allThreats,
+    liveThreats,
+    simulatedThreats: demoAsLive,
     isLive,
     scanStatus,
     scanProgress,

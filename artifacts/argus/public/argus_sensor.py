@@ -217,15 +217,17 @@ def sample_process_snapshot():
     processes = []
     access_denied = 0
 
-    attrs = ["pid", "name", "ppid", "username", "cpu_percent", "memory_info", "status", "create_time", "exe"]
+    attrs = ["pid", "name", "ppid", "username", "cpu_percent", "memory_info", "status", "create_time", "exe", "cmdline"]
     for p in psutil.process_iter(attrs, ad_value=None):
         try:
             info = p.info
+            cmdline_str = " ".join(info["cmdline"]) if info.get("cmdline") else None
             mem_bytes = info["memory_info"].rss if info.get("memory_info") else 0
             processes.append({
                 "pid": info["pid"],
                 "name": info["name"] or "unknown",
                 "executable_path": info["exe"] or None,
+                "command_line": cmdline_str,
                 "parent_pid": info["ppid"] or None,
                 "creation_time": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(info["create_time"])) if info.get("create_time") else None,
                 "cpu_percent": info.get("cpu_percent") or 0.0,
