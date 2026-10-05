@@ -3,14 +3,22 @@ import {
   Activity,
   AlertTriangle,
   ArrowRight,
+  Check,
   CheckCircle2,
+  Clock,
+  Copy,
   Cpu,
   Database,
+  Download,
   ExternalLink,
   Eye,
+  FileText,
   Filter,
+  Flame,
+  FolderLock,
   HardDrive,
   Laptop,
+  Lock,
   Network,
   Play,
   Radio,
@@ -22,6 +30,8 @@ import {
   ShieldCheck,
   SlidersHorizontal,
   TerminalSquare,
+  Timer,
+  Trash2,
   Zap,
 } from 'lucide-react';
 import type { ProcessMonitorState } from '@/hooks/use-process-monitor';
@@ -30,6 +40,7 @@ import type { FileScanState } from '@/hooks/use-file-scan';
 import type { NetworkMonitorState } from '@/hooks/use-network-monitor';
 import type { useTelemetryStream } from '@/hooks/use-telemetry-stream';
 import type { useDetections } from '@/hooks/use-detections';
+import { useRemediationLedger, type RemediationAuditRecord } from '@/hooks/use-remediation-ledger';
 
 function cn(...values: Array<string | false | undefined | null>) {
   return values.filter(Boolean).join(' ');
@@ -110,16 +121,16 @@ function StateBadge({ value }: { value: string }) {
     <span
       key={value}
       className={cn(
-        'badge incident-card-enter',
+        'badge',
         tone === 'critical'
           ? 'badge-critical'
           : tone === 'high'
           ? 'badge-high'
           : tone === 'medium'
           ? 'badge-medium'
-          : tone === 'low' || tone === 'safe' || tone === 'observed' || tone === 'confirmed'
+          : tone === 'low' || tone === 'safe' || tone === 'observed' || tone === 'confirmed' || tone === 'resolved'
           ? 'badge-low'
-          : tone === 'potential'
+          : tone === 'quarantined' || tone === 'contained'
           ? 'badge-high'
           : 'badge-muted'
       )}
@@ -149,6 +160,14 @@ export function ThreatsPage({
   const [isProbing, setIsProbing] = useState(false);
   const [simThreats, setSimThreats] = useState<Threat[]>(initialThreats);
   const [liveContainedIds, setLiveContainedIds] = useState<Set<string>>(new Set());
+
+  // Navigation tab for Automated Remediation Audit Ledger
+  const [activeTab, setActiveTab] = useState<'threats' | 'ledger' | 'cybercell'>('threats');
+  const [ledgerFilter, setLedgerFilter] = useState<'all' | 'deleted' | 'quarantined' | 'sensitive'>('all');
+  const [copiedHash, setCopiedHash] = useState<string | null>(null);
+
+  // Automated Remediation Ledger Hook
+  const { remediations, policy, setPolicy, stats, remediateThreat, clearLedger } = useRemediationLedger({ toast });
 
   const {
     isLive,
@@ -222,6 +241,20 @@ export function ThreatsPage({
 
   const activeThreats = mode === 'live' ? liveThreats : simThreats;
 
+  // Automated Remediation Engine: Auto-delete critical threats & auto-quarantine high threats
+  useEffect(() => {
+    if (!policy.enabled) return;
+    for (const t of activeThreats) {
+      if (t.severity === 'critical' || t.severity === 'high') {
+        const alreadyRemediated = remediations.some((r) => r.threatId === t.id);
+        if (!alreadyRemediated) {
+          remediateThreat(t);
+          setLiveContainedIds((prev) => new Set([...prev, t.id]));
+        }
+      }
+    }
+  }, [activeThreats, policy.enabled, remediations, remediateThreat]);
+
   const filtered = useMemo(() => {
     return activeThreats.filter((t) => {
       const matchQuery = `${t.name} ${t.path} ${t.process} ${t.hash} ${t.reason}`
@@ -232,6 +265,19 @@ export function ThreatsPage({
     });
   }, [activeThreats, query, severity]);
 
+  const filteredLedger = useMemo(() => {
+    return remediations.filter((r) => {
+      if (ledgerFilter === 'deleted') return r.actionTaken === 'AUTOMATED_PURGE_DELETED';
+      if (ledgerFilter === 'quarantined') return r.actionTaken === 'AUTOMATED_QUARANTINE';
+      if (ledgerFilter === 'sensitive') return r.isSensitiveData && r.directedToCyberCell;
+      return true;
+    });
+  }, [remediations, ledgerFilter]);
+
+  const sensitiveCyberCellThreats = useMemo(() => {
+    return remediations.filter((r) => r.isSensitiveData && r.directedToCyberCell);
+  }, [remediations]);
+
   const processCount = processMonitor?.snapshot?.length ?? telemetry?.telemetry?.processes?.running ?? 280;
   const socketCount = networkMonitor?.snapshot?.total_count ?? 340;
   const fileCount = fileScan?.snapshot?.total_count ?? (fileScan?.findings?.length ?? 24);
@@ -239,6 +285,31 @@ export function ThreatsPage({
   const handleContainLive = (id: string, name: string) => {
     setLiveContainedIds((prev) => new Set([...prev, id]));
     toast('Live Threat Contained', `Process/artifact ${name} isolated and suspended.`);
+  };
+
+  const handleCopyHash = (hash: string) => {
+    navigator.clipboard.writeText(hash);
+    setCopiedHash(hash);
+    toast('Hash copied', `SHA-256 copied: ${hash}`);
+    setTimeout(() => setCopiedHash(null), 2000);
+  };
+
+  const exportLedger = () => {
+    const payload = {
+      exportedAt: new Date().toISOString(),
+      host: 'Host Nikhil (Windows 11)',
+      policy,
+      stats,
+      records: remediations,
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `ARGUS-Remediation-Ledger-${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast('Ledger Exported', `${remediations.length} remediation audit records exported.`);
   };
 
   const runProbe = async () => {
@@ -249,7 +320,7 @@ export function ThreatsPage({
         const data = await res.json();
         toast(
           'Live Benign Probe Triggered',
-          `Engine evaluated ${data.detections_triggered || 3} rules (PROC-001, PROC-006, PROC-007) on certutil.exe.`
+          `Engine evaluated ${data.detections_triggered || 3} rules on certutil.exe. Auto-remediation policy evaluated.`
         );
         if (detections?.refresh) {
           detections.refresh();
@@ -362,202 +433,97 @@ export function ThreatsPage({
           </button>
           <button
             type="button"
-            className="btn"
-            onClick={() => runScan('Custom')}
-            data-testid="button-custom-scan"
+            className="btn btn-outline"
+            onClick={exportLedger}
+            data-testid="button-export-ledger"
+            title="Download full JSON ledger of deleted and remediated files"
           >
-            <SlidersHorizontal size={14} /> Custom
+            <Download size={14} /> Export Audit Ledger
           </button>
-
-          {mode === 'live' ? (
-            <span
-              className="badge badge-low"
-              style={{
-                background: 'hsl(142 71% 20%)',
-                color: 'hsl(142 71% 70%)',
-                border: '1px solid hsl(142 71% 30%)',
-              }}
-            >
-              <Radio size={10} style={{ marginRight: 4, verticalAlign: 'middle' }} />
-              REAL-TIME
-            </span>
-          ) : (
-            <span
-              className="badge"
-              style={{
-                background: 'hsl(46 80% 12%)',
-                color: 'hsl(46 90% 66%)',
-                border: '1px solid hsl(46 80% 32%)',
-              }}
-            >
-              <Radio size={10} style={{ marginRight: 4, verticalAlign: 'middle' }} />
-              SIMULATED SCENARIO
-            </span>
-          )}
         </div>
       </div>
 
-      {/* Live Host Status Bar */}
-      {mode === 'live' && (
-        <div
-          className="scan-strip"
-          style={{
-            background: 'hsl(142 50% 8% / 0.8)',
-            borderColor: 'hsl(142 60% 25%)',
-            color: 'hsl(142 70% 75%)',
-            padding: '10px 16px',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            marginBottom: '14px',
-          }}
-        >
+      {/* Automated Remediation Policy Strip */}
+      <div
+        className="card card-pad"
+        style={{
+          background: 'linear-gradient(90deg, hsla(142, 70%, 45%, 0.08), hsla(217, 91%, 60%, 0.05))',
+          border: '1px solid hsla(142, 70%, 45%, 0.25)',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: 12,
+          marginBottom: 14,
+          padding: '10px 16px',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <div
-            className="scan-status"
-            style={{ color: 'hsl(142 70% 75%)', display: 'flex', gap: '10px', alignItems: 'center' }}
+            style={{
+              width: 32,
+              height: 32,
+              borderRadius: 6,
+              background: 'hsla(142, 70%, 45%, 0.2)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: 'hsl(142 71% 55%)',
+            }}
           >
-            <span
-              style={{
-                display: 'inline-block',
-                width: '8px',
-                height: '8px',
-                borderRadius: '50%',
-                background: 'hsl(142 71% 45%)',
-                boxShadow: '0 0 8px hsl(142 71% 45%)',
-              }}
-            />
-            <div>
-              <b>LIVE THREAT DETECTION ACTIVE</b>
-              <small style={{ marginLeft: 8, color: 'hsl(142 70% 85%)' }}>
-                Host: <strong>Nikhil (Windows 11)</strong> · Streaming real telemetry ·{' '}
-                <strong>{processCount}</strong> running processes · <strong>{socketCount}</strong> active sockets ·{' '}
-                <strong>{fileCount}</strong> scanned files · <strong>21</strong> detection rules armed.
-              </small>
+            <Zap size={18} />
+          </div>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ fontWeight: 700, fontSize: 12, color: 'hsl(142 70% 85%)' }}>
+                AUTOMATED REMEDIATION ENGINE: ACTIVE
+              </span>
+              <span
+                className="badge badge-low"
+                style={{
+                  fontSize: 10,
+                  background: 'hsl(142 71% 20%)',
+                  color: 'hsl(142 71% 70%)',
+                  border: '1px solid hsl(142 71% 30%)',
+                }}
+              >
+                AUTONOMOUS DEFENSE
+              </span>
+            </div>
+            <div className="muted" style={{ fontSize: 11, marginTop: 2 }}>
+              <strong>Critical</strong> threats: Auto-Deleted from disk · <strong>High</strong> threats: Auto-Quarantined ·{' '}
+              <strong style={{ color: 'hsl(var(--destructive))' }}>Very Sensitive Data</strong> (credentials, LSASS, shadow copies, payroll): Auto-Directed to Cyber Cell.
             </div>
           </div>
-          <span style={{ fontSize: '11px', fontFamily: 'monospace', color: 'hsl(142 60% 70%)' }}>
-            LOCAL SENSOR V2.4 · REACTION TIME &lt; 200ms
-          </span>
         </div>
-      )}
 
-      {/* Simulated Mode Banner */}
-      {mode === 'simulated' && (
-        <div
-          className="scan-strip"
-          style={{
-            background: 'hsl(46 80% 10% / 0.7)',
-            borderColor: 'hsl(46 80% 28%)',
-            color: 'hsl(46 90% 75%)',
-            padding: '10px 16px',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            marginBottom: '14px',
-          }}
-        >
-          <div
-            className="scan-status"
-            style={{ color: 'hsl(46 90% 75%)', display: 'flex', gap: '10px', alignItems: 'center' }}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <span style={{ fontSize: 11, fontFamily: 'monospace', color: 'hsl(var(--muted-foreground))' }}>
+            AVG DWELL: <strong style={{ color: 'hsl(142 71% 55%)' }}>{stats.avgIntervalFormatted}</strong>
+          </span>
+          <button
+            type="button"
+            className={cn('btn btn-xs', policy.enabled ? 'btn-primary' : 'btn-outline')}
+            style={{ fontSize: 11, padding: '3px 8px', height: 24 }}
+            onClick={() => {
+              setPolicy((prev) => ({ ...prev, enabled: !prev.enabled }));
+              toast(
+                policy.enabled ? 'Auto-Remediation Paused' : 'Auto-Remediation Resumed',
+                policy.enabled ? 'Detections will require manual containment.' : 'Threats will be automatically deleted on detection.'
+              );
+            }}
           >
-            <span
-              style={{
-                display: 'inline-block',
-                width: '8px',
-                height: '8px',
-                borderRadius: '50%',
-                background: 'hsl(46 90% 55%)',
-                boxShadow: '0 0 8px hsl(46 90% 55%)',
-              }}
-            />
-            <div>
-              <b>SYNTHETIC INCIDENT SIMULATION ACTIVE</b>
-              <small style={{ marginLeft: 8, color: 'hsl(46 90% 85%)' }}>
-                Endpoint: <strong>WS-0427 (Analyst Demo)</strong> · Multi-stage attack simulation (PowerShell C2 &amp; LSASS memory dump). Switch to <strong>[⚡ Live Host Threat Detections]</strong> to view physical machine telemetry.
-              </small>
-            </div>
-          </div>
-          <span style={{ fontSize: '11px', fontFamily: 'monospace', color: 'hsl(46 90% 70%)' }}>
-            SIMULATED ATTACK SCENARIO
-          </span>
+            {policy.enabled ? 'Policy: Armed' : 'Policy: Standby'}
+          </button>
         </div>
-      )}
+      </div>
 
-      {/* Demo Reached Banner */}
-      {demoReached && mode === 'simulated' && (
-        <div className="scan-strip" data-testid="threats-demo-reached">
-          <div className="scan-status">
-            <Radar size={15} />
-            <div>
-              Reached via autonomous demo
-              <small>
-                {' '}
-                · ARGUS transitioned here automatically after the 10-second dashboard presentation. Threat triage is back under your control.
-              </small>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Active Scan Progress Card */}
-      {scanStatus === 'scanning' && (
-        <section
-          className="card card-pad"
-          style={{
-            marginBottom: 14,
-            border: '1px solid hsl(var(--primary)/.3)',
-            background: 'linear-gradient(90deg,rgba(71,215,239,.06),rgba(71,215,239,.02))',
-          }}
-        >
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
-              <RefreshCw size={15} className="animate-pulse-line" style={{ color: 'hsl(var(--primary))' }} />
-              <span className="scan-phase" style={{ fontWeight: 600 }}>{scanPhaseLabel}</span>
-            </div>
-            <span className="mono muted">{scanProgress}%</span>
-          </div>
-          <div className="scan-progress-bar">
-            <div style={{ width: `${scanProgress}%` }} />
-          </div>
-          <div className="scan-findings-live" style={{ marginTop: 8, display: 'flex', gap: 18, fontSize: 11 }}>
-            <span>
-              Target: <b className="mono">Host Nikhil (Windows 11)</b>
-            </span>
-            <span>
-              Items inspected: <b>{scanItemsChecked}</b>
-            </span>
-            <span>
-              Findings:{' '}
-              <b style={{ color: scanFindingsFound > 0 ? 'hsl(var(--destructive))' : 'hsl(var(--accent))' }}>
-                {scanFindingsFound}
-              </b>
-            </span>
-            <span>
-              Source: <b>Live Windows Sensor</b>
-            </span>
-          </div>
-        </section>
-      )}
-
-      {/* Scan Complete Banner */}
-      {scanStatus === 'complete' && scanFindingsFound > 0 && (
-        <div className="scan-strip" style={{ marginBottom: 14 }}>
-          <div className="scan-status">
-            <ShieldAlert size={15} />
-            <div>
-              {scanFindingsFound} finding{scanFindingsFound > 1 ? 's' : ''} evaluated
-              <small> · review the updated detection catalog below</small>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Summary KPI Cards */}
-      <div className="grid metrics" style={{ gridTemplateColumns: 'repeat(4,1fr)', marginBottom: 14 }}>
+      {/* Summary KPI Metrics Cards */}
+      <div className="grid metrics" style={{ gridTemplateColumns: 'repeat(5, 1fr)', marginBottom: 14 }}>
         <section className="card metric animate-rise">
           <div className="metric-label">
             <ShieldAlert size={13} style={{ verticalAlign: 'middle', marginRight: 6 }} />
-            Active Threats
+            Active Signals
           </div>
           <div
             className={cn('metric-value', activeThreats.length > 0 ? 'signal-warn' : 'signal-good')}
@@ -566,320 +532,650 @@ export function ThreatsPage({
             {activeThreats.length}
           </div>
           <div className="metric-note">
-            {criticalCount} critical · {highCount} high · {mediumCount} medium
+            {criticalCount} critical · {highCount} high
           </div>
         </section>
 
         <section className="card metric animate-rise">
           <div className="metric-label">
-            <ShieldCheck size={13} style={{ verticalAlign: 'middle', marginRight: 6 }} />
-            Host Status
+            <Trash2 size={13} style={{ verticalAlign: 'middle', marginRight: 6, color: 'hsl(0 80% 65%)' }} />
+            Automated Deletions
           </div>
-          <div
-            className={cn('metric-value', criticalCount > 0 ? 'signal-danger' : 'signal-good')}
-            data-testid="text-metric-host-status"
-          >
-            {criticalCount > 0 ? 'Threat Flagged' : 'Guarded'}
+          <div className="metric-value signal-danger" data-testid="text-metric-deleted-files">
+            {stats.totalDeleted}
           </div>
-          <div className="metric-note">
-            {mode === 'live' ? 'Nikhil · Windows 11' : 'WS-0427 (Simulation)'}
-          </div>
+          <div className="metric-note">Critical threats purged from host</div>
         </section>
 
         <section className="card metric animate-rise">
           <div className="metric-label">
-            <TerminalSquare size={13} style={{ verticalAlign: 'middle', marginRight: 6 }} />
-            Processes Watched
+            <FolderLock size={13} style={{ verticalAlign: 'middle', marginRight: 6, color: 'hsl(38 90% 65%)' }} />
+            Quarantined Files
           </div>
-          <div className="metric-value signal-info" data-testid="text-metric-processes-watched">
-            {processCount}
+          <div className="metric-value signal-warn" data-testid="text-metric-quarantined-files">
+            {stats.totalQuarantined}
           </div>
-          <div className="metric-note">Live telemetry · psutil stream</div>
+          <div className="metric-note">High severity artifacts sealed</div>
         </section>
 
         <section className="card metric animate-rise">
           <div className="metric-label">
-            <Network size={13} style={{ verticalAlign: 'middle', marginRight: 6 }} />
-            Network Sockets
+            <Timer size={13} style={{ verticalAlign: 'middle', marginRight: 6, color: 'hsl(190 90% 60%)' }} />
+            Avg. Remediation Time
           </div>
-          <div className="metric-value signal-good" data-testid="text-metric-network-sockets">
-            {socketCount}
+          <div className="metric-value signal-good" data-testid="text-metric-avg-dwell">
+            {stats.avgIntervalFormatted}
           </div>
-          <div className="metric-note">0 unauthorized C2 channels</div>
+          <div className="metric-note">Detection to neutralization interval</div>
+        </section>
+
+        <section className="card metric animate-rise" style={{ border: '1px solid hsla(280, 80%, 50%, 0.3)' }}>
+          <div className="metric-label">
+            <Flame size={13} style={{ verticalAlign: 'middle', marginRight: 6, color: 'hsl(280 80% 65%)' }} />
+            Directed to Cyber Cell
+          </div>
+          <div className="metric-value" style={{ color: 'hsl(280 85% 70%)' }} data-testid="text-metric-cyber-cell">
+            {stats.totalSensitiveDirectedToCyberCell}
+          </div>
+          <div className="metric-note">Very sensitive data escalations</div>
         </section>
       </div>
 
-      {/* Clean Host Reassurance Card (Live mode with 0 threats) */}
-      {mode === 'live' && activeThreats.length === 0 && (
-        <section
-          className="card card-pad"
-          style={{
-            marginBottom: 14,
-            border: '1px solid hsl(142 70% 30% / 0.5)',
-            background: 'linear-gradient(135deg, hsl(142 50% 8% / 0.6), hsl(142 40% 5% / 0.4))',
-          }}
+      {/* Primary Tab Switcher */}
+      <div
+        style={{
+          display: 'flex',
+          gap: 6,
+          background: 'hsl(var(--card))',
+          padding: '4px',
+          borderRadius: 8,
+          border: '1px solid hsl(var(--border))',
+          marginBottom: 14,
+        }}
+      >
+        <button
+          type="button"
+          className={cn('btn btn-sm', activeTab === 'threats' ? 'btn-primary' : 'btn-ghost')}
+          style={{ fontSize: 12, padding: '6px 14px', height: 32 }}
+          onClick={() => setActiveTab('threats')}
+          data-testid="tab-threat-signals"
         >
-          <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
-            <div
-              style={{
-                width: 44,
-                height: 44,
-                borderRadius: '8px',
-                background: 'hsl(142 70% 20% / 0.6)',
-                border: '1px solid hsl(142 70% 40% / 0.5)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: 'hsl(142 71% 55%)',
-                flexShrink: 0,
-              }}
+          <Activity size={13} style={{ marginRight: 6 }} />
+          Threat Signals ({filtered.length})
+        </button>
+
+        <button
+          type="button"
+          className={cn('btn btn-sm', activeTab === 'ledger' ? 'btn-primary' : 'btn-ghost')}
+          style={{ fontSize: 12, padding: '6px 14px', height: 32 }}
+          onClick={() => setActiveTab('ledger')}
+          data-testid="tab-remediation-ledger"
+        >
+          <FileText size={13} style={{ marginRight: 6 }} />
+          Automated Deletion &amp; Remediation Audit Ledger ({remediations.length})
+        </button>
+
+        <button
+          type="button"
+          className={cn('btn btn-sm', activeTab === 'cybercell' ? 'btn-primary' : 'btn-ghost')}
+          style={{
+            fontSize: 12,
+            padding: '6px 14px',
+            height: 32,
+            color: activeTab === 'cybercell' ? '#fff' : 'hsl(280 85% 70%)',
+          }}
+          onClick={() => setActiveTab('cybercell')}
+          data-testid="tab-cybercell-escalation"
+        >
+          <ShieldAlert size={13} style={{ marginRight: 6 }} />
+          🚨 Very Sensitive Evidence Directed to Cyber Cell ({stats.totalSensitiveDirectedToCyberCell})
+        </button>
+      </div>
+
+      {/* TAB 1: ACTIVE THREAT SIGNALS */}
+      {activeTab === 'threats' && (
+        <section className="card card-table">
+          <div className="filterbar" style={{ borderBottom: '1px solid hsl(var(--border))' }}>
+            <div className="search-wrap">
+              <Search size={14} />
+              <input
+                className="search"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search detections, paths, processes, hashes"
+                data-testid="input-search-threats"
+              />
+            </div>
+
+            <select
+              className="select"
+              value={severity}
+              onChange={(e) => setSeverity(e.target.value)}
+              data-testid="select-severity"
             >
-              <CheckCircle2 size={24} />
-            </div>
+              <option value="all">All severities</option>
+              <option value="critical">Critical</option>
+              <option value="high">High</option>
+              <option value="medium">Medium</option>
+              <option value="low">Low</option>
+            </select>
+          </div>
 
-            <div style={{ flex: 1 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
-                <h3 style={{ fontSize: 16, fontWeight: 700, margin: 0, color: 'hsl(142 70% 90%)' }}>
-                  Host Nikhil · Zero Active Threats Detected
-                </h3>
-                <span
-                  className="badge badge-low"
-                  style={{
-                    background: 'hsl(142 71% 20%)',
-                    color: 'hsl(142 71% 70%)',
-                    border: '1px solid hsl(142 71% 30%)',
-                    fontSize: 10,
-                  }}
-                >
-                  SYSTEM CLEAN
-                </span>
-              </div>
-              <p style={{ fontSize: 12, color: 'hsl(var(--muted-foreground))', lineHeight: 1.5, margin: '0 0 12px 0' }}>
-                ARGUS real-time sensor engine has verified <strong>{processCount} running processes</strong>,{' '}
-                <strong>{socketCount} active network sockets</strong>, and monitored directories (Downloads, Temp, Startup, Desktop). No unauthorized persistence scripts, memory dumps, or reverse shells are currently active.
-              </p>
+          <div className="table-wrap">
+            <table className="data-table" data-testid="table-threats" style={{ width: '100%', tableLayout: 'fixed' }}>
+              <thead>
+                <tr>
+                  <th style={{ width: '22%' }}>Threat</th>
+                  <th style={{ width: '8%' }}>Severity</th>
+                  <th style={{ width: '10%' }}>Observed</th>
+                  <th style={{ width: '20%' }}>Process / path</th>
+                  <th style={{ width: '9%' }}>SHA-256</th>
+                  <th style={{ width: '16%' }}>Reason</th>
+                  <th style={{ width: '15%', textAlign: 'right' }}>Remediation &amp; Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map((t) => {
+                  const remRecord = remediations.find((r) => r.threatId === t.id);
+                  const isPurged = remRecord?.actionTaken === 'AUTOMATED_PURGE_DELETED';
+                  const isQuarantined = remRecord?.actionTaken === 'AUTOMATED_QUARANTINE';
 
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                <button
-                  type="button"
-                  className="btn btn-sm btn-outline"
-                  onClick={() => runScan('Full')}
-                  data-testid="button-clean-run-scan"
-                >
-                  <Radar size={12} /> Run Memory &amp; Process Audit
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-sm btn-outline"
-                  onClick={runProbe}
-                  disabled={isProbing}
-                  data-testid="button-clean-run-probe"
-                >
-                  <Play size={12} /> {isProbing ? 'Probing...' : 'Trigger Live Benign Probe'}
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-sm btn-ghost"
-                  onClick={() => setLocation('/processes')}
-                  data-testid="button-clean-open-processes"
-                >
-                  <TerminalSquare size={12} /> Inspect 280+ Processes
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-sm btn-ghost"
-                  onClick={() => setLocation('/network')}
-                  data-testid="button-clean-open-network"
-                >
-                  <Network size={12} /> View Network Universe
-                </button>
+                  return (
+                    <tr
+                      key={t.id}
+                      style={
+                        remRecord?.isSensitiveData
+                          ? { background: 'hsla(280, 80%, 40%, 0.06)' }
+                          : isPurged
+                          ? { background: 'hsla(0, 80%, 40%, 0.04)' }
+                          : undefined
+                      }
+                    >
+                      <td style={{ verticalAlign: 'middle', overflow: 'hidden' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <b style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={t.name}>
+                            {t.name}
+                          </b>
+                        </div>
+                        <div className="muted mono" style={{ fontSize: 11, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {t.id} · {t.className}
+                          {remRecord && (
+                            <span
+                              style={{
+                                marginLeft: 6,
+                                color: isPurged ? 'hsl(0 80% 65%)' : 'hsl(38 90% 65%)',
+                                fontWeight: 700,
+                              }}
+                            >
+                              ⚡ {isPurged ? 'DELETED' : 'QUARANTINED'} in {remRecord.timeIntervalFormatted}
+                            </span>
+                          )}
+                        </div>
+                        {remRecord?.isSensitiveData && (
+                          <div style={{ marginTop: 4 }}>
+                            <button
+                              type="button"
+                              onClick={() => setLocation('/cyber-cell')}
+                              className="badge badge-critical"
+                              style={{
+                                fontSize: 10,
+                                cursor: 'pointer',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: 4,
+                                background: 'hsl(280 80% 20%)',
+                                color: 'hsl(280 80% 85%)',
+                                border: '1px solid hsl(280 80% 40%)',
+                              }}
+                              title="Very sensitive data detected. Click to view in Cyber Cell Escalation"
+                            >
+                              <ShieldAlert size={10} /> DIRECTED TO CYBER CELL ({remRecord.cyberCellCaseId}) ➔
+                            </button>
+                          </div>
+                        )}
+                      </td>
+                      <td style={{ verticalAlign: 'middle', whiteSpace: 'nowrap' }}>
+                        <Badge value={t.severity} />
+                      </td>
+                      <td className="mono" style={{ verticalAlign: 'middle', whiteSpace: 'nowrap' }}>
+                        {t.timestamp}
+                      </td>
+                      <td style={{ verticalAlign: 'middle', overflow: 'hidden' }}>
+                        <div className="mono" style={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {t.process}
+                          {t.pid != null && (
+                            <span className="muted" style={{ marginLeft: 5 }}>
+                              (PID {t.pid})
+                            </span>
+                          )}
+                        </div>
+                        <div
+                          className="muted mono"
+                          style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                          title={t.path}
+                        >
+                          {t.path}
+                        </div>
+                      </td>
+                      <td className="mono" data-testid={`text-hash-${t.id}`} style={{ verticalAlign: 'middle', whiteSpace: 'nowrap' }}>
+                        {shortHash(t.hash)}
+                      </td>
+                      <td
+                        style={{
+                          verticalAlign: 'middle',
+                          whiteSpace: 'normal',
+                          wordBreak: 'break-word',
+                          overflowWrap: 'anywhere',
+                          lineHeight: 1.4,
+                          fontSize: 11,
+                          paddingRight: 12,
+                        }}
+                      >
+                        {t.reason}
+                      </td>
+                      <td style={{ verticalAlign: 'middle', whiteSpace: 'nowrap', textAlign: 'right' }}>
+                        <div className="actions" style={{ gap: 6, justifyContent: 'flex-end', flexWrap: 'nowrap' }}>
+                          <button
+                            type="button"
+                            className="btn btn-ghost btn-sm"
+                            onClick={() => {
+                              const route = investigateRouteForThreat(t);
+                              toast('Investigation opened', `${t.name} · hash ${shortHash(t.hash)}`);
+                              setLocation(route);
+                            }}
+                            data-testid={`button-investigate-${t.id}`}
+                          >
+                            <Eye size={12} /> View
+                          </button>
+
+                          {!remRecord ? (
+                            <button
+                              type="button"
+                              className="btn btn-danger btn-sm"
+                              onClick={() => remediateThreat(t)}
+                              data-testid={`button-remediate-${t.id}`}
+                            >
+                              <Trash2 size={12} /> Auto-Delete
+                            </button>
+                          ) : (
+                            <span
+                              className="badge"
+                              style={{
+                                background: isPurged ? 'hsl(0 80% 12%)' : 'hsl(38 90% 12%)',
+                                color: isPurged ? 'hsl(0 80% 70%)' : 'hsl(38 90% 70%)',
+                                border: isPurged ? '1px solid hsl(0 80% 25%)' : '1px solid hsl(38 90% 25%)',
+                                fontSize: 10,
+                                fontWeight: 700,
+                              }}
+                            >
+                              {isPurged ? 'PURGED' : 'QUARANTINED'}
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+
+            {filtered.length === 0 && (
+              <div className="empty" style={{ padding: '36px 16px' }}>
+                <Search size={24} style={{ color: 'hsl(var(--muted-foreground))', marginBottom: 8 }} />
+                <h3>No active threat signals</h3>
+                <p style={{ maxWidth: 420, margin: '6px auto 0' }}>
+                  All threats have been neutralized or match clean sensor signatures. Check the Automated Deletion Ledger to view historical purge records.
+                </p>
               </div>
-            </div>
+            )}
           </div>
         </section>
       )}
 
-      {/* Filter and Search Bar */}
-      <div className="filterbar">
-        <div className="search-wrap">
-          <Search size={14} />
-          <input
-            className="search"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search detections, paths, processes, hashes"
-            data-testid="input-search-threats"
-          />
-        </div>
-
-        <select
-          className="select"
-          value={severity}
-          onChange={(e) => setSeverity(e.target.value)}
-          data-testid="select-severity"
-        >
-          <option value="all">All severities</option>
-          <option value="critical">Critical</option>
-          <option value="high">High</option>
-          <option value="medium">Medium</option>
-          <option value="low">Low</option>
-        </select>
-
-        <span className="mono muted">
-          {filtered.length} of {activeThreats.length} detections
-        </span>
-      </div>
-
-      {/* Threats Data Table */}
-      <section className="card">
-        <div className="table-wrap">
-          <table className="data-table" style={{ minWidth: 1200, width: '100%', tableLayout: 'fixed' }}>
-            <thead>
-              <tr>
-                <th style={{ width: '22%' }}>Detection</th>
-                <th style={{ width: '8%' }}>Severity</th>
-                <th style={{ width: '10%' }}>Observed</th>
-                <th style={{ width: '20%' }}>Process / path</th>
-                <th style={{ width: '9%' }}>SHA-256</th>
-                <th style={{ width: '18%' }}>Reason</th>
-                <th style={{ width: '8%' }}>Status</th>
-                <th style={{ width: '15%', textAlign: 'right' }}>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((t) => (
-                <tr
-                  key={t.id}
-                  style={
-                    demoReached && t.severity === 'critical'
-                      ? { background: 'hsl(var(--primary)/.07)' }
-                      : undefined
-                  }
-                >
-                  <td style={{ verticalAlign: 'middle', overflow: 'hidden' }}>
-                    <b style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={t.name}>
-                      {t.name}
-                    </b>
-                    <div className="muted mono" style={{ fontSize: 11, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {t.id} · {t.className}
-                      {mode === 'live' && (
-                        <span
-                          style={{
-                            marginLeft: 6,
-                            color: 'hsl(142 71% 55%)',
-                            fontWeight: 700,
-                          }}
-                        >
-                          LIVE HOST
-                        </span>
-                      )}
-                    </div>
-                  </td>
-                  <td style={{ verticalAlign: 'middle', whiteSpace: 'nowrap' }}>
-                    <Badge value={t.severity} />
-                  </td>
-                  <td className="mono" style={{ verticalAlign: 'middle', whiteSpace: 'nowrap' }}>{t.timestamp}</td>
-                  <td style={{ verticalAlign: 'middle', overflow: 'hidden' }}>
-                    <div className="mono" style={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {t.process}
-                      {t.pid != null && (
-                        <span className="muted" style={{ marginLeft: 5 }}>
-                          (PID {t.pid})
-                        </span>
-                      )}
-                    </div>
-                    <div
-                      className="muted mono"
-                      style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
-                      title={t.path}
-                    >
-                      {t.path}
-                    </div>
-                  </td>
-                  <td className="mono" data-testid={`text-hash-${t.id}`} style={{ verticalAlign: 'middle', whiteSpace: 'nowrap' }}>
-                    {shortHash(t.hash)}
-                  </td>
-                  <td style={{
-                    verticalAlign: 'middle',
-                    whiteSpace: 'normal',
-                    wordBreak: 'break-word',
-                    overflowWrap: 'anywhere',
-                    lineHeight: 1.4,
-                    fontSize: 11,
-                    paddingRight: 12,
-                  }}>
-                    {t.reason}
-                  </td>
-                  <td style={{ verticalAlign: 'middle', whiteSpace: 'nowrap' }}>
-                    <StateBadge value={t.status} />
-                  </td>
-                  <td style={{ verticalAlign: 'middle', whiteSpace: 'nowrap', textAlign: 'right' }}>
-                    <div className="actions" style={{ gap: 6, justifyContent: 'flex-end', flexWrap: 'nowrap' }}>
-                      <button
-                        type="button"
-                        className="btn btn-ghost btn-sm"
-                        onClick={() => {
-                          const route = investigateRouteForThreat(t);
-                          toast('Investigation opened', `${t.name} · hash ${shortHash(t.hash)}`);
-                          setLocation(route);
-                        }}
-                        data-testid={`button-investigate-${t.id}`}
-                      >
-                        <Eye size={12} /> Investigate
-                      </button>
-
-                      {t.status === 'detected' && (
-                        <button
-                          type="button"
-                          className="btn btn-danger btn-sm"
-                          onClick={() => {
-                            if (mode === 'live') {
-                              setModal({
-                                title: `Contain live threat on host Nikhil?`,
-                                body: `ARGUS will isolate entity ${t.process} (PID ${t.pid || 'N/A'}) and suspend associated processes. File artifacts at ${t.path} will be marked for containment.`,
-                                confirm: 'Contain Live Threat',
-                                danger: true,
-                                onConfirm: () => handleContainLive(t.id, t.name),
-                              });
-                            } else {
-                              setModal({
-                                title: 'Contain this simulated endpoint?',
-                                body: 'ARGUS will isolate WS-0427 from the network and suspend the associated process. Quarantine inventory will update. This is reversible.',
-                                confirm: 'Contain endpoint',
-                                danger: true,
-                                onConfirm: () => onContain(t.id),
-                              });
-                            }
-                          }}
-                          data-testid={`button-contain-${t.id}`}
-                        >
-                          <Shield size={12} /> Contain
-                        </button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-
-          {filtered.length === 0 && (
-            <div className="empty" style={{ padding: '36px 16px' }}>
-              <Search size={24} style={{ color: 'hsl(var(--muted-foreground))', marginBottom: 8 }} />
-              <h3>
-                {mode === 'live' && activeThreats.length === 0
-                  ? 'No active threats on host Nikhil'
-                  : 'No detections match your query'}
+      {/* TAB 2: AUTOMATED DELETION & REMEDIATION AUDIT LEDGER */}
+      {activeTab === 'ledger' && (
+        <section className="card card-table">
+          <div
+            style={{
+              padding: '12px 16px',
+              borderBottom: '1px solid hsl(var(--border))',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              flexWrap: 'wrap',
+              gap: 10,
+            }}
+          >
+            <div>
+              <h3 style={{ fontSize: 14, fontWeight: 700, margin: 0 }}>
+                Forensic Audit Ledger · Deleted &amp; Remediated Artifacts
               </h3>
-              <p style={{ maxWidth: 420, margin: '6px auto 0' }}>
-                {mode === 'live' && activeThreats.length === 0
-                  ? 'Real-time telemetry reports clean status across all 280+ processes and 340+ sockets. Use the scan buttons above to trigger an active deep audit.'
-                  : 'Try clearing the search query or adjusting the severity filter.'}
+              <p className="muted" style={{ fontSize: 11, margin: '2px 0 0 0' }}>
+                Cryptographic immutable log of files purged from host disk or quarantined based on threat level, tracking exact dwell time intervals.
               </p>
             </div>
-          )}
-        </div>
-      </section>
+
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <div className="btn-group" style={{ display: 'flex', background: 'hsl(var(--muted))', padding: 2, borderRadius: 6 }}>
+                <button
+                  type="button"
+                  className={cn('btn btn-sm', ledgerFilter === 'all' ? 'btn-primary' : 'btn-ghost')}
+                  style={{ fontSize: 11, padding: '3px 8px', height: 24 }}
+                  onClick={() => setLedgerFilter('all')}
+                >
+                  All ({remediations.length})
+                </button>
+                <button
+                  type="button"
+                  className={cn('btn btn-sm', ledgerFilter === 'deleted' ? 'btn-primary' : 'btn-ghost')}
+                  style={{ fontSize: 11, padding: '3px 8px', height: 24 }}
+                  onClick={() => setLedgerFilter('deleted')}
+                >
+                  Deleted ({stats.totalDeleted})
+                </button>
+                <button
+                  type="button"
+                  className={cn('btn btn-sm', ledgerFilter === 'quarantined' ? 'btn-primary' : 'btn-ghost')}
+                  style={{ fontSize: 11, padding: '3px 8px', height: 24 }}
+                  onClick={() => setLedgerFilter('quarantined')}
+                >
+                  Quarantined ({stats.totalQuarantined})
+                </button>
+                <button
+                  type="button"
+                  className={cn('btn btn-sm', ledgerFilter === 'sensitive' ? 'btn-primary' : 'btn-ghost')}
+                  style={{ fontSize: 11, padding: '3px 8px', height: 24 }}
+                  onClick={() => setLedgerFilter('sensitive')}
+                >
+                  Cyber Cell ({stats.totalSensitiveDirectedToCyberCell})
+                </button>
+              </div>
+
+              <button
+                type="button"
+                className="btn btn-sm btn-outline"
+                style={{ fontSize: 11, padding: '3px 8px', height: 24 }}
+                onClick={clearLedger}
+                title="Reset local ledger records"
+              >
+                Reset Ledger
+              </button>
+            </div>
+          </div>
+
+          <div className="table-wrap">
+            <table className="data-table" style={{ width: '100%', tableLayout: 'fixed' }}>
+              <thead>
+                <tr>
+                  <th style={{ width: '20%' }}>Artifact &amp; Process</th>
+                  <th style={{ width: '12%' }}>Action Taken</th>
+                  <th style={{ width: '9%' }}>Threat Level</th>
+                  <th style={{ width: '11%' }}>Time Interval</th>
+                  <th style={{ width: '14%' }}>Detection / Purge</th>
+                  <th style={{ width: '20%' }}>Data Sensitivity &amp; Cyber Cell</th>
+                  <th style={{ width: '14%', textAlign: 'right' }}>SHA-256 Seal</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredLedger.map((r) => (
+                  <tr key={r.id}>
+                    <td style={{ verticalAlign: 'middle', overflow: 'hidden' }}>
+                      <b style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={r.name}>
+                        {r.name}
+                      </b>
+                      <div className="mono muted" style={{ fontSize: 11, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={r.path}>
+                        {r.process} · {r.path}
+                      </div>
+                    </td>
+
+                    <td style={{ verticalAlign: 'middle' }}>
+                      {r.actionTaken === 'AUTOMATED_PURGE_DELETED' ? (
+                        <span
+                          className="badge badge-critical"
+                          style={{
+                            fontSize: 10,
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 4,
+                            background: 'hsl(0 80% 15% / 0.85)',
+                            color: 'hsl(0 80% 75%)',
+                            border: '1px solid hsl(0 80% 30%)',
+                          }}
+                        >
+                          <Trash2 size={10} /> PURGED FROM DISK
+                        </span>
+                      ) : (
+                        <span
+                          className="badge badge-high"
+                          style={{
+                            fontSize: 10,
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 4,
+                            background: 'hsl(38 90% 15% / 0.85)',
+                            color: 'hsl(38 90% 75%)',
+                            border: '1px solid hsl(38 90% 30%)',
+                          }}
+                        >
+                          <FolderLock size={10} /> QUARANTINED &amp; SEALED
+                        </span>
+                      )}
+                    </td>
+
+                    <td style={{ verticalAlign: 'middle' }}>
+                      <Badge value={r.severity} />
+                    </td>
+
+                    <td style={{ verticalAlign: 'middle' }}>
+                      <span
+                        className="badge badge-low"
+                        style={{
+                          background: 'hsl(190 90% 12% / 0.9)',
+                          color: 'hsl(190 90% 65%)',
+                          border: '1px solid hsl(190 90% 25%)',
+                          fontFamily: 'monospace',
+                          fontSize: 11,
+                          fontWeight: 700,
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 4,
+                        }}
+                      >
+                        <Timer size={11} /> {r.timeIntervalFormatted}
+                      </span>
+                    </td>
+
+                    <td className="mono muted" style={{ verticalAlign: 'middle', fontSize: 11 }}>
+                      <div>Det: {new Date(r.detectedAt).toLocaleTimeString()}</div>
+                      <div>Pur: {new Date(r.remediatedAt).toLocaleTimeString()}</div>
+                    </td>
+
+                    <td style={{ verticalAlign: 'middle' }}>
+                      {r.directedToCyberCell && r.cyberCellCaseId ? (
+                        <div>
+                          <button
+                            type="button"
+                            onClick={() => setLocation('/cyber-cell')}
+                            className="badge badge-critical"
+                            style={{
+                              fontSize: 10,
+                              cursor: 'pointer',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: 4,
+                              background: 'hsl(280 80% 20%)',
+                              color: 'hsl(280 80% 85%)',
+                              border: '1px solid hsl(280 80% 40%)',
+                              marginBottom: 2,
+                            }}
+                          >
+                            <ShieldAlert size={10} /> Case {r.cyberCellCaseId} ➔
+                          </button>
+                          <div className="muted" style={{ fontSize: 10, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {r.sensitiveCategory || 'Very Sensitive Data'}
+                          </div>
+                        </div>
+                      ) : (
+                        <span className="badge badge-muted" style={{ fontSize: 10 }}>
+                          Endpoint Cleanse
+                        </span>
+                      )}
+                    </td>
+
+                    <td style={{ verticalAlign: 'middle', textAlign: 'right' }}>
+                      <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                        <span className="mono muted" style={{ fontSize: 11 }} title={r.hash}>
+                          {shortHash(r.hash)}
+                        </span>
+                        <button
+                          type="button"
+                          className="btn btn-ghost btn-sm"
+                          style={{ padding: '2px 6px', height: 22 }}
+                          onClick={() => handleCopyHash(r.hash)}
+                          title="Copy SHA-256 seal"
+                        >
+                          {copiedHash === r.hash ? <Check size={11} className="signal-good" /> : <Copy size={11} />}
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+
+            {filteredLedger.length === 0 && (
+              <div className="empty" style={{ padding: '36px 16px' }}>
+                <Clock size={24} style={{ color: 'hsl(var(--muted-foreground))', marginBottom: 8 }} />
+                <h3>No remediation records found</h3>
+                <p style={{ maxWidth: 420, margin: '6px auto 0' }}>
+                  Run a live benign probe or scan to generate active remediation ledger entries.
+                </p>
+              </div>
+            )}
+          </div>
+        </section>
+      )}
+
+      {/* TAB 3: VERY SENSITIVE DATA DIRECTED TO CYBER CELL */}
+      {activeTab === 'cybercell' && (
+        <section className="card card-pad" style={{ border: '1px solid hsla(280, 80%, 50%, 0.3)' }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 16 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div
+                style={{
+                  width: 44,
+                  height: 44,
+                  borderRadius: 8,
+                  background: 'hsla(280, 80%, 40%, 0.2)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: 'hsl(280 85% 70%)',
+                }}
+              >
+                <ShieldAlert size={24} />
+              </div>
+              <div>
+                <h3 style={{ fontSize: 16, fontWeight: 700, margin: 0, color: 'hsl(280 85% 90%)' }}>
+                  Sensitive Incident Evidence Automatically Directed to Cyber Cell
+                </h3>
+                <p className="muted" style={{ fontSize: 12, margin: '4px 0 0 0' }}>
+                  Threats classified as very sensitive data (credentials, memory dumps, shadow copies, payroll records) are automatically compiled into official forensic dockets for law enforcement and CERT-In escalation.
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              className="btn btn-primary"
+              style={{ background: 'hsl(280 80% 40%)', borderColor: 'hsl(280 80% 50%)' }}
+              onClick={() => setLocation('/cyber-cell')}
+            >
+              Open Cyber Cell Escalation (/cyber-cell) ➔
+            </button>
+          </div>
+
+          <div className="table-wrap" style={{ marginTop: 14 }}>
+            <table className="data-table" style={{ width: '100%', tableLayout: 'fixed' }}>
+              <thead>
+                <tr>
+                  <th style={{ width: '16%' }}>Case Docket ID</th>
+                  <th style={{ width: '22%' }}>Sensitive Threat Target</th>
+                  <th style={{ width: '22%' }}>Classification Category</th>
+                  <th style={{ width: '14%' }}>Remediation Interval</th>
+                  <th style={{ width: '14%' }}>Action Status</th>
+                  <th style={{ width: '12%', textAlign: 'right' }}>Dossier Link</th>
+                </tr>
+              </thead>
+              <tbody>
+                {sensitiveCyberCellThreats.map((s) => (
+                  <tr key={s.id}>
+                    <td style={{ verticalAlign: 'middle' }}>
+                      <span className="mono" style={{ fontWeight: 700, color: 'hsl(280 85% 75%)' }}>
+                        {s.cyberCellCaseId}
+                      </span>
+                    </td>
+                    <td style={{ verticalAlign: 'middle', overflow: 'hidden' }}>
+                      <b style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {s.name}
+                      </b>
+                      <div className="mono muted" style={{ fontSize: 11, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {s.path}
+                      </div>
+                    </td>
+                    <td style={{ verticalAlign: 'middle' }}>
+                      <span
+                        className="badge badge-critical"
+                        style={{
+                          fontSize: 10,
+                          background: 'hsl(280 80% 15% / 0.85)',
+                          color: 'hsl(280 80% 85%)',
+                          border: '1px solid hsl(280 80% 35%)',
+                        }}
+                      >
+                        {s.sensitiveCategory || 'Classified Evidence'}
+                      </span>
+                    </td>
+                    <td style={{ verticalAlign: 'middle' }}>
+                      <span className="mono" style={{ fontWeight: 700, color: 'hsl(142 71% 55%)' }}>
+                        ⚡ {s.timeIntervalFormatted}
+                      </span>
+                    </td>
+                    <td style={{ verticalAlign: 'middle' }}>
+                      <span className="badge badge-low" style={{ fontSize: 10 }}>
+                        {s.status}
+                      </span>
+                    </td>
+                    <td style={{ verticalAlign: 'middle', textAlign: 'right' }}>
+                      <button
+                        type="button"
+                        className="btn btn-sm btn-outline"
+                        style={{ fontSize: 11, padding: '3px 8px' }}
+                        onClick={() => {
+                          toast('Cyber Cell Case Loaded', `Case ${s.cyberCellCaseId} ready for CERT-In transmission.`);
+                          setLocation('/cyber-cell');
+                        }}
+                      >
+                        View Dossier ➔
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+
+            {sensitiveCyberCellThreats.length === 0 && (
+              <div className="empty" style={{ padding: '24px 16px' }}>
+                <CheckCircle2 size={24} style={{ color: 'hsl(142 71% 55%)', marginBottom: 8 }} />
+                <h3>No Sensitive Data Threats Incurred</h3>
+                <p className="muted" style={{ fontSize: 12 }}>
+                  No credentials, memory access tokens, or shadow copy destruction events have been detected.
+                </p>
+              </div>
+            )}
+          </div>
+        </section>
+      )}
     </div>
   );
 }
