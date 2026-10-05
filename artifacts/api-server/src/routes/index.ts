@@ -8,6 +8,7 @@ import fileRouter from "./file";
 import detectionsRouter from "./detections";
 import intelligenceRouter from "./intelligence";
 import quarantineRouter from "./quarantine";
+import reportsRouter from "./reports";
 
 const router: IRouter = Router();
 
@@ -20,5 +21,6 @@ router.use(fileRouter);
 router.use(detectionsRouter);
 router.use(intelligenceRouter);
 router.use(quarantineRouter);
+router.use(reportsRouter);
 
 export default router;

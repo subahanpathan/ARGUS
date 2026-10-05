@@ -62,4 +62,5 @@ __pycache__/
 # Quarantine isolated files and runtime vault
 *.quarantined
 **/quarantine_vault/
+**/reports_vault/
 artifacts/api-server/artifacts/

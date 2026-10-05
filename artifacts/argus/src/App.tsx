@@ -43,7 +43,10 @@ import TimelinePage from '@/pages/timeline-page';
 import ExposureWindowPage from '@/pages/exposure-window-page';
 import QuarantinePage from '@/pages/quarantine-page';
 import IntelligencePage from '@/pages/intelligence-page';
+import ReportsPage from '@/pages/reports-page';
+import HistoryPage from '@/pages/history-page';
 import { useQuarantine } from '@/hooks/use-quarantine';
+import { useReports } from '@/hooks/use-reports';
 
 const queryClient = new QueryClient();
 
@@ -609,56 +612,8 @@ function NetworkPage({ toast, contained }: { toast: (t: string, b: string) => vo
 // QuarantinePage extracted to @/pages/quarantine-page
 // IntelligencePage extracted to @/pages/intelligence-page
 
-function ReportsPage({ phase, incidentStatus, quarantineCount, toast }: { phase: number; incidentStatus: string; quarantineCount: number; toast: (t: string, b: string) => void }) {
-  const [generated, setGenerated] = useState(false); const [format, setFormat] = useState<'TXT' | 'JSON'>('TXT');
-  const risk = phase >= 5 ? 86 : phase >= 3 ? 61 : 38;
-  const generate = () => { setGenerated(true); toast('Report generated', 'INC-2024-1042 report is ready to review and share.'); };
-  const downloadReport = () => {
-    if (format === 'JSON') {
-      const payload = {
-        incidentId: 'INC-2024-1042',
-        endpoint: 'WS-0427',
-        riskScore: risk,
-        status: incidentStatus,
-        quarantineArtifacts: quarantineCount,
-        evidenceNote: 'Potential transmission is inferred from connection metadata; confirmed exfiltration is not established.',
-        observed: { files: 5, connections: 4, timelineEvents: Math.min(phase || 8, 8) },
-        synthetic: true,
-      };
-      downloadTextFile('INC-2024-1042-evidence.json', JSON.stringify(payload, null, 2), 'application/json');
-    } else {
-      const text = [
-        'ARGUS Security Intelligence — Synthetic Incident Report',
-        '=====================================================',
-        'Incident: INC-2024-1042',
-        'Endpoint: WS-0427',
-        `Status: ${incidentStatus}`,
-        `Assessed risk: ${risk}/100 (demonstration score — not proof of data theft)`,
-        `Quarantine artifacts: ${quarantineCount}`,
-        '',
-        'Summary',
-        '-------',
-        'A critical PowerShell detection correlated with sensitive file access, local staging,',
-        'and a novel network destination. Process tree: explorer → outlook → invoice_viewer → powershell → rundll32.',
-        '',
-        'Evidence boundaries',
-        '-------------------',
-        'Observed: process, file, and network metadata from synthetic sensors.',
-        'Potential / inferred: transmission volume from connection timing/bytes.',
-        'Confirmed exfiltration: Not established.',
-        '',
-        'This file is generated locally for demonstration. No data was sent externally.',
-      ].join('\n');
-      downloadTextFile('INC-2024-1042-report.txt', text, 'text/plain');
-    }
-    toast('Download started', `${format} synthetic report saved locally.`);
-  };
-  return <div className="animate-rise"><PageHeading eyebrow="Decision artifact · defensible narrative" title="Incident reports" subtitle="Turn correlated evidence into a reviewable record with clear limits on inference." actions={<Button icon={FileText} kind="primary" onClick={generate} testId="button-generate-report">Generate incident report</Button>} /><div className="grid split-grid"><Card className="card-pad"><PanelTitle title="Report builder" detail="INC-2024-1042" /><div className="field"><label>Report title</label><input defaultValue="Exposure assessment · WS-0427" data-testid="input-report-title" /></div><div className="field"><label>Audience</label><select className="select" style={{ width: '100%' }} defaultValue="Security leadership" data-testid="select-report-audience"><option>Security leadership</option><option>Legal & compliance</option><option>Incident response</option></select></div><div className="field"><label>Export format</label><div className="actions"><Button kind={format === 'TXT' ? 'primary' : ''} onClick={() => setFormat('TXT')} testId="button-format-txt">Report (TXT)</Button><Button kind={format === 'JSON' ? 'primary' : ''} onClick={() => setFormat('JSON')} testId="button-format-json">JSON evidence</Button></div></div><div style={{ padding: 13, background: 'hsl(var(--muted))', borderRadius: 5, fontSize: 11, lineHeight: 1.5, marginTop: 17 }}><CheckCircle2 size={14} className="signal-good" style={{ verticalAlign: 'middle', marginRight: 6 }} />Includes timeline, files, connections, quarantine count ({quarantineCount}), and exposure confidence notes. Downloads stay on this device.</div>{generated && <div style={{ marginTop: 14 }}><Button icon={Download} onClick={downloadReport} testId="button-download-report">Download Report</Button><Button icon={Send} onClick={() => toast('Share link copied', 'A local review link was copied to your clipboard.')} testId="button-share-report">Share</Button></div>}</Card><Card className="card-pad"><PanelTitle title="Preview" detail={generated ? 'READY TO REVIEW' : 'DRAFT'} /><div style={{ border: '1px solid hsl(var(--border))', borderRadius: 5, padding: 20, minHeight: 350, background: 'hsl(216 33% 9%)' }}><div className="eyebrow">ARGUS · CONFIDENTIAL</div><h2 style={{ margin: '14px 0 6px', fontSize: 22 }}>Exposure assessment</h2><div className="mono muted">INC-2024-1042 / WS-0427 / 14 OCT 2024</div><div style={{ height: 1, background: 'hsl(var(--border))', margin: '20px 0' }} /><p style={{ fontSize: 11, lineHeight: 1.7, color: 'hsl(var(--muted-foreground))' }}>A critical PowerShell detection correlated with sensitive file access, local staging, and a novel network destination. Potential transmission is inferred from connection metadata; confirmed exfiltration is not established by available sensor evidence.</p><div className="grid metrics" style={{ gridTemplateColumns: 'repeat(3,1fr)', marginTop: 20 }}><StatCard label="Risk" value={String(risk)} note="/ 100" tone="danger" /><StatCard label="Evidence" value="17" note="linked records" tone="info" /><StatCard label="Status" value={incidentStatus} note="shared incident state" tone="warn" /></div></div></Card></div></div>;
-}
-
-function HistoryPage({ toast }: { toast: (t: string, b: string) => void }) {
-  return <div className="animate-rise"><PageHeading eyebrow="Decision archive · 14 reports" title="Report history" subtitle="A review trail for decisions made from ARGUS evidence." actions={<Button icon={Download} onClick={() => toast('History exported', 'Report index CSV downloaded.')} testId="button-export-history">Export index</Button>} /><Card><div className="table-wrap"><table className="data-table"><thead><tr><th>Report</th><th>Incident</th><th>Author</th><th>Created</th><th>Format</th><th>Status</th><th /></tr></thead><tbody>{[['Exposure assessment · WS-0427', 'INC-2024-1042', 'Mira Alvarez', 'Today, 09:49', 'PDF', 'Ready'], ['Unsigned binary review · WS-0198', 'INC-2024-1039', 'Mira Alvarez', 'Yesterday, 18:32', 'PDF', 'Shared'], ['Quarterly endpoint review', 'BATCH-2024-Q3', 'Jon Bell', 'Oct 01, 2024', 'JSON', 'Archived']].map((r, i) => <tr key={r[0]}><td><b>{r[0]}</b><div className="muted mono">RPT-00{i + 41}</div></td><td className="mono">{r[1]}</td><td>{r[2]}</td><td className="mono">{r[3]}</td><td><Badge value={r[4]} /></td><td><Badge value={r[5]} /></td><td><Button icon={Eye} onClick={() => toast('Report opened', `${r[0]} is available in review mode.`)} testId={`button-open-report-${i}`}>Open</Button></td></tr>)}</tbody></table></div></Card></div>;
-}
+// ReportsPage extracted to @/pages/reports-page
+// HistoryPage extracted to @/pages/history-page
 
 function CyberCellPage({ toast, incidentStatus, phase, quarantineCount, submitted, onSubmitted, onResetSubmission }: { toast: (t: string, b: string) => void; incidentStatus: string; phase: number; quarantineCount: number; submitted: boolean; onSubmitted: () => void; onResetSubmission: () => void }) {
   const [consentShare, setConsentShare] = useState(false);
@@ -782,6 +737,7 @@ function AppContent() {
   const [threats, setThreats] = useState(threatsSeed);
   const quarantineManager = useQuarantine();
   const { items: quarantine, setItems: setQuarantine } = quarantineManager;
+  const reportsManager = useReports();
   const [cyberCellSubmitted, setCyberCellSubmitted] = useState(false);
   const [modal, setModal] = useState<ModalState>(null);
   const [toasts, setToasts] = useState<Array<{ id: number; title: string; body: string }>>([]);
@@ -933,13 +889,13 @@ function AppContent() {
     if (location === '/timeline') return <TimelinePage phase={phase} toast={toast} processMonitor={processMonitor} networkMonitor={networkMonitor} threatAnalysis={threatAnalysis} fileScan={fileScan} contained={contained} onNavigate={setLocation} />;
     if (location === '/quarantine') return <QuarantinePage items={quarantineManager.items} setItems={quarantineManager.setItems} toast={toast} setModal={setModal} setLocation={setLocation} onAddQuarantine={quarantineManager.addQuarantine} onRestore={quarantineManager.restoreQuarantine} onPurge={quarantineManager.purgeQuarantine} onVerify={quarantineManager.verifyIntegrity} vaultPath={quarantineManager.vaultPath} />;
     if (location === '/intelligence') return <IntelligencePage toast={toast} processMonitor={processMonitor} networkMonitor={networkMonitor} fileScan={fileScan} threatAnalysis={threatAnalysis} onNavigate={setLocation} />;
-    if (location === '/reports') return <ReportsPage phase={phase} incidentStatus={incidentStatus} quarantineCount={quarantine.length} toast={toast} />;
-    if (location === '/history') return <HistoryPage toast={toast} />;
+    if (location === '/reports') return <ReportsPage phase={phase} incidentStatus={incidentStatus} quarantineItems={quarantineManager.items} processMonitor={processMonitor} networkMonitor={networkMonitor} threatAnalysis={threatAnalysis} telemetry={telemetryStream} toast={toast} onSaveToHistory={reportsManager.createReport} onNavigate={setLocation} vaultPath={reportsManager.vaultPath} />;
+    if (location === '/history') return <HistoryPage reports={reportsManager.reports} onDeleteReport={reportsManager.deleteReport} toast={toast} onNavigate={setLocation} vaultPath={reportsManager.vaultPath} />;
     if (location === '/cyber-cell') return <CyberCellPage toast={toast} incidentStatus={incidentStatus} phase={phase} quarantineCount={quarantine.length} submitted={cyberCellSubmitted} onSubmitted={() => setCyberCellSubmitted(true)} onResetSubmission={() => setCyberCellSubmitted(false)} />;
     if (location === '/settings') return <SettingsPage toast={toast} />;
     if (location === '/about') return <AboutPage />;
     return <NotFound />;
-  }, [location, phase, demoState, threats, quarantine, quarantineManager, incidentStatus, contained, cyberCellSubmitted, processMonitor, telemetryStream, networkMonitor, threatAnalysis, detections, autoDemo.state, fileScan]);
+  }, [location, phase, demoState, threats, quarantine, quarantineManager, reportsManager, incidentStatus, contained, cyberCellSubmitted, processMonitor, telemetryStream, networkMonitor, threatAnalysis, detections, autoDemo.state, fileScan]);
 
   const toastStack = <div className="toast-stack">{toasts.map((t) => <div className="toast" key={t.id} data-testid={`toast-${t.id}`}><strong>{t.title}</strong><p>{t.body}</p></div>)}</div>;
 
