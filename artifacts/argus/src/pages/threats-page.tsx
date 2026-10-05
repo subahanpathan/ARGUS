@@ -714,17 +714,17 @@ export function ThreatsPage({
       {/* Threats Data Table */}
       <section className="card">
         <div className="table-wrap">
-          <table className="data-table" style={{ minWidth: 1180 }}>
+          <table className="data-table" style={{ minWidth: 1200, width: '100%', tableLayout: 'fixed' }}>
             <thead>
               <tr>
-                <th>Detection</th>
-                <th>Severity</th>
-                <th>Observed</th>
-                <th>Process / path</th>
-                <th>SHA-256</th>
-                <th>Reason</th>
-                <th>Status</th>
-                <th />
+                <th style={{ width: '22%' }}>Detection</th>
+                <th style={{ width: '8%' }}>Severity</th>
+                <th style={{ width: '10%' }}>Observed</th>
+                <th style={{ width: '20%' }}>Process / path</th>
+                <th style={{ width: '9%' }}>SHA-256</th>
+                <th style={{ width: '18%' }}>Reason</th>
+                <th style={{ width: '8%' }}>Status</th>
+                <th style={{ width: '15%', textAlign: 'right' }}>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -737,9 +737,11 @@ export function ThreatsPage({
                       : undefined
                   }
                 >
-                  <td>
-                    <b>{t.name}</b>
-                    <div className="muted mono" style={{ fontSize: 11 }}>
+                  <td style={{ verticalAlign: 'middle', overflow: 'hidden' }}>
+                    <b style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={t.name}>
+                      {t.name}
+                    </b>
+                    <div className="muted mono" style={{ fontSize: 11, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {t.id} · {t.className}
                       {mode === 'live' && (
                         <span
@@ -754,12 +756,12 @@ export function ThreatsPage({
                       )}
                     </div>
                   </td>
-                  <td>
+                  <td style={{ verticalAlign: 'middle', whiteSpace: 'nowrap' }}>
                     <Badge value={t.severity} />
                   </td>
-                  <td className="mono">{t.timestamp}</td>
-                  <td>
-                    <div className="mono" style={{ fontWeight: 600 }}>
+                  <td className="mono" style={{ verticalAlign: 'middle', whiteSpace: 'nowrap' }}>{t.timestamp}</td>
+                  <td style={{ verticalAlign: 'middle', overflow: 'hidden' }}>
+                    <div className="mono" style={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {t.process}
                       {t.pid != null && (
                         <span className="muted" style={{ marginLeft: 5 }}>
@@ -769,26 +771,34 @@ export function ThreatsPage({
                     </div>
                     <div
                       className="muted mono"
-                      style={{ maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis' }}
+                      style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
                       title={t.path}
                     >
                       {t.path}
                     </div>
                   </td>
-                  <td className="mono" data-testid={`text-hash-${t.id}`}>
+                  <td className="mono" data-testid={`text-hash-${t.id}`} style={{ verticalAlign: 'middle', whiteSpace: 'nowrap' }}>
                     {shortHash(t.hash)}
                   </td>
-                  <td style={{ maxWidth: 220, whiteSpace: 'normal', lineHeight: 1.4, fontSize: 11 }}>
+                  <td style={{
+                    verticalAlign: 'middle',
+                    whiteSpace: 'normal',
+                    wordBreak: 'break-word',
+                    overflowWrap: 'anywhere',
+                    lineHeight: 1.4,
+                    fontSize: 11,
+                    paddingRight: 12,
+                  }}>
                     {t.reason}
                   </td>
-                  <td>
+                  <td style={{ verticalAlign: 'middle', whiteSpace: 'nowrap' }}>
                     <StateBadge value={t.status} />
                   </td>
-                  <td>
-                    <div className="actions" style={{ gap: 6 }}>
+                  <td style={{ verticalAlign: 'middle', whiteSpace: 'nowrap', textAlign: 'right' }}>
+                    <div className="actions" style={{ gap: 6, justifyContent: 'flex-end', flexWrap: 'nowrap' }}>
                       <button
                         type="button"
-                        className="btn btn-ghost"
+                        className="btn btn-ghost btn-sm"
                         onClick={() => {
                           const route = investigateRouteForThreat(t);
                           toast('Investigation opened', `${t.name} · hash ${shortHash(t.hash)}`);
@@ -802,7 +812,7 @@ export function ThreatsPage({
                       {t.status === 'detected' && (
                         <button
                           type="button"
-                          className="btn btn-danger"
+                          className="btn btn-danger btn-sm"
                           onClick={() => {
                             if (mode === 'live') {
                               setModal({

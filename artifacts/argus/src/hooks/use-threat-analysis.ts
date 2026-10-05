@@ -162,6 +162,13 @@ function analyzeProcesses(
     if (isSuspiciousPath(proc.executable_path) && proc.name !== "explorer.exe" && proc.name !== "svchost.exe") {
       const existing = threats.find((t) => t.pid === proc.pid);
       if (!existing) {
+        const folderType = (proc.executable_path || '').includes('\\Temp\\')
+          ? 'Temp'
+          : (proc.executable_path || '').includes('\\Downloads\\')
+          ? 'Downloads'
+          : (proc.executable_path || '').includes('\\AppData\\Local\\')
+          ? 'AppData\\Local'
+          : 'AppData';
         threats.push({
           id: `live-thr-${proc.pid}-sus-path`,
           name: "Unsigned binary in user directory",
@@ -171,7 +178,7 @@ function analyzeProcesses(
           path: proc.executable_path || "—",
           process: proc.name,
           hash: realHash(proc.executable_path),
-          reason: `Process running from user-writable directory: ${proc.executable_path}. May indicate dropped payload.`,
+          reason: `Process executing from user-writable ${folderType} directory. Monitored for dropped payload activity.`,
           status: "detected",
           source: "live",
           pid: proc.pid,
