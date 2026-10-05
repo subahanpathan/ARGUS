@@ -25,6 +25,7 @@ import {
   Database
 } from 'lucide-react';
 import type { ReportRecord } from '@/hooks/use-reports';
+import { printReportRecord, downloadReportRecordHtml, printIsolatedDossier } from '@/lib/print-dossier';
 
 interface HistoryPageProps {
   reports: ReportRecord[];
@@ -116,13 +117,30 @@ export default function HistoryPage({
     toast('Archive Exported', 'Downloaded ARGUS_Report_Archive_Index.csv');
   };
 
-  // Re-download a specific report
-  const handleDownloadReport = (r: ReportRecord) => {
-    const filename = `${r.id}_${r.incidentId}.${r.format.toLowerCase()}`;
-    const content = r.content || JSON.stringify(r, null, 2);
-    const mime = r.format === 'JSON' ? 'application/json' : 'text/plain';
-    downloadTextFile(filename, content, mime);
-    toast('Download Started', `Downloaded ${filename}`);
+  // Download or print an archived report safely
+  const handleDownloadReport = async (r: ReportRecord) => {
+    if (r.format === 'JSON') {
+      const filename = `${r.id}_${r.incidentId}.json`;
+      const content = typeof r.content === 'string' && r.content.startsWith('{')
+        ? r.content
+        : JSON.stringify(r, null, 2);
+      downloadTextFile(filename, content, 'application/json');
+      toast('JSON Package Downloaded', `Saved ${filename}`);
+    } else if (r.format === 'TXT') {
+      const filename = `${r.id}_${r.incidentId}.txt`;
+      const content = r.content || r.summary;
+      downloadTextFile(filename, content, 'text/plain');
+      toast('Text Report Downloaded', `Saved ${filename}`);
+    } else {
+      // PDF mode -> Trigger isolated print preview so Chrome generates a genuine, valid PDF!
+      toast('Generating Isolated Print Preview...', 'Opening PDF print dialog for official dossier.');
+      const printed = await printReportRecord(r);
+      if (!printed) {
+        // Fallback: download standalone HTML dossier that opens in any browser
+        downloadReportRecordHtml(r);
+        toast('Dossier Downloaded', `Saved ${r.id}_${r.incidentId}.html (open in browser to print to PDF).`);
+      }
+    }
   };
 
   // Delete handler
@@ -449,7 +467,7 @@ export default function HistoryPage({
 
                         <button
                           onClick={() => handleDownloadReport(r)}
-                          title="Download"
+                          title={r.format === 'PDF' ? "Print / Save as PDF" : "Download File"}
                           style={{
                             background: 'hsl(var(--muted)/0.5)',
                             border: '1px solid hsl(var(--border))',
@@ -463,8 +481,32 @@ export default function HistoryPage({
                             gap: 4,
                           }}
                         >
-                          <Download size={12} />
+                          {r.format === 'PDF' ? <Printer size={12} /> : <Download size={12} />}
                         </button>
+
+                        {r.format === 'PDF' && (
+                          <button
+                            onClick={() => {
+                              downloadReportRecordHtml(r);
+                              toast('HTML Dossier Downloaded', `Saved ${r.id}_${r.incidentId}.html`);
+                            }}
+                            title="Download Standalone HTML Dossier"
+                            style={{
+                              background: 'hsl(var(--muted)/0.5)',
+                              border: '1px solid hsl(var(--border))',
+                              borderRadius: 4,
+                              padding: '5px 8px',
+                              cursor: 'pointer',
+                              color: 'hsl(var(--foreground))',
+                              fontSize: 11,
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: 4,
+                            }}
+                          >
+                            <FileCode size={12} />
+                          </button>
+                        )}
 
                         <button
                           onClick={() => setDeleteTarget(r)}
@@ -497,6 +539,7 @@ export default function HistoryPage({
       {/* Inspect Report Modal */}
       {inspectReport && (
         <div
+          className="report-inspect-modal-overlay"
           style={{
             position: 'fixed',
             inset: 0,
@@ -511,6 +554,7 @@ export default function HistoryPage({
           onClick={() => setInspectReport(null)}
         >
           <div
+            id="printable-archive-dossier"
             style={{
               background: 'hsl(var(--card))',
               border: '1px solid hsl(var(--border))',
@@ -622,10 +666,32 @@ export default function HistoryPage({
               </div>
             )}
 
+            {/* Paper / PDF Security Chain of Custody Footer (Print Only) */}
+            <div
+              className="print-only"
+              style={{
+                marginTop: 22,
+                paddingTop: 8,
+                borderTop: '1px solid #cbd5e1',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                fontSize: 8,
+                color: '#64748b',
+              }}
+            >
+              <span>ARGUS FORENSIC INTELLIGENCE · ARCHIVED INCIDENT DOSSIER · {inspectReport.incidentId}</span>
+              <span>CLASSIFICATION: CONFIDENTIAL // FIPS 180-4 CRYPTOGRAPHIC SEAL APPLIED</span>
+            </div>
+
             {/* Modal Actions */}
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, borderTop: '1px solid hsl(var(--border))', paddingTop: 14 }}>
+            <div className="screen-only" style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, borderTop: '1px solid hsl(var(--border))', paddingTop: 14 }}>
               <button
-                onClick={() => handleDownloadReport(inspectReport)}
+                onClick={async () => {
+                  const docTitle = `${inspectReport.incidentId}_${inspectReport.title.replace(/[^a-zA-Z0-9_-]/g, '_')}`;
+                  toast('Generating Isolated Print Preview...', 'Isolating archived dossier document without UI.');
+                  await printIsolatedDossier('printable-archive-dossier', docTitle);
+                }}
                 style={{
                   display: 'inline-flex',
                   alignItems: 'center',
@@ -640,14 +706,36 @@ export default function HistoryPage({
                   cursor: 'pointer',
                 }}
               >
-                <Download size={13} /> Download File ({inspectReport.format})
+                <Printer size={13} /> Print Dossier (PDF)
+              </button>
+
+              <button
+                onClick={() => {
+                  downloadReportRecordHtml(inspectReport);
+                  toast('HTML Dossier Downloaded', `Saved ${inspectReport.id}_${inspectReport.incidentId}.html`);
+                }}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  background: 'hsl(var(--secondary))',
+                  color: 'hsl(var(--secondary-foreground))',
+                  border: '1px solid hsl(var(--border))',
+                  borderRadius: 6,
+                  padding: '8px 14px',
+                  fontSize: 12,
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                }}
+              >
+                <FileCode size={13} /> Download HTML Dossier
               </button>
 
               <button
                 onClick={() => setInspectReport(null)}
                 style={{
-                  background: 'hsl(var(--secondary))',
-                  color: 'hsl(var(--secondary-foreground))',
+                  background: 'hsl(var(--muted)/0.5)',
+                  color: 'hsl(var(--foreground))',
                   border: '1px solid hsl(var(--border))',
                   borderRadius: 6,
                   padding: '8px 14px',

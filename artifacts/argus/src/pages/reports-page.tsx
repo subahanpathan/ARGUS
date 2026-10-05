@@ -28,6 +28,7 @@ import {
 } from 'lucide-react';
 import type { QuarantineItem } from '@/hooks/use-quarantine';
 import type { ReportRecord } from '@/hooks/use-reports';
+import { printIsolatedDossier, downloadHtmlDossier } from '@/lib/print-dossier';
 
 interface ReportsPageProps {
   phase: number;
@@ -92,7 +93,7 @@ export default function ReportsPage({
   // Config state
   const [reportTitle, setReportTitle] = useState('Exposure Assessment & Incident Dossier · WS-0427');
   const [audience, setAudience] = useState<'leadership' | 'soc' | 'legal' | 'cert'>('leadership');
-  const [format, setFormat] = useState<'PDF' | 'JSON' | 'TXT'>('PDF');
+  const [format, setFormat] = useState<'PDF' | 'HTML' | 'JSON' | 'TXT'>('PDF');
   const [investigatorNote, setInvestigatorNote] = useState(
     'All observed telemetry was gathered directly from host sensors. Potentially compromised binaries were segregated to the tamper-sealed vault with continuous execution lock.'
   );
@@ -258,17 +259,27 @@ export default function ReportsPage({
   }, [incidentId, reportTitle, generatedAt, riskScore, incidentStatus, audience, liveProcesses, liveConnections, quarantineCount, quarantineItems, suspiciousProcesses, externalSockets, investigatorNote]);
 
   // Export handler
-  const handleDownload = () => {
+  const handleDownload = async () => {
+    const docTitle = `${incidentId}_${reportTitle.replace(/[^a-zA-Z0-9_-]/g, '_')}`;
+
     if (format === 'JSON') {
       downloadTextFile(`${incidentId}-forensic-evidence.json`, JSON.stringify(jsonPayload, null, 2), 'application/json');
       toast('JSON Package Downloaded', `Saved ${incidentId}-forensic-evidence.json locally.`);
     } else if (format === 'TXT') {
       downloadTextFile(`${incidentId}-incident-summary.txt`, plainTextReport, 'text/plain');
       toast('Text Report Downloaded', `Saved ${incidentId}-incident-summary.txt locally.`);
+    } else if (format === 'HTML') {
+      downloadHtmlDossier('printable-dossier', `${incidentId}-forensic-dossier.html`, docTitle);
+      toast('Standalone Dossier Downloaded', `Saved ${incidentId}-forensic-dossier.html (can be opened or converted to PDF anywhere).`);
     } else {
-      // PDF mode -> Trigger browser print preview styled by print media query
-      window.print();
-      toast('Print / PDF Export Dialog Opened', 'Select "Save as PDF" to render official multipage document.');
+      // PDF mode -> Trigger isolated print preview containing ONLY the essential dossier
+      toast('Generating Isolated Print Preview...', 'Isolating essential dossier document without application UI page.');
+      const success = await printIsolatedDossier('printable-dossier', docTitle);
+      if (!success) {
+        // Fallback: download standalone HTML dossier if browser print dialog is blocked
+        downloadHtmlDossier('printable-dossier', `${incidentId}-forensic-dossier.html`, docTitle);
+        toast('Offline Dossier Downloaded', 'Browser print preview was interrupted. Saved self-contained dossier file instead.');
+      }
     }
   };
 
@@ -420,9 +431,9 @@ export default function ReportsPage({
       </div>
 
       {/* Main Grid: Configurator Panel on Left, Dynamic Dossier Preview on Right */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(300px, 360px) 1fr', gap: 20, alignItems: 'start' }}>
+      <div className="reports-split-grid" style={{ display: 'grid', gridTemplateColumns: 'minmax(300px, 360px) 1fr', gap: 20, alignItems: 'start' }}>
         
-        {/* Left Column: Configurator Panel */}
+        {/* Left Column: Configurator Panel (Hidden in Print) */}
         <div className="screen-only" style={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 8, padding: 18 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 14 }}>
             <FileText size={15} style={{ color: 'hsl(var(--primary))' }} />
@@ -483,16 +494,16 @@ export default function ReportsPage({
               <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: 'hsl(var(--muted-foreground))', marginBottom: 5 }}>
                 Primary Export Format
               </label>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6 }}>
-                {(['PDF', 'JSON', 'TXT'] as const).map((fmt) => (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6 }}>
+                {(['PDF', 'HTML', 'JSON', 'TXT'] as const).map((fmt) => (
                   <button
                     key={fmt}
                     type="button"
                     onClick={() => setFormat(fmt)}
                     style={{
-                      padding: '6px 8px',
-                      fontSize: 11,
-                      fontWeight: 600,
+                      padding: '6px 6px',
+                      fontSize: 10,
+                      fontWeight: 700,
                       borderRadius: 5,
                       border: format === fmt ? '1px solid hsl(var(--primary))' : '1px solid hsl(var(--border))',
                       background: format === fmt ? 'hsl(var(--primary)/0.15)' : 'hsl(var(--muted)/0.4)',
@@ -581,28 +592,78 @@ export default function ReportsPage({
           </div>
         </div>
 
-        {/* Right Column: Live Printable Forensic Dossier Preview */}
-        <div
-          id="printable-dossier"
-          style={{
-            background: 'hsl(216 33% 8%)',
-            border: '1px solid hsl(var(--border))',
-            borderRadius: 8,
-            padding: '28px 32px',
-            color: 'hsl(var(--foreground))',
-            position: 'relative',
-            boxShadow: '0 4px 24px rgba(0,0,0,0.3)',
-          }}
-        >
-          {/* Official Document Header */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '2px solid hsl(var(--border))', paddingBottom: 16, marginBottom: 20 }}>
-            <div>
+        {/* Right Column: Live Printable Forensic Dossier Preview (ONLY this prints) */}
+        <div>
+          {/* Screen-Only Dossier Topbar */}
+          <div
+            className="screen-only"
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              background: 'hsl(var(--card))',
+              border: '1px solid hsl(var(--border))',
+              borderRadius: '8px 8px 0 0',
+              borderBottom: 'none',
+              padding: '10px 16px',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <Printer size={13} style={{ color: 'hsl(var(--primary))' }} />
+              <span style={{ fontSize: 12, fontWeight: 700, color: 'hsl(var(--foreground))' }}>
+                Print & Export Dossier Preview
+              </span>
+              <span style={{ fontSize: 10, padding: '2px 6px', borderRadius: 4, background: 'hsl(142 71% 18%)', color: 'hsl(142 71% 75%)', fontWeight: 600 }}>
+                Essential Info Only
+              </span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ fontSize: 10, color: 'hsl(var(--muted-foreground))' }}>
+                Sidebars, headers & controls are stripped in print/export
+              </span>
+              <button
+                onClick={handleDownload}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 5,
+                  background: 'hsl(var(--primary))',
+                  color: 'hsl(var(--primary-foreground))',
+                  border: 'none',
+                  borderRadius: 4,
+                  padding: '5px 10px',
+                  fontSize: 11,
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                }}
+              >
+                <Printer size={11} /> Print / Export PDF
+              </button>
+            </div>
+          </div>
+
+          <div
+            id="printable-dossier"
+            className="printable-report-card"
+            style={{
+              background: 'hsl(216 33% 8%)',
+              border: '1px solid hsl(var(--border))',
+              borderRadius: '0 0 8px 8px',
+              padding: '28px 32px',
+              color: 'hsl(var(--foreground))',
+              position: 'relative',
+              boxShadow: '0 4px 24px rgba(0,0,0,0.3)',
+            }}
+          >
+            {/* Official Document Header */}
+            <div className="doc-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '2px solid hsl(var(--border))', paddingBottom: 16, marginBottom: 20 }}>
+              <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
                 <Shield size={16} style={{ color: 'hsl(var(--primary))' }} />
                 <span style={{ fontSize: 13, fontWeight: 900, letterSpacing: '0.1em', color: 'hsl(var(--primary))' }}>
                   ARGUS SECURITY INTELLIGENCE
                 </span>
-                <span style={{ fontSize: 9, padding: '1px 5px', borderRadius: 4, background: 'hsl(0 84% 60%/0.2)', color: 'hsl(0 84% 60%)', fontWeight: 800 }}>
+                <span className="print-badge" style={{ fontSize: 9, padding: '1px 5px', borderRadius: 4, background: 'hsl(0 84% 60%/0.2)', color: 'hsl(0 84% 60%)', fontWeight: 800 }}>
                   CONFIDENTIAL
                 </span>
               </div>
@@ -625,8 +686,8 @@ export default function ReportsPage({
           </div>
 
           {/* KPI Strip */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginBottom: 22 }}>
-            <div style={{ background: 'hsl(var(--muted)/0.3)', padding: 10, borderRadius: 6, border: '1px solid hsl(var(--border))' }}>
+          <div className="kpi-strip" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginBottom: 22 }}>
+            <div className="kpi-box" style={{ background: 'hsl(var(--muted)/0.3)', padding: 10, borderRadius: 6, border: '1px solid hsl(var(--border))' }}>
               <div style={{ fontSize: 10, color: 'hsl(var(--muted-foreground))', textTransform: 'uppercase' }}>Host Telemetry</div>
               <div style={{ fontSize: 16, fontWeight: 800, color: 'hsl(var(--foreground))', marginTop: 2 }}>
                 {liveProcesses.length} PIDs
@@ -634,7 +695,7 @@ export default function ReportsPage({
               <div style={{ fontSize: 9, color: 'hsl(var(--muted-foreground))' }}>Active Windows Tasks</div>
             </div>
 
-            <div style={{ background: 'hsl(var(--muted)/0.3)', padding: 10, borderRadius: 6, border: '1px solid hsl(var(--border))' }}>
+            <div className="kpi-box" style={{ background: 'hsl(var(--muted)/0.3)', padding: 10, borderRadius: 6, border: '1px solid hsl(var(--border))' }}>
               <div style={{ fontSize: 10, color: 'hsl(var(--muted-foreground))', textTransform: 'uppercase' }}>Quarantine Vault</div>
               <div style={{ fontSize: 16, fontWeight: 800, color: 'hsl(var(--primary))', marginTop: 2 }}>
                 {quarantineCount} Sealed
@@ -642,7 +703,7 @@ export default function ReportsPage({
               <div style={{ fontSize: 9, color: 'hsl(var(--muted-foreground))' }}>Isolated with SHA-256</div>
             </div>
 
-            <div style={{ background: 'hsl(var(--muted)/0.3)', padding: 10, borderRadius: 6, border: '1px solid hsl(var(--border))' }}>
+            <div className="kpi-box" style={{ background: 'hsl(var(--muted)/0.3)', padding: 10, borderRadius: 6, border: '1px solid hsl(var(--border))' }}>
               <div style={{ fontSize: 10, color: 'hsl(var(--muted-foreground))', textTransform: 'uppercase' }}>Network Sockets</div>
               <div style={{ fontSize: 16, fontWeight: 800, color: 'hsl(var(--foreground))', marginTop: 2 }}>
                 {liveConnections.length} Active
@@ -650,7 +711,7 @@ export default function ReportsPage({
               <div style={{ fontSize: 9, color: 'hsl(var(--muted-foreground))' }}>TCP/UDP Listeners & Conns</div>
             </div>
 
-            <div style={{ background: 'hsl(var(--muted)/0.3)', padding: 10, borderRadius: 6, border: '1px solid hsl(var(--border))' }}>
+            <div className="kpi-box" style={{ background: 'hsl(var(--muted)/0.3)', padding: 10, borderRadius: 6, border: '1px solid hsl(var(--border))' }}>
               <div style={{ fontSize: 10, color: 'hsl(var(--muted-foreground))', textTransform: 'uppercase' }}>Correlation Risk</div>
               <div style={{ fontSize: 16, fontWeight: 800, color: riskScore > 75 ? 'hsl(0 84% 60%)' : 'hsl(38 92% 50%)', marginTop: 2 }}>
                 {riskScore > 75 ? 'Critical' : 'Elevated'}
@@ -660,7 +721,7 @@ export default function ReportsPage({
           </div>
 
           {/* Section 1: Executive Overview */}
-          <div style={{ marginBottom: 20 }}>
+          <div className="section-block" style={{ marginBottom: 20 }}>
             <h3 style={{ fontSize: 13, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'hsl(var(--primary))', borderBottom: '1px solid hsl(var(--border))', paddingBottom: 4, marginBottom: 8 }}>
               1. Executive Incident Summary
             </h3>
@@ -671,21 +732,21 @@ export default function ReportsPage({
 
           {/* Section 2: Host Hardware & Environmental Baseline */}
           {includeHardware && (
-            <div style={{ marginBottom: 20 }}>
+            <div className="section-block" style={{ marginBottom: 20 }}>
               <h3 style={{ fontSize: 13, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'hsl(var(--primary))', borderBottom: '1px solid hsl(var(--border))', paddingBottom: 4, marginBottom: 8 }}>
                 2. Host Hardware & Sensor Baseline
               </h3>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, fontSize: 11 }} className="mono">
-                <div style={{ background: 'hsl(var(--muted)/0.2)', padding: '6px 10px', borderRadius: 4 }}>
+                <div className="kpi-box" style={{ background: 'hsl(var(--muted)/0.2)', padding: '6px 10px', borderRadius: 4 }}>
                   <span style={{ color: 'hsl(var(--muted-foreground))' }}>Host: </span>WS-0427
                 </div>
-                <div style={{ background: 'hsl(var(--muted)/0.2)', padding: '6px 10px', borderRadius: 4 }}>
+                <div className="kpi-box" style={{ background: 'hsl(var(--muted)/0.2)', padding: '6px 10px', borderRadius: 4 }}>
                   <span style={{ color: 'hsl(var(--muted-foreground))' }}>CPU Load: </span>{hostMetrics.cpu}
                 </div>
-                <div style={{ background: 'hsl(var(--muted)/0.2)', padding: '6px 10px', borderRadius: 4 }}>
+                <div className="kpi-box" style={{ background: 'hsl(var(--muted)/0.2)', padding: '6px 10px', borderRadius: 4 }}>
                   <span style={{ color: 'hsl(var(--muted-foreground))' }}>RAM Used: </span>{hostMetrics.ram}
                 </div>
-                <div style={{ background: 'hsl(var(--muted)/0.2)', padding: '6px 10px', borderRadius: 4 }}>
+                <div className="kpi-box" style={{ background: 'hsl(var(--muted)/0.2)', padding: '6px 10px', borderRadius: 4 }}>
                   <span style={{ color: 'hsl(var(--muted-foreground))' }}>Host Uptime: </span>{hostMetrics.uptime}
                 </div>
               </div>
@@ -694,7 +755,7 @@ export default function ReportsPage({
 
           {/* Section 3: Quarantined Artifacts & Forensic Seals */}
           {includeQuarantine && (
-            <div style={{ marginBottom: 20 }}>
+            <div className="section-block" style={{ marginBottom: 20 }}>
               <h3 style={{ fontSize: 13, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'hsl(var(--primary))', borderBottom: '1px solid hsl(var(--border))', paddingBottom: 4, marginBottom: 8 }}>
                 3. Quarantined Evidence Vault Manifest
               </h3>
@@ -725,7 +786,7 @@ export default function ReportsPage({
                         </td>
                         <td style={{ padding: '6px 8px' }}>{item.size || '342 KB'}</td>
                         <td style={{ padding: '6px 8px' }}>
-                          <span style={{ fontSize: 10, padding: '2px 6px', borderRadius: 4, background: 'hsl(142 71% 18%)', color: 'hsl(142 71% 75%)', fontWeight: 700 }}>
+                          <span className="print-badge" style={{ fontSize: 10, padding: '2px 6px', borderRadius: 4, background: 'hsl(142 71% 18%)', color: 'hsl(142 71% 75%)', fontWeight: 700 }}>
                             {item.status}
                           </span>
                         </td>
@@ -739,7 +800,7 @@ export default function ReportsPage({
 
           {/* Section 4: Process & Egress Network Evidence */}
           {(includeProcesses || includeNetwork) && (
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 20 }}>
+            <div className="section-block" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 20 }}>
               {includeProcesses && (
                 <div>
                   <h3 style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'hsl(var(--primary))', borderBottom: '1px solid hsl(var(--border))', paddingBottom: 4, marginBottom: 6 }}>
@@ -747,7 +808,7 @@ export default function ReportsPage({
                   </h3>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 11 }} className="mono">
                     {suspiciousProcesses.map((p) => (
-                      <div key={p.pid} style={{ display: 'flex', justifyContent: 'space-between', background: 'hsl(var(--muted)/0.2)', padding: '4px 8px', borderRadius: 4 }}>
+                      <div key={p.pid} className="kpi-box" style={{ display: 'flex', justifyContent: 'space-between', background: 'hsl(var(--muted)/0.2)', padding: '4px 8px', borderRadius: 4 }}>
                         <span style={{ fontWeight: 600 }}>{p.name}</span>
                         <span style={{ color: 'hsl(var(--muted-foreground))' }}>PID {p.pid}</span>
                       </div>
@@ -763,7 +824,7 @@ export default function ReportsPage({
                   </h3>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 11 }} className="mono">
                     {externalSockets.map((c, i) => (
-                      <div key={i} style={{ display: 'flex', justifyContent: 'space-between', background: 'hsl(var(--muted)/0.2)', padding: '4px 8px', borderRadius: 4 }}>
+                      <div key={i} className="kpi-box" style={{ display: 'flex', justifyContent: 'space-between', background: 'hsl(var(--muted)/0.2)', padding: '4px 8px', borderRadius: 4 }}>
                         <span style={{ fontWeight: 600 }}>{c.process_name}</span>
                         <span style={{ color: 'hsl(var(--muted-foreground))' }}>{c.raddr}</span>
                       </div>
@@ -776,14 +837,14 @@ export default function ReportsPage({
 
           {/* Section 5: Investigator Notes & Legal Attestation */}
           {includeAttestation && (
-            <div style={{ borderTop: '2px solid hsl(var(--border))', paddingTop: 14 }}>
+            <div className="attestation-box" style={{ borderTop: '2px solid hsl(var(--border))', paddingTop: 14 }}>
               <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'hsl(var(--muted-foreground))', marginBottom: 6 }}>
                 5. Evidentiary Attestation & Chain of Custody
               </div>
               <p style={{ fontSize: 11, lineHeight: 1.5, color: 'hsl(var(--muted-foreground))', margin: '0 0 12px' }}>
                 {investigatorNote}
               </p>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'hsl(var(--muted)/0.2)', padding: '10px 14px', borderRadius: 6, fontSize: 10 }}>
+              <div className="attestation-signature" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'hsl(var(--muted)/0.2)', padding: '10px 14px', borderRadius: 6, fontSize: 10 }}>
                 <div>
                   <span style={{ fontWeight: 700, color: 'hsl(var(--foreground))' }}>SIGNATURE ATTESTATION: </span>
                   <span className="mono" style={{ color: 'hsl(var(--primary))' }}>
@@ -796,8 +857,27 @@ export default function ReportsPage({
               </div>
             </div>
           )}
+
+          {/* Paper / PDF Security Chain of Custody Footer (Print Only) */}
+          <div
+            className="print-only"
+            style={{
+              marginTop: 22,
+              paddingTop: 8,
+              borderTop: '1px solid #cbd5e1',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              fontSize: 8,
+              color: '#64748b',
+            }}
+          >
+            <span>ARGUS FORENSIC INTELLIGENCE · INCIDENT DOSSIER · WS-0427</span>
+            <span>CLASSIFICATION: CONFIDENTIAL // FIPS 180-4 CRYPTOGRAPHIC SEAL APPLIED</span>
+          </div>
         </div>
       </div>
     </div>
-  );
+  </div>
+);
 }

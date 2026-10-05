@@ -570,3 +570,303 @@ button:disabled { cursor: not-allowed; opacity: .55; }
   .proc-flow i { animation: none !important; opacity: .5; }
   .risk-meter i, .event-dot, .scan-strip { animation: none !important; }
 }
+
+/* ==========================================================================
+   PRINT / PDF EXPORT MEDIA STYLES
+   Ensures ONLY essential dossier information is printed on paper/PDF.
+   All sidebar navigation, topbars, buttons, toolbars, forms, and UI chrome are hidden.
+   ========================================================================== */
+.print-only {
+  display: none !important;
+}
+
+@media print {
+  @page {
+    margin: 12mm 15mm;
+    size: A4 portrait;
+  }
+
+  /* Reset global viewport & body for paper printing */
+  html,
+  body {
+    background: #ffffff !important;
+    background-color: #ffffff !important;
+    color: #0f172a !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+    font-size: 9.5pt !important;
+    line-height: 1.4 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Disable all animations and transitions on paper */
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
+  }
+
+  /* Completely eliminate all UI chrome, navigation bars, headers, buttons, and configurators */
+  .sidebar,
+  .topbar,
+  .screen-only,
+  .toast-stack,
+  .brand,
+  .user-chip,
+  .sidebar-footer,
+  .modal-backdrop,
+  header,
+  nav,
+  aside,
+  footer,
+  button,
+  .btn,
+  input,
+  select,
+  textarea,
+  .actions,
+  [data-testid^="button-"],
+  [data-testid^="link-"],
+  .report-inspect-modal-overlay > div > div:last-child {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    height: 0 !important;
+    width: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    pointer-events: none !important;
+  }
+
+  .print-only {
+    display: block !important;
+  }
+
+  /* Unconstrain structural wrappers so content flows naturally without clipping or scrollbars */
+  #root,
+  .argus-shell,
+  .main-wrap,
+  main.content,
+  .route-container,
+  .animate-rise {
+    display: block !important;
+    position: static !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    min-height: 0 !important;
+    height: auto !important;
+    background: transparent !important;
+    background-color: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    overflow: visible !important;
+  }
+
+  /* Force grid parent container to single-column full-width in print */
+  .reports-split-grid {
+    display: block !important;
+    grid-template-columns: 1fr !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* If printing from history modal, un-fix the overlay */
+  .report-inspect-modal-overlay {
+    position: static !important;
+    background: transparent !important;
+    padding: 0 !important;
+    inset: auto !important;
+    width: 100% !important;
+    height: auto !important;
+    display: block !important;
+  }
+
+  /* The actual essential document container */
+  #printable-dossier,
+  #printable-archive-dossier {
+    display: block !important;
+    position: static !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 14pt 18pt !important;
+    background: #ffffff !important;
+    background-color: #ffffff !important;
+    color: #0f172a !important;
+    border: 1.5px solid #cbd5e1 !important;
+    box-shadow: none !important;
+    border-radius: 4px !important;
+    overflow: visible !important;
+    max-height: none !important;
+  }
+
+  /* Force high contrast dark typography on white paper */
+  #printable-dossier,
+  #printable-dossier p,
+  #printable-dossier span,
+  #printable-dossier div,
+  #printable-dossier td,
+  #printable-dossier th,
+  #printable-archive-dossier,
+  #printable-archive-dossier p,
+  #printable-archive-dossier span,
+  #printable-archive-dossier div,
+  #printable-archive-dossier td,
+  #printable-archive-dossier th {
+    color: #0f172a !important;
+    text-shadow: none !important;
+    box-shadow: none !important;
+  }
+
+  #printable-dossier h1,
+  #printable-dossier h2,
+  #printable-dossier h3,
+  #printable-archive-dossier h1,
+  #printable-archive-dossier h2,
+  #printable-archive-dossier h3 {
+    color: #020617 !important;
+    font-weight: 800 !important;
+    break-after: avoid !important;
+    page-break-after: avoid !important;
+  }
+
+  #printable-dossier h3,
+  #printable-archive-dossier h3 {
+    border-bottom: 1.5px solid #cbd5e1 !important;
+    margin-top: 12pt !important;
+    margin-bottom: 6pt !important;
+    padding-bottom: 3pt !important;
+  }
+
+  #printable-dossier .mono,
+  #printable-dossier code,
+  #printable-archive-dossier .mono,
+  #printable-archive-dossier code {
+    font-family: 'Consolas', 'Courier New', monospace !important;
+    color: #334155 !important;
+    font-size: 8.5pt !important;
+  }
+
+  /* Document header line */
+  #printable-dossier .doc-header,
+  #printable-archive-dossier .doc-header {
+    border-bottom: 2px solid #0f172a !important;
+    padding-bottom: 8pt !important;
+    margin-bottom: 12pt !important;
+  }
+
+  /* KPI Summary cards in print */
+  #printable-dossier .kpi-strip,
+  #printable-archive-dossier .kpi-strip {
+    display: grid !important;
+    grid-template-columns: repeat(4, 1fr) !important;
+    gap: 8pt !important;
+    margin-bottom: 12pt !important;
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  #printable-dossier .kpi-box,
+  #printable-archive-dossier .kpi-box {
+    background: #f8fafc !important;
+    border: 1px solid #cbd5e1 !important;
+    border-radius: 4px !important;
+    padding: 5pt 7pt !important;
+  }
+
+  /* Tables in print */
+  #printable-dossier table,
+  #printable-archive-dossier table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+    margin: 8pt 0 !important;
+    break-inside: auto !important;
+    page-break-inside: auto !important;
+  }
+
+  #printable-dossier tr,
+  #printable-archive-dossier tr {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+    break-after: auto !important;
+    page-break-after: auto !important;
+  }
+
+  #printable-dossier th,
+  #printable-archive-dossier th {
+    background: #f1f5f9 !important;
+    color: #0f172a !important;
+    border-bottom: 2px solid #64748b !important;
+    font-weight: 700 !important;
+    font-size: 8.5pt !important;
+    padding: 4pt 6pt !important;
+    text-transform: uppercase !important;
+  }
+
+  #printable-dossier td,
+  #printable-archive-dossier td {
+    border-bottom: 1px solid #e2e8f0 !important;
+    font-size: 8.5pt !important;
+    padding: 4pt 6pt !important;
+    color: #1e293b !important;
+  }
+
+  /* Badges in print */
+  #printable-dossier .badge,
+  #printable-dossier .print-badge,
+  #printable-archive-dossier .badge,
+  #printable-archive-dossier .print-badge {
+    background: #f1f5f9 !important;
+    border: 1px solid #94a3b8 !important;
+    color: #0f172a !important;
+    font-weight: 700 !important;
+    padding: 1.5pt 5pt !important;
+    border-radius: 3px !important;
+    font-size: 8pt !important;
+  }
+
+  #printable-dossier .badge-critical,
+  #printable-archive-dossier .badge-critical {
+    background: #fee2e2 !important;
+    border: 1.5px solid #ef4444 !important;
+    color: #991b1b !important;
+    font-weight: 800 !important;
+  }
+
+  /* Legal attestation box in print */
+  #printable-dossier .attestation-box,
+  #printable-archive-dossier .attestation-box {
+    border-top: 1.5px solid #cbd5e1 !important;
+    margin-top: 12pt !important;
+    padding-top: 8pt !important;
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  #printable-dossier .attestation-signature,
+  #printable-archive-dossier .attestation-signature {
+    background: #f8fafc !important;
+    border: 1px solid #cbd5e1 !important;
+    padding: 6pt 10pt !important;
+    border-radius: 4px !important;
+    font-size: 8pt !important;
+  }
+
+  /* Avoid breaking inside sections */
+  .section-block {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+}
