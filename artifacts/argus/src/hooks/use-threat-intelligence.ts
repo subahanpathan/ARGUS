@@ -153,6 +153,21 @@ export function useThreatIntelligence({
   const activeSocketCount = networkMonitor?.snapshot?.connections?.length || 0;
   const activeProcessCount = processMonitor?.snapshot?.length || 0;
 
+  const isLive = Boolean(
+    (processMonitor?.hasData && (processMonitor.snapshot?.length || 0) > 0) ||
+    (networkMonitor?.hasData && (networkMonitor.snapshot?.connections?.length || 0) > 0) ||
+    (telemetry && 'connected' in telemetry && telemetry.connected)
+  );
+
+  // Auto-switch mode based on live endpoint telemetry vs simulation
+  useEffect(() => {
+    if (isLive) {
+      setMode('realtime');
+    } else {
+      setMode('simulation');
+    }
+  }, [isLive]);
+
   const fetchAll = useCallback(async () => {
     try {
       const [sumRes, indRes, feedRes, actRes, vulnRes] = await Promise.all([

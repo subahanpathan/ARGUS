@@ -343,7 +343,7 @@ export default function IntelligencePage({
             }}
           >
             <Activity size={13} />
-            Live Host Correlation
+            Live Host Correlation {mode === 'realtime' && <span style={{ opacity: 0.8, fontSize: '10px', marginLeft: 4, background: 'rgba(0,0,0,0.15)', padding: '1px 5px', borderRadius: '4px' }}>Auto</span>}
           </button>
           <button
             type="button"
@@ -354,7 +354,7 @@ export default function IntelligencePage({
             }}
           >
             <Radar size={13} />
-            Simulated Drill
+            Simulated Drill {mode === 'simulation' && <span style={{ opacity: 0.8, fontSize: '10px', marginLeft: 4, background: 'rgba(255,255,255,0.2)', padding: '1px 5px', borderRadius: '4px' }}>Auto</span>}
           </button>
         </div>
       </div>

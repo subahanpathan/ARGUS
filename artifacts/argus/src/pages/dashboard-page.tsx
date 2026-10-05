@@ -201,6 +201,15 @@ export function DashboardPage({
   const hostOnline = (telemetry.connected || isFresh || Boolean(processMonitor.hasData)) && telemetry.telemetry != null;
   const t = telemetry.telemetry;
 
+  // Auto-switch mode based on real host online status vs simulation
+  useEffect(() => {
+    if (hostOnline && !autonomous && phase === 0) {
+      setMode('live');
+    } else if (!hostOnline || autonomous || phase > 0) {
+      setMode('simulated');
+    }
+  }, [hostOnline, autonomous, phase]);
+
   const realEvents = processMonitor.events.filter((e) => e.event_type !== 'SNAPSHOT');
   const realStreamActive = processMonitor.connected && processMonitor.hasData;
   const heartbeatLabel = telemetry.lastUpdateTime ? `Last heartbeat ${fmtTime(telemetry.lastUpdateTime)}` : 'Last heartbeat 12 sec ago';
@@ -276,7 +285,7 @@ export function DashboardPage({
               onClick={() => setMode('live')}
               data-testid="toggle-dashboard-live"
             >
-              ⚡ Live Host Dashboard
+              ⚡ Live Host Dashboard {hostOnline && !autonomous && phase === 0 && <span style={{ opacity: 0.8, fontSize: '10px', marginLeft: 4, background: 'rgba(255,255,255,0.2)', padding: '1px 5px', borderRadius: '4px' }}>Auto</span>}
             </button>
             <button
               type="button"
@@ -285,7 +294,7 @@ export function DashboardPage({
               onClick={() => setMode('simulated')}
               data-testid="toggle-dashboard-simulated"
             >
-              🧪 Simulated Incident Drill
+              🧪 Simulated Incident Drill {(!hostOnline || autonomous || phase > 0) && <span style={{ opacity: 0.8, fontSize: '10px', marginLeft: 4, background: 'rgba(255,255,255,0.2)', padding: '1px 5px', borderRadius: '4px' }}>Auto</span>}
             </button>
           </div>
 

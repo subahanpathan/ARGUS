@@ -161,6 +161,15 @@ export function ThreatsPage({
     liveThreats: rawLiveThreats,
   } = threatAnalysis;
 
+  // Auto-switch mode based on live sensor status vs simulation
+  useEffect(() => {
+    if (isLive && !demoReached) {
+      setMode('live');
+    } else if (!isLive || demoReached) {
+      setMode('simulated');
+    }
+  }, [isLive, demoReached]);
+
   // Sync simThreats if prop updates (e.g. from global incident containment)
   useEffect(() => {
     setSimThreats(initialThreats);
@@ -299,7 +308,7 @@ export function ThreatsPage({
               onClick={() => setMode('live')}
               data-testid="toggle-threats-live"
             >
-              ⚡ Live Host Threat Detections
+              ⚡ Live Host Threat Detections {isLive && !demoReached && <span style={{ opacity: 0.8, fontSize: '10px', marginLeft: 4, background: 'rgba(255,255,255,0.2)', padding: '1px 5px', borderRadius: '4px' }}>Auto</span>}
             </button>
             <button
               type="button"
@@ -308,7 +317,7 @@ export function ThreatsPage({
               onClick={() => setMode('simulated')}
               data-testid="toggle-threats-simulated"
             >
-              🧪 Simulated Attack Detections
+              🧪 Simulated Attack Detections {(!isLive || demoReached) && <span style={{ opacity: 0.8, fontSize: '10px', marginLeft: 4, background: 'rgba(255,255,255,0.2)', padding: '1px 5px', borderRadius: '4px' }}>Auto</span>}
             </button>
           </div>
 

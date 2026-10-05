@@ -410,6 +410,16 @@ function DetectionsPage({ detections, toast, setLocation }: { detections: Return
   const [simDetections, setSimDetections] = useState<Detection[]>(simulatedDetectionsSeed);
 
   const live = detections.hasData;
+
+  // Auto-switch mode based on live sensor engine data vs simulation
+  useEffect(() => {
+    if (live) {
+      setMode('live');
+    } else {
+      setMode('simulated');
+    }
+  }, [live]);
+
   const activeList = mode === 'live' ? detections.detections : simDetections;
 
   // Selected detection resolution
@@ -507,7 +517,7 @@ function DetectionsPage({ detections, toast, setLocation }: { detections: Return
             style={{ fontSize: '11px', padding: '4px 10px', height: 'auto', fontWeight: 600 }}
             onClick={() => setMode('live')}
           >
-            ⚡ Live Host Detections
+            ⚡ Live Host Detections {live && <span style={{ opacity: 0.8, fontSize: '10px', marginLeft: 4, background: 'rgba(255,255,255,0.2)', padding: '1px 5px', borderRadius: '4px' }}>Auto</span>}
           </button>
           <button
             type="button"
@@ -515,7 +525,7 @@ function DetectionsPage({ detections, toast, setLocation }: { detections: Return
             style={{ fontSize: '11px', padding: '4px 10px', height: 'auto', fontWeight: 600 }}
             onClick={() => setMode('simulated')}
           >
-            🧪 Simulated Attack Detections
+            🧪 Simulated Attack Detections {!live && <span style={{ opacity: 0.8, fontSize: '10px', marginLeft: 4, background: 'rgba(255,255,255,0.2)', padding: '1px 5px', borderRadius: '4px' }}>Auto</span>}
           </button>
         </div>
         {mode === 'live' && (
@@ -594,6 +604,16 @@ function NetworkPage({ toast, contained }: { toast: (t: string, b: string) => vo
   const [mode, setMode] = useState<'live' | 'simulated'>('live');
 
   const liveAvailable = topology.hasData && topology.snapshot != null;
+
+  // Auto-switch mode based on real network topology stream vs simulated
+  useEffect(() => {
+    if (liveAvailable) {
+      setMode('live');
+    } else {
+      setMode('simulated');
+    }
+  }, [liveAvailable]);
+
   const isLive = mode === 'live' && liveAvailable;
   const sim = useSimulatedNetwork(mode === 'simulated' || !liveAvailable);
   const effectiveMode: NetworkMode = isLive ? 'live' : sim.data ? 'simulated' : 'offline';
@@ -659,7 +679,7 @@ function NetworkPage({ toast, contained }: { toast: (t: string, b: string) => vo
             style={{ fontSize: '11px', padding: '4px 10px', height: 'auto', fontWeight: 600 }}
             onClick={() => setMode('live')}
           >
-            ⚡ Live Host Universe
+            ⚡ Live Host Universe {liveAvailable && <span style={{ opacity: 0.8, fontSize: '10px', marginLeft: 4, background: 'rgba(255,255,255,0.2)', padding: '1px 5px', borderRadius: '4px' }}>Auto</span>}
           </button>
           <button
             type="button"
@@ -667,7 +687,7 @@ function NetworkPage({ toast, contained }: { toast: (t: string, b: string) => vo
             style={{ fontSize: '11px', padding: '4px 10px', height: 'auto', fontWeight: 600 }}
             onClick={() => setMode('simulated')}
           >
-            🧪 Simulated 3D Universe
+            🧪 Simulated 3D Universe {!liveAvailable && <span style={{ opacity: 0.8, fontSize: '10px', marginLeft: 4, background: 'rgba(255,255,255,0.2)', padding: '1px 5px', borderRadius: '4px' }}>Auto</span>}
           </button>
         </div>
         <Button icon={Download} onClick={exportNetwork} testId="button-export-network">Export topology</Button>

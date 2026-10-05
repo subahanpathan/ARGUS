@@ -189,7 +189,18 @@ export default function TimelinePage({
 }: TimelinePageProps) {
   const hasLiveTelemetry = Boolean(telemetry?.connected && telemetry?.telemetry);
   const [dataMode, setDataMode] = useState<'real' | 'demo'>('real');
-  const isReal = dataMode === 'real' && (hasLiveTelemetry || Boolean(processMonitor?.hasData));
+  const liveAvailable = Boolean(hasLiveTelemetry || processMonitor?.hasData);
+
+  // Auto-switch mode based on real host telemetry stream vs simulation
+  useEffect(() => {
+    if (liveAvailable) {
+      setDataMode('real');
+    } else {
+      setDataMode('demo');
+    }
+  }, [liveAvailable]);
+
+  const isReal = dataMode === 'real' && liveAvailable;
 
   const hostName = telemetry?.telemetry?.source === 'windows_system_monitor'
     ? 'Local Windows Host'
@@ -560,7 +571,7 @@ export default function TimelinePage({
               style={{ fontSize: 11, padding: '3px 9px', height: 26 }}
               onClick={() => setDataMode('real')}
             >
-              <Radio size={11} style={{ marginRight: 4 }} /> Real Host Timeline
+              <Radio size={11} style={{ marginRight: 4 }} /> Real Host Timeline {liveAvailable && <span style={{ opacity: 0.8, fontSize: '10px', marginLeft: 4, background: 'rgba(255,255,255,0.2)', padding: '1px 5px', borderRadius: '4px' }}>Auto</span>}
             </button>
             <button
               type="button"
@@ -568,7 +579,7 @@ export default function TimelinePage({
               style={{ fontSize: 11, padding: '3px 9px', height: 26 }}
               onClick={() => setDataMode('demo')}
             >
-              <AlertTriangle size={11} style={{ marginRight: 4 }} /> Simulated Drill
+              <AlertTriangle size={11} style={{ marginRight: 4 }} /> Simulated Drill {!liveAvailable && <span style={{ opacity: 0.8, fontSize: '10px', marginLeft: 4, background: 'rgba(255,255,255,0.2)', padding: '1px 5px', borderRadius: '4px' }}>Auto</span>}
             </button>
           </div>
 

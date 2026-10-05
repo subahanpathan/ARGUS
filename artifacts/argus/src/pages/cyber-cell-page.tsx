@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   ShieldAlert,
   ShieldCheck,
@@ -73,6 +73,20 @@ export default function CyberCellPage({
   const activeProcesses = processMonitor?.snapshot || [];
   const activeConnections = networkMonitor?.snapshot?.connections || [];
   const filesFound = fileScan?.findings || [];
+
+  const isLive = Boolean(
+    (processMonitor?.hasData && (processMonitor.snapshot?.length || 0) > 0) ||
+    (rawTelemetry && ('connected' in telemetry ? telemetry.connected : true))
+  );
+
+  // Auto-switch mode based on real host telemetry vs simulation
+  useEffect(() => {
+    if (isLive) {
+      setMode('realtime');
+    } else {
+      setMode('simulation');
+    }
+  }, [isLive]);
 
   // Generate authentic live summary
   const liveSummary = useMemo(() => {
@@ -240,7 +254,7 @@ Forensic Assessment: Live sensor fabric stream attached to endpoint. Cryptograph
             }}
           >
             <Activity size={13} />
-            Live Host Evidence
+            Live Host Evidence {isLive && <span style={{ opacity: 0.8, fontSize: '10px', marginLeft: 4, background: 'rgba(0,0,0,0.15)', padding: '1px 5px', borderRadius: '4px' }}>Auto</span>}
           </button>
           <button
             type="button"
@@ -251,7 +265,7 @@ Forensic Assessment: Live sensor fabric stream attached to endpoint. Cryptograph
             }}
           >
             <Radar size={13} />
-            Simulated Drill
+            Simulated Drill {!isLive && <span style={{ opacity: 0.8, fontSize: '10px', marginLeft: 4, background: 'rgba(255,255,255,0.2)', padding: '1px 5px', borderRadius: '4px' }}>Auto</span>}
           </button>
         </div>
       </div>
