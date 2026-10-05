@@ -563,25 +563,7 @@ export default function TimelinePage({
         </div>
 
         <div className="actions" style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-          {/* Mode Switcher */}
-          <div style={{ display: 'inline-flex', background: 'hsl(var(--muted))', padding: 2, borderRadius: 6, border: '1px solid hsl(var(--border))' }}>
-            <button
-              type="button"
-              className={cn('btn btn-sm', dataMode === 'real' ? 'btn-primary' : 'btn-ghost')}
-              style={{ fontSize: 11, padding: '3px 9px', height: 26 }}
-              onClick={() => setDataMode('real')}
-            >
-              <Radio size={11} style={{ marginRight: 4 }} /> Real Host Timeline {liveAvailable && <span style={{ opacity: 0.8, fontSize: '10px', marginLeft: 4, background: 'rgba(255,255,255,0.2)', padding: '1px 5px', borderRadius: '4px' }}>Auto</span>}
-            </button>
-            <button
-              type="button"
-              className={cn('btn btn-sm', dataMode === 'demo' ? 'btn-primary' : 'btn-ghost')}
-              style={{ fontSize: 11, padding: '3px 9px', height: 26 }}
-              onClick={() => setDataMode('demo')}
-            >
-              <AlertTriangle size={11} style={{ marginRight: 4 }} /> Simulated Drill {!liveAvailable && <span style={{ opacity: 0.8, fontSize: '10px', marginLeft: 4, background: 'rgba(255,255,255,0.2)', padding: '1px 5px', borderRadius: '4px' }}>Auto</span>}
-            </button>
-          </div>
+
 
           {isReal ? (
             <span

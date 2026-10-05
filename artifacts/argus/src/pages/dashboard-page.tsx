@@ -268,35 +268,45 @@ export function DashboardPage({
         </div>
 
         <div className="actions" style={{ flexWrap: 'wrap', gap: 8 }}>
-          {/* Dual-Mode Toggle */}
-          <div
-            style={{
-              display: 'inline-flex',
-              background: 'hsl(var(--muted)/0.5)',
-              padding: '2px',
-              borderRadius: '6px',
-              border: '1px solid hsl(var(--border))',
-            }}
-          >
-            <button
-              type="button"
-              className={`btn btn-sm ${mode === 'live' ? 'btn-primary' : 'btn-ghost'}`}
-              style={{ fontSize: '11px', padding: '4px 10px', height: 'auto', fontWeight: 600 }}
-              onClick={() => setMode('live')}
-              data-testid="toggle-dashboard-live"
+          {/* Operational Mode Status (Auto-Switched) */}
+          {mode === 'live' ? (
+            <span
+              className="badge badge-low"
+              style={{
+                background: 'hsl(142 71% 15% / 0.85)',
+                color: 'hsl(142 71% 70%)',
+                border: '1px solid hsl(142 71% 30%)',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                padding: '5px 12px',
+                fontSize: '11px',
+                fontWeight: 600,
+                letterSpacing: '0.02em',
+              }}
             >
-              ⚡ Live Host Dashboard {hostOnline && !autonomous && phase === 0 && <span style={{ opacity: 0.8, fontSize: '10px', marginLeft: 4, background: 'rgba(255,255,255,0.2)', padding: '1px 5px', borderRadius: '4px' }}>Auto</span>}
-            </button>
-            <button
-              type="button"
-              className={`btn btn-sm ${mode === 'simulated' ? 'btn-primary' : 'btn-ghost'}`}
-              style={{ fontSize: '11px', padding: '4px 10px', height: 'auto', fontWeight: 600 }}
-              onClick={() => setMode('simulated')}
-              data-testid="toggle-dashboard-simulated"
+              <Radio size={12} className="animate-pulse" />
+              LIVE HOST TELEMETRY
+            </span>
+          ) : (
+            <span
+              className="badge badge-muted"
+              style={{
+                background: 'hsl(var(--muted)/0.7)',
+                color: 'hsl(var(--muted-foreground))',
+                border: '1px solid hsl(var(--border))',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                padding: '5px 12px',
+                fontSize: '11px',
+                fontWeight: 600,
+              }}
             >
-              🧪 Simulated Incident Drill {(!hostOnline || autonomous || phase > 0) && <span style={{ opacity: 0.8, fontSize: '10px', marginLeft: 4, background: 'rgba(255,255,255,0.2)', padding: '1px 5px', borderRadius: '4px' }}>Auto</span>}
-            </button>
-          </div>
+              <AlertTriangle size={12} />
+              SIMULATED DRILL
+            </span>
+          )}
 
           <button
             type="button"

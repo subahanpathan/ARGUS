@@ -510,24 +510,7 @@ function DetectionsPage({ detections, toast, setLocation }: { detections: Return
         ? "Deterministic, explainable detections evaluated continuously across live Windows processes, network sockets, and filesystem scans. 21 rules armed."
         : "Simulated multi-stage attack scenarios including Base64 PowerShell execution, C2 beaconing, and Startup persistence for analyst investigation."}
       actions={<>
-        <div style={{ display: 'flex', gap: '6px', background: 'hsl(var(--surface-2))', padding: '3px', borderRadius: '8px', border: '1px solid hsl(var(--border))' }}>
-          <button
-            type="button"
-            className={`btn btn-sm ${mode === 'live' ? 'btn-primary' : 'btn-ghost'}`}
-            style={{ fontSize: '11px', padding: '4px 10px', height: 'auto', fontWeight: 600 }}
-            onClick={() => setMode('live')}
-          >
-            ⚡ Live Host Detections {live && <span style={{ opacity: 0.8, fontSize: '10px', marginLeft: 4, background: 'rgba(255,255,255,0.2)', padding: '1px 5px', borderRadius: '4px' }}>Auto</span>}
-          </button>
-          <button
-            type="button"
-            className={`btn btn-sm ${mode === 'simulated' ? 'btn-primary' : 'btn-ghost'}`}
-            style={{ fontSize: '11px', padding: '4px 10px', height: 'auto', fontWeight: 600 }}
-            onClick={() => setMode('simulated')}
-          >
-            🧪 Simulated Attack Detections {!live && <span style={{ opacity: 0.8, fontSize: '10px', marginLeft: 4, background: 'rgba(255,255,255,0.2)', padding: '1px 5px', borderRadius: '4px' }}>Auto</span>}
-          </button>
-        </div>
+
         {mode === 'live' && (
           <button
             type="button"
@@ -617,6 +600,7 @@ function NetworkPage({ toast, contained }: { toast: (t: string, b: string) => vo
   const isLive = mode === 'live' && liveAvailable;
   const sim = useSimulatedNetwork(mode === 'simulated' || !liveAvailable);
   const effectiveMode: NetworkMode = isLive ? 'live' : sim.data ? 'simulated' : 'offline';
+  const dataActive = effectiveMode !== 'offline';
 
   const topoData: NetworkTopologyData | null = isLive ? topology.snapshot : sim.data;
   const realConns: TopologyConnection[] = topoData?.connections ?? [];
@@ -672,24 +656,7 @@ function NetworkPage({ toast, contained }: { toast: (t: string, b: string) => vo
           ? `Synthesized telemetry for ${universeModel.stats.processes} processes, ${universeModel.stats.connections} connections, and ${universeModel.stats.interfaces} interfaces. Real engine data replaces this automatically when the security engine connects.`
           : 'No network telemetry is streaming. Start the security engine to observe the real network universe.'}
       actions={<>
-        <div style={{ display: 'flex', gap: '6px', background: 'hsl(var(--surface-2))', padding: '3px', borderRadius: '8px', border: '1px solid hsl(var(--border))' }}>
-          <button
-            type="button"
-            className={`btn btn-sm ${mode === 'live' ? 'btn-primary' : 'btn-ghost'}`}
-            style={{ fontSize: '11px', padding: '4px 10px', height: 'auto', fontWeight: 600 }}
-            onClick={() => setMode('live')}
-          >
-            ⚡ Live Host Universe {liveAvailable && <span style={{ opacity: 0.8, fontSize: '10px', marginLeft: 4, background: 'rgba(255,255,255,0.2)', padding: '1px 5px', borderRadius: '4px' }}>Auto</span>}
-          </button>
-          <button
-            type="button"
-            className={`btn btn-sm ${mode === 'simulated' ? 'btn-primary' : 'btn-ghost'}`}
-            style={{ fontSize: '11px', padding: '4px 10px', height: 'auto', fontWeight: 600 }}
-            onClick={() => setMode('simulated')}
-          >
-            🧪 Simulated 3D Universe {!liveAvailable && <span style={{ opacity: 0.8, fontSize: '10px', marginLeft: 4, background: 'rgba(255,255,255,0.2)', padding: '1px 5px', borderRadius: '4px' }}>Auto</span>}
-          </button>
-        </div>
+
         <Button icon={Download} onClick={exportNetwork} testId="button-export-network">Export topology</Button>
         {isLive
           ? <span className="badge badge-low" style={{ background: 'hsl(142 71% 20%)', color: 'hsl(142 71% 70%)', border: '1px solid hsl(142 71% 30%)' }}><Radio size={10} style={{ marginRight: 4, verticalAlign: 'middle' }} />REAL HOST NETWORK DATA</span>
