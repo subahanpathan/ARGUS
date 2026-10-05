@@ -42,6 +42,8 @@ import ExposurePage from '@/pages/exposure-page';
 import TimelinePage from '@/pages/timeline-page';
 import ExposureWindowPage from '@/pages/exposure-window-page';
 import QuarantinePage from '@/pages/quarantine-page';
+import IntelligencePage from '@/pages/intelligence-page';
+import { useQuarantine } from '@/hooks/use-quarantine';
 
 const queryClient = new QueryClient();
 
@@ -605,11 +607,7 @@ function NetworkPage({ toast, contained }: { toast: (t: string, b: string) => vo
 // TimelinePage extracted to @/pages/timeline-page
 
 // QuarantinePage extracted to @/pages/quarantine-page
-
-function IntelligencePage({ toast }: { toast: (t: string, b: string) => void }) {
-  const [followed, setFollowed] = useState(false);
-  return <div className="animate-rise"><PageHeading eyebrow="Context layer · curated synthetic feeds" title="Threat intelligence" subtitle="Reputation and context are supporting signals, not a substitute for endpoint evidence." actions={<Button icon={RefreshCw} onClick={() => toast('Feeds refreshed', 'Three synthetic intelligence sources returned current context.')} testId="button-refresh-intelligence">Refresh feeds</Button>} /><div className="grid metrics"><StatCard label="Indicators tracked" value="12,842" note="+184 this week" tone="info" icon={Radar} /><StatCard label="Newly observed" value="27" note="Across 6 sources" tone="warn" icon={Sparkles} /><StatCard label="Feed health" value="3 / 3" note="Last sync 4 min ago" tone="good" icon={Wifi} /><StatCard label="Correlated today" value="08" note="2 require review" tone="danger" icon={Fingerprint} /></div><div className="grid split-grid" style={{ marginTop: 14 }}><Card className="card-pad"><PanelTitle title="Indicator dossier" detail="DOMAIN · cdn-sync-check[.]com" /><div className="eyebrow">Domain reputation</div><div style={{ display: 'flex', gap: 15, alignItems: 'center', margin: '10px 0 18px' }}><div style={{ fontSize: 34, fontWeight: 800 }} className="signal-danger">12</div><div className="muted" style={{ fontSize: 11 }}>of 87 engines flag this indicator</div></div><div className="kpi-line"><span className="muted">First registered</span><b className="mono">2024-10-11</b></div><div className="kpi-line"><span className="muted">Registrar pattern</span><b>Disposable infrastructure</b></div><div className="kpi-line"><span className="muted">Internal sightings</span><b>1 · today</b></div><Button kind={followed ? 'primary' : ''} icon={followed ? Check : Plus} onClick={() => { setFollowed(!followed); toast(followed ? 'Indicator unfollowed' : 'Indicator followed', followed ? 'No further alerts will be generated.' : 'ARGUS will surface future sightings in this workspace.'); }} style={{ marginTop: 17 }} testId="button-follow-indicator">{followed ? 'Following indicator' : 'Follow indicator'}</Button></Card><Card className="card-pad"><PanelTitle title="Source coverage" detail="SYNTHETIC DATASETS" />{[['Northstar DNS telemetry', 'Live', '2 min ago'], ['ARGUS community exchange', 'Live', '4 min ago'], ['Sandbox reputation set', 'Live', '4 min ago'], ['Internal sightings', 'Live', '12 sec ago']].map(([a, b, c]) => <div className="kpi-line" key={a}><span><b>{a}</b><br /><span className="mono muted">{c}</span></span><span className="signal-good"><CheckCircle2 size={14} style={{ verticalAlign: 'middle', marginRight: 5 }} />{b}</span></div>)}<div style={{ marginTop: 20, padding: 13, border: '1px solid hsl(var(--border))', borderRadius: 5, fontSize: 10, lineHeight: 1.5 }}><Info size={13} style={{ verticalAlign: 'middle', marginRight: 6, color: 'hsl(var(--primary))' }} />Reputation is one input to the risk model. Review process and file evidence before escalating.</div></Card></div></div>;
-}
+// IntelligencePage extracted to @/pages/intelligence-page
 
 function ReportsPage({ phase, incidentStatus, quarantineCount, toast }: { phase: number; incidentStatus: string; quarantineCount: number; toast: (t: string, b: string) => void }) {
   const [generated, setGenerated] = useState(false); const [format, setFormat] = useState<'TXT' | 'JSON'>('TXT');
@@ -782,7 +780,8 @@ function AppContent() {
   const [phase, setPhase] = useState(0);
   const [demoState, setDemoState] = useState<DemoRunState>('idle');
   const [threats, setThreats] = useState(threatsSeed);
-  const [quarantine, setQuarantine] = useState<QuarantineItem[]>(quarantineSeed);
+  const quarantineManager = useQuarantine();
+  const { items: quarantine, setItems: setQuarantine } = quarantineManager;
   const [cyberCellSubmitted, setCyberCellSubmitted] = useState(false);
   const [modal, setModal] = useState<ModalState>(null);
   const [toasts, setToasts] = useState<Array<{ id: number; title: string; body: string }>>([]);
@@ -809,7 +808,15 @@ function AppContent() {
     setQuarantine((prev) => {
       const next = [...prev];
       for (const item of containmentQuarantineItems) {
-        if (!next.some((q) => q.id === item.id)) next.unshift(item);
+        if (!next.some((q) => q.id === item.id)) {
+          next.unshift(item);
+          quarantineManager.addQuarantine({
+            path: item.path,
+            name: item.name,
+            reason: item.quarantineReason || 'Host containment applied',
+            severity: item.severity,
+          });
+        }
       }
       return next;
     });
@@ -911,20 +918,28 @@ function AppContent() {
     if (location === '/detections/rules') return <RuleCatalogPage detections={detections} />;
     if (location === '/monitoring') return <MonitoringPage processMonitor={processMonitor} onNavigate={setLocation} />;
     if (location === '/processes') return <ProcessesPage toast={toast} contained={contained} monitorData={processMonitor} onNavigate={setLocation} />;
-    if (location === '/files') return <FilesPage toast={toast} fileScan={fileScan} onNavigate={setLocation} onQuarantine={(item) => setQuarantine((prev) => [item, ...prev])} />;
+    if (location === '/files') return <FilesPage toast={toast} fileScan={fileScan} onNavigate={setLocation} onQuarantine={(item) => {
+      quarantineManager.addQuarantine({
+        path: item.path,
+        name: item.name,
+        reason: item.quarantineReason || 'Suspicious file quarantined from filesystem triage',
+        severity: item.severity,
+      });
+      setQuarantine((prev) => [item, ...prev]);
+    }} />;
     if (location === '/network') return <NetworkPage toast={toast} contained={contained} />;
     if (location === '/exposure') return <ExposurePage phase={phase} toast={toast} threatAnalysis={threatAnalysis} fileScan={fileScan} processMonitor={processMonitor} networkMonitor={networkMonitor} onNavigate={setLocation} contained={contained} onContain={() => containThreat('thr-1')} />;
-    if (location === '/exposure-window') return <ExposureWindowPage phase={phase} toast={toast} onNavigate={setLocation} />;
-    if (location === '/timeline') return <TimelinePage phase={phase} toast={toast} processMonitor={processMonitor} threatAnalysis={threatAnalysis} fileScan={fileScan} onNavigate={setLocation} />;
-    if (location === '/quarantine') return <QuarantinePage items={quarantine} setItems={setQuarantine} toast={toast} setModal={setModal} setLocation={setLocation} />;
-    if (location === '/intelligence') return <IntelligencePage toast={toast} />;
+    if (location === '/exposure-window') return <ExposureWindowPage phase={phase} toast={toast} threatAnalysis={threatAnalysis} processMonitor={processMonitor} networkMonitor={networkMonitor} fileScan={fileScan} contained={contained} onNavigate={setLocation} />;
+    if (location === '/timeline') return <TimelinePage phase={phase} toast={toast} processMonitor={processMonitor} networkMonitor={networkMonitor} threatAnalysis={threatAnalysis} fileScan={fileScan} contained={contained} onNavigate={setLocation} />;
+    if (location === '/quarantine') return <QuarantinePage items={quarantineManager.items} setItems={quarantineManager.setItems} toast={toast} setModal={setModal} setLocation={setLocation} onAddQuarantine={quarantineManager.addQuarantine} onRestore={quarantineManager.restoreQuarantine} onPurge={quarantineManager.purgeQuarantine} onVerify={quarantineManager.verifyIntegrity} vaultPath={quarantineManager.vaultPath} />;
+    if (location === '/intelligence') return <IntelligencePage toast={toast} processMonitor={processMonitor} networkMonitor={networkMonitor} fileScan={fileScan} threatAnalysis={threatAnalysis} onNavigate={setLocation} />;
     if (location === '/reports') return <ReportsPage phase={phase} incidentStatus={incidentStatus} quarantineCount={quarantine.length} toast={toast} />;
     if (location === '/history') return <HistoryPage toast={toast} />;
     if (location === '/cyber-cell') return <CyberCellPage toast={toast} incidentStatus={incidentStatus} phase={phase} quarantineCount={quarantine.length} submitted={cyberCellSubmitted} onSubmitted={() => setCyberCellSubmitted(true)} onResetSubmission={() => setCyberCellSubmitted(false)} />;
     if (location === '/settings') return <SettingsPage toast={toast} />;
     if (location === '/about') return <AboutPage />;
     return <NotFound />;
-  }, [location, phase, demoState, threats, quarantine, incidentStatus, contained, cyberCellSubmitted, processMonitor, telemetryStream, networkMonitor, threatAnalysis, detections, autoDemo.state, fileScan]);
+  }, [location, phase, demoState, threats, quarantine, quarantineManager, incidentStatus, contained, cyberCellSubmitted, processMonitor, telemetryStream, networkMonitor, threatAnalysis, detections, autoDemo.state, fileScan]);
 
   const toastStack = <div className="toast-stack">{toasts.map((t) => <div className="toast" key={t.id} data-testid={`toast-${t.id}`}><strong>{t.title}</strong><p>{t.body}</p></div>)}</div>;
 

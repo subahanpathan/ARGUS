@@ -39,6 +39,7 @@ import {
 import type { ProcessMonitorState, RealProcessEvent } from '@/hooks/use-process-monitor';
 import type { ThreatAnalysisState } from '@/hooks/use-threat-analysis';
 import type { FileScanState } from '@/hooks/use-file-scan';
+import type { NetworkMonitorState } from '@/hooks/use-network-monitor';
 
 function cn(...values: Array<string | false | undefined | null>) {
   return values.filter(Boolean).join(' ');
@@ -49,6 +50,7 @@ type EvidenceStatus = 'observed' | 'potential' | 'confirmed';
 export type TimelineEvent = {
   id: string;
   time: string;
+  rawTimestamp?: number;
   title: string;
   detail: string;
   category: string;
@@ -57,14 +59,17 @@ export type TimelineEvent = {
   pid?: number;
   entity?: string;
   confidence?: number;
+  severity?: 'critical' | 'high' | 'medium' | 'low' | 'info';
 };
 
 export type TimelinePageProps = {
   phase: number;
   toast: (title: string, body: string) => void;
   processMonitor?: ProcessMonitorState;
+  networkMonitor?: NetworkMonitorState;
   threatAnalysis?: ThreatAnalysisState;
   fileScan?: FileScanState;
+  contained?: boolean;
   onNavigate?: (path: string) => void;
 };
 
@@ -165,49 +170,230 @@ export default function TimelinePage({
   phase,
   toast,
   processMonitor,
+  networkMonitor,
   threatAnalysis,
   fileScan,
+  contained = false,
   onNavigate,
 }: TimelinePageProps) {
-  const isReal = Boolean(processMonitor?.connected && processMonitor.events.length > 0);
+  // Real-time detection across all active sensors
+  const isReal = Boolean(
+    (processMonitor?.hasData && processMonitor.snapshot.length > 0) ||
+    (networkMonitor?.snapshot && networkMonitor.snapshot.connections.length > 0) ||
+    (fileScan?.findings && fileScan.findings.length > 0) ||
+    (processMonitor?.connected && processMonitor.events.length > 0) ||
+    (threatAnalysis?.threats && threatAnalysis.threats.length > 0)
+  );
+
+  // Unified multi-subsystem timeline dataset
+  const activeEvents: TimelineEvent[] = useMemo(() => {
+    if (!isReal) {
+      return defaultTimelineSeed;
+    }
+
+    const merged: TimelineEvent[] = [];
+    const now = Date.now();
+
+    // 1. Process Lifecycle Events from SSE
+    if (processMonitor?.events && processMonitor.events.length > 0) {
+      processMonitor.events
+        .filter((e) => e.event_type !== 'SNAPSHOT')
+        .forEach((e, idx) => {
+          const ts = new Date(e.timestamp).getTime();
+          merged.push({
+            id: `evt-proc-${e.id || idx}`,
+            rawTimestamp: isNaN(ts) ? now - 180000 : ts,
+            time: isNaN(ts) ? new Date(now - 180000).toLocaleTimeString() : new Date(ts).toLocaleTimeString(),
+            title: e.event_type === 'PROCESS_STARTED' ? `Process Started: ${e.process_name}` : `Process Terminated: ${e.process_name}`,
+            detail: `Sensor observed ${e.process_name} (PID ${e.pid})${e.parent_process_name ? ` spawned by ${e.parent_process_name}` : ''}. Binary path: ${e.executable_path || 'Standard system path'}.`,
+            category: 'execution',
+            status: 'observed',
+            subsystem: 'process',
+            pid: e.pid,
+            entity: e.process_name,
+            confidence: 100,
+          });
+        });
+    }
+
+    // 2. Active Snapshot Processes (Prominent tools, user processes, high resource)
+    if (processMonitor?.snapshot && processMonitor.snapshot.length > 0) {
+      const interestingNames = new Set([
+        'powershell.exe', 'cmd.exe', 'python.exe', 'node.exe', 'explorer.exe',
+        'svchost.exe', 'chrome.exe', 'msedge.exe', '7z.exe', 'tar.exe', 'curl.exe', 'conhost.exe'
+      ]);
+      const interestingProcs = processMonitor.snapshot.filter(
+        (p) => interestingNames.has(p.name?.toLowerCase()) || (p.cpu_percent ?? 0) > 1 || (p.memory_percent ?? 0) > 2
+      );
+      const sampleProcs = (interestingProcs.length >= 4 ? interestingProcs : processMonitor.snapshot).slice(0, 8);
+
+      sampleProcs.forEach((p, idx) => {
+        let ts: number;
+        if (p.creation_time) {
+          const parsed = new Date(p.creation_time).getTime();
+          ts = isNaN(parsed) ? now - ((idx + 2) * 60000) : parsed;
+        } else {
+          ts = now - ((idx + 2) * 60000);
+        }
+
+        merged.push({
+          id: `evt-snap-${p.pid}`,
+          rawTimestamp: ts,
+          time: new Date(ts).toLocaleTimeString(),
+          title: `Process Active: ${p.name}`,
+          detail: `Active host execution: ${p.name} (PID ${p.pid})${p.parent_name ? ` [Parent: ${p.parent_name}]` : ''}. User: ${p.username || 'SYSTEM'}. Memory: ${Math.round((p.memory_bytes || 0) / (1024 * 1024))} MB, CPU: ${(p.cpu_percent || 0.1).toFixed(1)}%. Path: ${p.executable_path || 'C:\\Windows\\System32'}`,
+          category: 'execution',
+          status: 'observed',
+          subsystem: 'process',
+          pid: p.pid,
+          entity: `${p.name} (PID ${p.pid})`,
+          confidence: 100,
+        });
+      });
+    }
+
+    // 3. File Scan Findings
+    if (fileScan?.findings && fileScan.findings.length > 0) {
+      fileScan.findings.slice(0, 8).forEach((f, idx) => {
+        let ts: number;
+        if (f.last_modified) {
+          const parsed = new Date(f.last_modified).getTime();
+          ts = isNaN(parsed) ? now - ((idx + 3) * 45000) : parsed;
+        } else {
+          ts = now - ((idx + 3) * 45000);
+        }
+
+        merged.push({
+          id: `evt-file-${idx}`,
+          rawTimestamp: ts,
+          time: new Date(ts).toLocaleTimeString(),
+          title: `Filesystem Finding: ${f.file_name}`,
+          detail: `Sensitive file candidate identified at ${f.file_path}. Classification: ${f.classification.toUpperCase()}, Size: ${(f.size_bytes / 1024).toFixed(1)} KB, Entropy: ${(f.entropy ?? 0).toFixed(2)}. ${f.reason || 'Monitored directory finding.'}`,
+          category: 'collection',
+          status: 'observed',
+          subsystem: 'file',
+          entity: f.file_name,
+          confidence: 96,
+        });
+      });
+    }
+
+    // 4. Live Network Socket Connections
+    if (networkMonitor?.snapshot?.connections && networkMonitor.snapshot.connections.length > 0) {
+      const conns = [...networkMonitor.snapshot.connections].slice(0, 10);
+      conns.forEach((c, idx) => {
+        let ts: number;
+        if (c.timestamp) {
+          const parsed = new Date(c.timestamp).getTime();
+          ts = isNaN(parsed) ? now - ((idx + 1) * 35000) : parsed;
+        } else {
+          ts = now - ((idx + 1) * 35000);
+        }
+
+        const isEstablished = c.status === 'ESTABLISHED';
+        merged.push({
+          id: `evt-net-${c.connection_id || idx}`,
+          rawTimestamp: ts,
+          time: new Date(ts).toLocaleTimeString(),
+          title: `Network Socket: ${c.process || 'Host Process'} → ${c.remote_addr || 'Remote'}:${c.remote_port || 443}`,
+          detail: `Outbound socket session (${c.status || 'ESTABLISHED'}) by ${c.process} (PID ${c.pid ?? '—'}) to remote endpoint ${c.remote_addr}:${c.remote_port} on local port ${c.local_port || '—'}. Socket family: ${c.family || 'IPv4'}.`,
+          category: 'transmission',
+          status: isEstablished ? 'observed' : 'potential',
+          subsystem: 'network',
+          pid: c.pid,
+          entity: `${c.remote_addr || 'Remote'}:${c.remote_port || 443}`,
+          confidence: isEstablished ? 95 : 68,
+        });
+      });
+    }
+
+    // 5. Threat Detections / Rules
+    if (threatAnalysis?.threats && threatAnalysis.threats.length > 0) {
+      threatAnalysis.threats.slice(0, 6).forEach((t, idx) => {
+        let ts: number;
+        if (t.timestamp) {
+          const parsed = new Date(t.timestamp).getTime();
+          ts = isNaN(parsed) ? now - ((idx + 1) * 20000) : parsed;
+        } else {
+          ts = now - ((idx + 1) * 20000);
+        }
+
+        merged.push({
+          id: `evt-threat-${t.id || idx}`,
+          rawTimestamp: ts,
+          time: new Date(ts).toLocaleTimeString(),
+          title: `Security Detection: ${t.name}`,
+          detail: `Detection engine fired rule: ${t.name} (Severity: ${t.severity.toUpperCase()}). ${t.reason}. Affects process ${t.process} at path ${t.path}.`,
+          category: 'detection',
+          status: 'observed',
+          subsystem: 'detection',
+          entity: t.name,
+          confidence: 99,
+          severity: t.severity,
+        });
+      });
+    }
+
+    // 6. Host Containment Status (if contained)
+    if (contained) {
+      merged.push({
+        id: 'evt-containment',
+        rawTimestamp: now,
+        time: new Date(now).toLocaleTimeString(),
+        title: 'Host Containment Enforced: WS-0427',
+        detail: 'Network isolation and active socket termination enforced on host WS-0427. Outbound routing severed.',
+        category: 'containment',
+        status: 'observed',
+        subsystem: 'containment',
+        entity: 'WS-0427',
+        confidence: 100,
+      });
+    }
+
+    if (merged.length === 0) {
+      return defaultTimelineSeed;
+    }
+
+    // Sort chronologically ascending
+    merged.sort((a, b) => (a.rawTimestamp ?? 0) - (b.rawTimestamp ?? 0));
+    return merged;
+  }, [
+    isReal,
+    processMonitor?.events,
+    processMonitor?.snapshot,
+    networkMonitor?.snapshot?.connections,
+    fileScan?.findings,
+    threatAnalysis?.threats,
+    contained,
+  ]);
+
+  // Subsystem counts
+  const subsystemCounts = useMemo(() => {
+    const res = { all: activeEvents.length, process: 0, file: 0, network: 0, detection: 0, containment: 0 };
+    activeEvents.forEach((e) => {
+      if (e.subsystem && res[e.subsystem] !== undefined) {
+        res[e.subsystem]++;
+      }
+    });
+    return res;
+  }, [activeEvents]);
 
   // Playback state
   const [playbackIndex, setPlaybackIndex] = useState<number>(() => {
-    return phase > 0 ? Math.min(phase - 1, defaultTimelineSeed.length - 1) : defaultTimelineSeed.length - 1;
+    return Math.max(0, activeEvents.length - 1);
   });
   const [isPlaying, setIsPlaying] = useState(false);
   const [playbackSpeed, setPlaybackSpeed] = useState<number>(1);
   const [filterCategory, setFilterCategory] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedEventId, setSelectedEventId] = useState<string>('tl-6');
+  const [selectedEventId, setSelectedEventId] = useState<string>('');
 
-  // Unified timeline dataset
-  const activeEvents: TimelineEvent[] = useMemo(() => {
-    // If real process events are streaming locally, merge them
-    if (isReal && processMonitor) {
-      const realEvts: TimelineEvent[] = processMonitor.events
-        .filter((e) => e.event_type !== 'SNAPSHOT')
-        .slice(-20)
-        .map((e, idx) => ({
-          id: `real-evt-${idx}`,
-          time: new Date(e.timestamp).toLocaleTimeString(),
-          title: e.event_type === 'PROCESS_STARTED' ? `Process Started: ${e.process_name}` : `Process Terminated: ${e.process_name}`,
-          detail: `Host execution by ${e.process_name} (PID ${e.pid})${e.parent_process_name ? ` spawned by ${e.parent_process_name}` : ''}. Executable: ${e.executable_path || 'System path'}.`,
-          category: 'process',
-          status: 'observed',
-          subsystem: 'process',
-          pid: e.pid,
-          entity: e.process_name,
-          confidence: 100,
-        }));
-
-      if (realEvts.length > 0) {
-        return realEvts;
-      }
+  // Keep playback index synchronized to end when idle and new events load
+  useEffect(() => {
+    if (!isPlaying) {
+      setPlaybackIndex(Math.max(0, activeEvents.length - 1));
     }
-
-    return defaultTimelineSeed;
-  }, [isReal, processMonitor]);
+  }, [activeEvents.length, isPlaying]);
 
   // Current visible slice up to playback index
   const visibleEvents = useMemo(() => {
@@ -307,7 +493,9 @@ export default function TimelinePage({
       {/* Page Heading */}
       <div className="page-heading">
         <div>
-          <div className="eyebrow">Forensic Chronology & Attack Reconstruction · INC-2024-1042</div>
+          <div className="eyebrow">
+            Forensic Chronology & Attack Reconstruction · {isReal ? 'LIVE HOST WS-0427' : 'INC-2024-1042'}
+          </div>
           <h1 className="page-title">Forensic Timeline</h1>
           <p className="page-subtitle">
             Interactive chronological event sequence separating sensor-observed telemetry from inferred exfiltration flows with scrubable playback.
@@ -324,9 +512,10 @@ export default function TimelinePage({
                 border: '1px solid hsl(142 71% 30%)',
                 display: 'inline-flex',
                 alignItems: 'center',
+                gap: 5,
               }}
             >
-              <Radio size={10} style={{ marginRight: 5 }} />
+              <Radio size={10} />
               LIVE TELEMETRY STREAM ({activeEvents.length} EVENTS)
             </span>
           ) : (
@@ -481,44 +670,75 @@ export default function TimelinePage({
               style={{ flex: 1, cursor: 'pointer' }}
             />
             <span className="mono" style={{ fontSize: 11, fontWeight: 700 }}>
-              {activeEvents[playbackIndex]?.time || '09:47:11'} UTC
+              {activeEvents[playbackIndex]?.time || '—'}
             </span>
           </div>
         </div>
       </section>
 
-      {/* Filter and Search Bar */}
-      <div className="filterbar" style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 14 }}>
-        <div className="search-wrap" style={{ flex: 1 }}>
-          <Search size={14} />
-          <input
-            className="search"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search timeline events, entities, or forensic details..."
-          />
+      {/* Quick Subsystem Filter Pills & Search */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 14 }}>
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+          {[
+            { id: 'all', label: 'All Subsystems', count: subsystemCounts.all, icon: Activity },
+            { id: 'process', label: 'Processes', count: subsystemCounts.process, icon: TerminalSquare },
+            { id: 'network', label: 'Network Sockets', count: subsystemCounts.network, icon: Network },
+            { id: 'file', label: 'Filesystem', count: subsystemCounts.file, icon: FileKey2 },
+            { id: 'detection', label: 'Detections', count: subsystemCounts.detection, icon: ShieldAlert },
+            { id: 'containment', label: 'Containment', count: subsystemCounts.containment, icon: ShieldCheck },
+          ].map((tab) => {
+            const Icon = tab.icon;
+            const isTabActive = filterCategory === tab.id;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                className={cn('btn', isTabActive ? 'btn-primary' : 'btn-ghost')}
+                style={{
+                  fontSize: 11,
+                  padding: '3px 10px',
+                  height: 26,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 5,
+                  borderRadius: 20,
+                }}
+                onClick={() => setFilterCategory(tab.id)}
+              >
+                <Icon size={12} />
+                {tab.label}
+                <span
+                  style={{
+                    fontSize: 10,
+                    padding: '1px 5px',
+                    borderRadius: 10,
+                    background: isTabActive ? 'hsl(var(--primary-foreground) / 0.2)' : 'hsl(var(--muted))',
+                    marginLeft: 2,
+                    fontWeight: 700,
+                  }}
+                >
+                  {tab.count}
+                </span>
+              </button>
+            );
+          })}
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <Filter size={13} style={{ color: 'hsl(var(--muted-foreground))' }} />
-          <select
-            className="search"
-            style={{ width: 180, padding: '5px 10px', fontSize: 11, cursor: 'pointer' }}
-            value={filterCategory}
-            onChange={(e) => setFilterCategory(e.target.value)}
-          >
-            <option value="all">All Subsystems</option>
-            <option value="process">Process Execution</option>
-            <option value="file">File Access & Staging</option>
-            <option value="network">Network & Egress</option>
-            <option value="detection">Correlation & Rules</option>
-            <option value="containment">Containment Actions</option>
-          </select>
-        </div>
+        <div className="filterbar" style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+          <div className="search-wrap" style={{ flex: 1 }}>
+            <Search size={14} />
+            <input
+              className="search"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search timeline events, entities, or forensic details..."
+            />
+          </div>
 
-        <span className="mono muted" style={{ fontSize: 11, minWidth: 90, textAlign: 'right' }}>
-          {visibleEvents.length} visible
-        </span>
+          <span className="mono muted" style={{ fontSize: 11, minWidth: 90, textAlign: 'right' }}>
+            {visibleEvents.length} visible
+          </span>
+        </div>
       </div>
 
       {/* Split Grid: Interactive Timeline Tree & Event Detail Inspector */}
@@ -555,7 +775,7 @@ export default function TimelinePage({
                   }}
                 >
                   <time className="mono" style={{ fontSize: 11 }}>
-                    {e.time} UTC · {e.category}
+                    {e.time} · {e.category.toUpperCase()}
                   </time>
                   <h3 style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
@@ -622,12 +842,12 @@ export default function TimelinePage({
               >
                 <div className="kpi-line">
                   <span className="muted">Chronological Timestamp</span>
-                  <b className="mono">{selectedEvent.time} UTC</b>
+                  <b className="mono">{selectedEvent.time}</b>
                 </div>
 
                 <div className="kpi-line">
                   <span className="muted">Endpoint Host</span>
-                  <b className="mono">WS-0427 (Finance Workstation)</b>
+                  <b className="mono">{isReal ? 'This Host (WS-0427 · Live Telemetry)' : 'WS-0427 (Finance Workstation)'}</b>
                 </div>
 
                 {selectedEvent.pid && (

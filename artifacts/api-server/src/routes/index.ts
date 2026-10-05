@@ -6,6 +6,8 @@ import networkRouter from "./network";
 import iconRouter from "./icon";
 import fileRouter from "./file";
 import detectionsRouter from "./detections";
+import intelligenceRouter from "./intelligence";
+import quarantineRouter from "./quarantine";
 
 const router: IRouter = Router();
 
@@ -16,5 +18,7 @@ router.use(networkRouter);
 router.use(iconRouter);
 router.use(fileRouter);
 router.use(detectionsRouter);
+router.use(intelligenceRouter);
+router.use(quarantineRouter);
 
 export default router;

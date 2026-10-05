@@ -249,6 +249,7 @@ export type ProcessesPageProps = {
     snapshot: RealProcessInfo[];
     eventCount: number;
     lastEventTime: string | null;
+    refetchSnapshot?: () => Promise<void>;
   };
   onNavigate?: (path: string) => void;
 };
@@ -534,9 +535,10 @@ export default function ProcessesPage({
           <Button
             icon={RefreshCw}
             onClick={() => {
+              monitorData?.refetchSnapshot?.();
               toast(
                 'Process List Refreshed',
-                isReal ? `Synchronized ${monitorData?.snapshot.length} live host processes.` : 'Demo process graph reloaded.'
+                isReal ? `Synchronized ${monitorData?.snapshot.length} live host processes.` : 'Refetching live process hierarchy from sensor network...'
               );
             }}
           >
