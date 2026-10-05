@@ -166,8 +166,8 @@ export function ThreatsPage({
   const [ledgerFilter, setLedgerFilter] = useState<'all' | 'deleted' | 'quarantined' | 'sensitive'>('all');
   const [copiedHash, setCopiedHash] = useState<string | null>(null);
 
-  // Automated Remediation Ledger Hook
-  const { remediations, policy, setPolicy, stats, remediateThreat, clearLedger } = useRemediationLedger({ toast });
+  // Automated Remediation Ledger Hook (toasts disabled to prevent screen flood; dedicated section available)
+  const { remediations, policy, setPolicy, stats, remediateThreat, clearLedger } = useRemediationLedger({ toast, showToasts: false });
 
   const {
     isLive,
@@ -515,6 +515,18 @@ export function ThreatsPage({
           >
             {policy.enabled ? 'Policy: Armed' : 'Policy: Standby'}
           </button>
+          {setLocation && (
+            <button
+              type="button"
+              className="btn btn-xs btn-primary"
+              style={{ fontSize: 11, padding: '3px 10px', height: 24, display: 'flex', alignItems: 'center', gap: 5 }}
+              onClick={() => setLocation('/auto-remediation')}
+              data-testid="link-open-auto-remediation-section"
+            >
+              <Zap size={12} />
+              Open Dedicated Section →
+            </button>
+          )}
         </div>
       </div>
 

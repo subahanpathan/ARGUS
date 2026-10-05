@@ -80,7 +80,7 @@ export default function CyberCellPage({
     (rawTelemetry && (telemetry && 'connected' in telemetry ? telemetry.connected : true))
   );
 
-  const { remediations } = useRemediationLedger({ toast });
+  const { remediations } = useRemediationLedger({ toast, showToasts: false });
   const sensitiveThreats = useMemo(() => {
     return remediations.filter((r) => r.isSensitiveData && r.directedToCyberCell);
   }, [remediations]);

@@ -46,6 +46,7 @@ import IntelligencePage from '@/pages/intelligence-page';
 import ReportsPage from '@/pages/reports-page';
 import HistoryPage from '@/pages/history-page';
 import CyberCellPage from '@/pages/cyber-cell-page';
+import AutoRemediationPage from '@/pages/auto-remediation-page';
 import { ThreatsPage } from '@/pages/threats-page';
 import { DashboardPage } from '@/pages/dashboard-page';
 import { useQuarantine } from '@/hooks/use-quarantine';
@@ -112,7 +113,7 @@ const containmentQuarantineItems: QuarantineItem[] = [
 
 const navGroups: Array<{ label: string; items: Array<[string, string, typeof Activity]> }> = [
   { label: 'Observe', items: [
-    ['/dashboard', 'Dashboard', LayoutDashboard], ['/threats', 'Threats', ShieldAlert], ['/detections', 'Detections', ShieldCheck], ['/monitoring', 'Monitoring', Activity],
+    ['/dashboard', 'Dashboard', LayoutDashboard], ['/threats', 'Threats', ShieldAlert], ['/auto-remediation', 'Auto Remediation', Zap], ['/detections', 'Detections', ShieldCheck], ['/monitoring', 'Monitoring', Activity],
     ['/processes', 'Processes', TerminalSquare], ['/files', 'Files', FileSearch],     ['/network', 'Network Universe', Network],
   ]},
   { label: 'Investigate', items: [
@@ -197,7 +198,7 @@ function Sidebar({ location, open, onClose, onLogout, userName, monitorConnected
     <div className="brand"><div className="brand-mark"><Radar size={17} /></div><div><div className="brand-word">ARGUS</div><div className="brand-sub">SECURITY INTELLIGENCE</div></div><button className="btn btn-ghost mobile-only" style={{ marginLeft: 'auto', padding: 4 }} onClick={onClose} data-testid="button-close-nav"><X size={16} /></button></div>
     <div style={{ padding: '0 12px' }}><div className={cn('badge', monitorConnected ? 'badge-low' : 'badge-muted')} style={{ width: '100%', justifyContent: 'center', padding: '7px' }}><span className="event-dot" style={{ width: 5, height: 5, minWidth: 5, margin: 0, background: monitorConnected ? 'hsl(var(--accent))' : 'hsl(var(--muted-foreground))', boxShadow: 'none' }} />&nbsp; {monitorConnected ? 'SENSOR NETWORK OPERATIONAL' : 'SENSOR NETWORK STANDBY'}</div></div>
     <nav style={{ padding: '4px 12px', overflow: 'auto' }}>
-      {navGroups.map((group) => <div key={group.label}><div className="nav-section">{group.label}</div>{group.items.map(([href, label, Icon]) => <Link href={href} key={href} className={cn('nav-item', location === href ? 'active' : '')} onClick={onClose} data-testid={`link-nav-${label.toLowerCase().replace(/ /g, '-')}`}><IconLabel icon={Icon as typeof Activity}>{label}</IconLabel>{href === '/threats' && <span style={{ marginLeft: 'auto', font: '10px var(--app-font-mono)', color: 'hsl(var(--destructive))' }}>{String(threatCount).padStart(2, '0')}</span>}{href === '/detections' && <span style={{ marginLeft: 'auto', font: '10px var(--app-font-mono)', color: 'hsl(var(--primary))' }}>{String(detectionCount).padStart(2, '0')}</span>}</Link>)}</div>)}
+      {navGroups.map((group) => <div key={group.label}><div className="nav-section">{group.label}</div>{group.items.map(([href, label, Icon]) => <Link href={href} key={href} className={cn('nav-item', location === href ? 'active' : '')} onClick={onClose} data-testid={`link-nav-${label.toLowerCase().replace(/ /g, '-')}`}><IconLabel icon={Icon as typeof Activity}>{label}</IconLabel>{href === '/threats' && <span style={{ marginLeft: 'auto', font: '10px var(--app-font-mono)', color: 'hsl(var(--destructive))' }}>{String(threatCount).padStart(2, '0')}</span>}{href === '/detections' && <span style={{ marginLeft: 'auto', font: '10px var(--app-font-mono)', color: 'hsl(var(--primary))' }}>{String(detectionCount).padStart(2, '0')}</span>}{href === '/auto-remediation' && <span style={{ marginLeft: 'auto', font: '9px var(--app-font-mono)', padding: '1px 5px', borderRadius: 3, background: 'hsl(38 90% 15%)', color: 'hsl(38 92% 50%)', border: '1px solid hsl(38 90% 30%)' }}>AUTO</span>}</Link>)}</div>)}
     </nav>
     <div className="sidebar-footer"><Link href="/settings" className="nav-item" data-testid="link-nav-settings"><IconLabel icon={Settings2}>Settings</IconLabel></Link><Link href="/about" className="nav-item" data-testid="link-nav-about"><IconLabel icon={CircleHelp}>About ARGUS</IconLabel></Link><div className="user-chip"><div className="avatar">{initials}</div><div style={{ minWidth: 0 }}><div style={{ fontSize: 11, fontWeight: 700 }}>{userName || 'Investigator'}</div><div className="mono muted">Lead investigator</div></div><button type="button" className="btn btn-ghost" style={{ marginLeft: 'auto', padding: 4 }} onClick={onLogout} title="Log out" data-testid="button-logout" aria-label="Log out"><LogOut size={13} /></button></div></div>
   </aside>;
@@ -1054,6 +1055,7 @@ function AppContent() {
   const page = useMemo(() => {
     if (location === '/dashboard') return <DashboardPage phase={phase} demoState={demoState} demo={autoDemo.state} startDemo={startDemo} pauseDemo={pauseDemo} resumeDemo={resumeDemo} toast={toast} telemetry={telemetryStream} processMonitor={processMonitor} userName={userName} threatAnalysis={threatAnalysis} networkMonitor={networkMonitor} fileScan={fileScan} detections={detections} onNavigate={setLocation} />;
     if (location === '/threats') return <ThreatsPage threats={threats} onContain={containThreat} toast={toast} setModal={setModal} setLocation={setLocation} threatAnalysis={threatAnalysis} demoReached={autoDemo.state.demoReached} processMonitor={processMonitor} networkMonitor={networkMonitor} fileScan={fileScan} detections={detections} telemetry={telemetryStream} />;
+    if (location === '/auto-remediation') return <AutoRemediationPage threats={threats} toast={toast} onNavigate={setLocation} telemetry={telemetryStream} processMonitor={processMonitor} networkMonitor={networkMonitor} fileScan={fileScan} />;
     if (location === '/detections') return <DetectionsPage detections={detections} toast={toast} setLocation={setLocation} />;
     if (location === '/detections/rules') return <RuleCatalogPage detections={detections} />;
     if (location === '/monitoring') return <MonitoringPage processMonitor={processMonitor} onNavigate={setLocation} />;

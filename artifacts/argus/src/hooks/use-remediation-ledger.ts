@@ -122,6 +122,7 @@ const SENSITIVE_PATTERNS = [
 
 export function useRemediationLedger(options?: {
   toast?: (title: string, body: string) => void;
+  showToasts?: boolean;
 }) {
   const [remediations, setRemediations] = useState<RemediationAuditRecord[]>(() => {
     try {
@@ -273,8 +274,8 @@ export function useRemediationLedger(options?: {
         // ignore
       }
 
-      // Notify analyst via toast
-      if (options?.toast) {
+      // Notify analyst via toast only if explicitly requested (defaults to false to prevent toast flooding)
+      if (options?.showToasts && options?.toast) {
         if (isSensitiveData && cyberCellCaseId) {
           options.toast(
             `🚨 Sensitive Threat Auto-Remediated (${timeIntervalFormatted})`,
