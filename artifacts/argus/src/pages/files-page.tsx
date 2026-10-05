@@ -28,8 +28,11 @@ import {
   Trash2,
   X,
   Zap,
+  Activity,
+  Radar,
 } from 'lucide-react';
 import type { RealFileFinding, FileScanState } from '@/hooks/use-file-scan';
+import type { TelemetryStreamState, SystemTelemetryData } from '@/hooks/use-telemetry-stream';
 
 function cn(...values: Array<string | false | undefined | null>) {
   return values.filter(Boolean).join(' ');
@@ -64,6 +67,7 @@ export type QuarantineItem = {
 export type FilesPageProps = {
   toast: (title: string, body: string) => void;
   fileScan?: FileScanState;
+  telemetry?: TelemetryStreamState | SystemTelemetryData | null;
   onNavigate?: (path: string) => void;
   onQuarantine?: (item: QuarantineItem) => void;
 };
@@ -194,10 +198,14 @@ function getSeverityBadgeClass(sev: string): string {
 export default function FilesPage({
   toast,
   fileScan,
+  telemetry,
   onNavigate,
   onQuarantine,
 }: FilesPageProps) {
+  const [mode, setMode] = useState<'realtime' | 'simulation'>('realtime');
   const isReal = Boolean(fileScan?.hasData && (fileScan.findings.length > 0 || fileScan.snapshot != null));
+  const rawTelemetry = (telemetry && 'telemetry' in telemetry) ? telemetry.telemetry : telemetry;
+  const hostName = (rawTelemetry?.system as any)?.hostname || (rawTelemetry as any)?.hostname || 'LOCAL-HOST';
 
   // State
   const [searchTerm, setSearchTerm] = useState('');
@@ -205,8 +213,8 @@ export default function FilesPage({
     'all' | 'threats' | 'downloads' | 'staging' | 'persistence' | 'sensitive'
   >('all');
   const [onlySensitive, setOnlySensitive] = useState(false);
-  const [selectedFile, setSelectedFile] = useState<RealFileFinding | FileRecord | null>(null);
-  const [showQuarantineConfirm, setShowQuarantineConfirm] = useState<RealFileFinding | FileRecord | null>(null);
+  const [selectedFile, setSelectedFile] = useState<FileRecord | null>(null);
+  const [showQuarantineConfirm, setShowQuarantineConfirm] = useState<FileRecord | null>(null);
   const [viewMode, setViewMode] = useState<'table' | 'categories'>('table');
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
@@ -238,7 +246,7 @@ export default function FilesPage({
     }));
   }, [isReal, fileScan]);
 
-  const activeDataset = isReal && realRows.length > 0 ? realRows : demoFiles;
+  const activeDataset = (mode === 'realtime' && realRows.length > 0) ? realRows : demoFiles;
 
   // Filtered rows
   const filteredRows = useMemo(() => {
@@ -465,6 +473,79 @@ export default function FilesPage({
             style={{ fontSize: 11, padding: '4px 10px', height: 26 }}
           >
             <RefreshCw size={12} style={{ marginRight: 5 }} /> Rescan
+          </button>
+        </div>
+      </div>
+
+      {/* Mode Switcher Banner: Real-time Host File Scanner vs Simulated Drill */}
+      <div
+        className="card card-pad"
+        style={{
+          border: mode === 'realtime' ? '1px solid hsl(var(--signal-good))' : '1px solid hsl(var(--primary))',
+          background: mode === 'realtime' ? 'hsla(142, 70%, 45%, 0.05)' : 'hsla(217, 91%, 60%, 0.05)',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: 12,
+          marginBottom: 16,
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div
+            style={{
+              width: 38,
+              height: 38,
+              borderRadius: 8,
+              background: mode === 'realtime' ? 'hsla(142, 70%, 45%, 0.15)' : 'hsla(217, 91%, 60%, 0.15)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: mode === 'realtime' ? 'hsl(var(--signal-good))' : 'hsl(var(--primary))',
+            }}
+          >
+            {mode === 'realtime' ? <Activity size={20} className="animate-pulse" /> : <Radar size={20} />}
+          </div>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ fontWeight: 700, fontSize: 13 }}>
+                {mode === 'realtime' ? '⚡ LIVE HOST FILE SCANNER' : '🧪 SIMULATED INCIDENT DRILL'}
+              </span>
+              <span className={cn('badge', mode === 'realtime' ? 'badge-good' : 'badge-primary')} style={{ fontSize: 10 }}>
+                {mode === 'realtime' ? 'HOST SENSOR CONNECTED' : 'DRILL SCENARIO'}
+              </span>
+            </div>
+            <div className="mono muted" style={{ fontSize: 11, marginTop: 2 }}>
+              {mode === 'realtime'
+                ? `Auditing local host "${hostName}" · ${realRows.length} live filesystem artifacts identified · ${metrics.dirsScanned} target directories scanned`
+                : 'Surveillance of synthetic M&A exfiltration and staging artifacts on endpoint WS-0427'}
+            </div>
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button
+            type="button"
+            className={cn('btn btn-sm', mode === 'realtime' ? 'btn-primary' : 'btn-ghost')}
+            style={mode === 'realtime' ? { background: 'hsl(var(--signal-good))', borderColor: 'hsl(var(--signal-good))', color: '#000' } : {}}
+            onClick={() => {
+              setMode('realtime');
+              toast('Live Host Mode', `Switched File Activity to monitor host ${hostName}`);
+            }}
+          >
+            <Activity size={13} />
+            Live Host Files
+          </button>
+          <button
+            type="button"
+            className={cn('btn btn-sm', mode === 'simulation' ? 'btn-primary' : 'btn-ghost')}
+            onClick={() => {
+              setMode('simulation');
+              toast('Drill Mode', 'Switched File Activity to synthetic drill sequence');
+            }}
+          >
+            <Radar size={13} />
+            Simulated Drill
           </button>
         </div>
       </div>

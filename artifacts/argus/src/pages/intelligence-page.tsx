@@ -51,6 +51,7 @@ import type { ProcessMonitorState } from '@/hooks/use-process-monitor';
 import type { NetworkMonitorState } from '@/hooks/use-network-monitor';
 import type { FileScanState } from '@/hooks/use-file-scan';
 import type { ThreatAnalysisState } from '@/hooks/use-threat-analysis';
+import type { TelemetryStreamState, SystemTelemetryData } from '@/hooks/use-telemetry-stream';
 
 function cn(...values: Array<string | false | undefined | null>) {
   return values.filter(Boolean).join(' ');
@@ -74,6 +75,7 @@ export type IntelligencePageProps = {
   networkMonitor?: NetworkMonitorState;
   fileScan?: FileScanState;
   threatAnalysis?: ThreatAnalysisState;
+  telemetry?: TelemetryStreamState | SystemTelemetryData | null;
   onNavigate?: (path: string) => void;
 };
 
@@ -85,9 +87,16 @@ export default function IntelligencePage({
   networkMonitor,
   fileScan,
   threatAnalysis,
+  telemetry,
   onNavigate,
 }: IntelligencePageProps) {
   const {
+    mode,
+    setMode,
+    hostName,
+    activeSocketCount,
+    activeProcessCount,
+    liveMonitoredSockets,
     summary,
     indicators,
     feeds,
@@ -107,6 +116,7 @@ export default function IntelligencePage({
     networkMonitor,
     fileScan,
     threatAnalysis,
+    telemetry,
   });
 
   // State
@@ -277,6 +287,78 @@ export default function IntelligencePage({
         </div>
       </div>
 
+      {/* Mode Switcher Banner: Real-time Host Intelligence vs Simulated Drill Feed */}
+      <div
+        className="card card-pad"
+        style={{
+          border: mode === 'realtime' ? '1px solid hsl(var(--signal-good))' : '1px solid hsl(var(--primary))',
+          background: mode === 'realtime' ? 'hsla(142, 70%, 45%, 0.05)' : 'hsla(217, 91%, 60%, 0.05)',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: 12,
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div
+            style={{
+              width: 38,
+              height: 38,
+              borderRadius: 8,
+              background: mode === 'realtime' ? 'hsla(142, 70%, 45%, 0.15)' : 'hsla(217, 91%, 60%, 0.15)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: mode === 'realtime' ? 'hsl(var(--signal-good))' : 'hsl(var(--primary))',
+            }}
+          >
+            {mode === 'realtime' ? <Activity size={20} className="animate-pulse" /> : <Radar size={20} />}
+          </div>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ fontWeight: 700, fontSize: 13 }}>
+                {mode === 'realtime' ? '⚡ LIVE HOST IOC CORRELATION' : '🧪 SIMULATED THREAT DRILL'}
+              </span>
+              <span className={cn('badge', mode === 'realtime' ? 'badge-good' : 'badge-primary')} style={{ fontSize: 10 }}>
+                {mode === 'realtime' ? 'SENSOR STREAM ACTIVE' : 'DRILL SCENARIO'}
+              </span>
+            </div>
+            <div className="mono muted" style={{ fontSize: 11, marginTop: 2 }}>
+              {mode === 'realtime'
+                ? `Auditing local host "${hostName}" · ${activeSocketCount} active remote socket(s) · ${activeProcessCount} process(es) inspected`
+                : 'Evaluating synthetic C2 beacons and ransomware dropper signatures on demonstration endpoint WS-0427'}
+            </div>
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button
+            type="button"
+            className={cn('btn btn-sm', mode === 'realtime' ? 'btn-primary' : 'btn-ghost')}
+            style={mode === 'realtime' ? { background: 'hsl(var(--signal-good))', borderColor: 'hsl(var(--signal-good))', color: '#000' } : {}}
+            onClick={() => {
+              setMode('realtime');
+              toast('Live Host Mode', `Switched Threat Intel Hub to monitor host ${hostName}`);
+            }}
+          >
+            <Activity size={13} />
+            Live Host Correlation
+          </button>
+          <button
+            type="button"
+            className={cn('btn btn-sm', mode === 'simulation' ? 'btn-primary' : 'btn-ghost')}
+            onClick={() => {
+              setMode('simulation');
+              toast('Drill Mode', 'Switched Threat Intel Hub to synthetic drill feed');
+            }}
+          >
+            <Radar size={13} />
+            Simulated Drill
+          </button>
+        </div>
+      </div>
+
       {/* KPI Metrics Cards */}
       <div className="grid metrics">
         <div className="card metric">
@@ -312,10 +394,14 @@ export default function IntelligencePage({
           </div>
           <div className="metric-value signal-danger" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             {String(correlations.length).padStart(2, '0')}
-            <span className="badge badge-critical" style={{ fontSize: 10, padding: '2px 6px' }}>ACTIVE</span>
+            <span className="badge badge-critical" style={{ fontSize: 10, padding: '2px 6px' }}>
+              {mode === 'realtime' ? 'LIVE' : 'ACTIVE'}
+            </span>
           </div>
           <div className="metric-note">
-            Observed on endpoint WS-0427 telemetry
+            {mode === 'realtime'
+              ? `Evaluated on ${hostName} (${activeSocketCount} sockets / ${activeProcessCount} procs)`
+              : 'Observed on endpoint WS-0427 telemetry'}
           </div>
         </div>
 
@@ -385,12 +471,21 @@ export default function IntelligencePage({
         <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginTop: 10, flexWrap: 'wrap', fontSize: 11 }}>
           <span className="muted" style={{ fontSize: 11, marginRight: 4 }}>Quick queries:</span>
           {[
+            ...(liveMonitoredSockets.length > 0
+              ? [
+                  {
+                    label: `${liveMonitoredSockets[0].remoteAddr}`,
+                    val: liveMonitoredSockets[0].remoteAddr,
+                    tag: `Live Host Socket (${liveMonitoredSockets[0].processName})`,
+                  },
+                ]
+              : []),
             { label: 'cdn-sync-check[.]com', val: 'cdn-sync-check.com', tag: 'C2 Domain' },
             { label: '185.220.101[.]42', val: '185.220.101.42', tag: 'Tor Exit' },
+            { label: 'github.com', val: 'github.com', tag: 'Live DNS Verify' },
             { label: 'a7f18392…8c9d0', val: 'a7f18392', tag: 'Dropper Hash' },
             { label: 'CVE-2024-38077', val: 'CVE-2024-38077', tag: 'Windows RCE' },
             { label: 'DarkGate Operator', val: 'DarkGate', tag: 'Adversary' },
-            { label: 'LockBit 3.0', val: 'LockBit', tag: 'Ransomware' },
           ].map((chip) => (
             <button
               key={chip.val}
@@ -1120,75 +1215,160 @@ export default function IntelligencePage({
 
       {/* Tab 5: Fleet Telemetry Correlation (Live Sensor Match) */}
       {activeTab === 'correlation' && (
-        <div className="card card-pad">
-          <PanelTitle
-            title="Endpoint Telemetry Correlation Matrix"
-            detail={`MATCHING LIVE DATA FROM SENSORS AGAINST ${indicators.length} IOCS`}
-          />
+        <div className="card card-pad" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <div>
+            <PanelTitle
+              title={mode === 'realtime' ? `Endpoint Correlation Matrix (${hostName})` : "Endpoint Telemetry Correlation Matrix (WS-0427)"}
+              detail={mode === 'realtime' ? `EVALUATING ${activeSocketCount} SOCKETS & ${activeProcessCount} PROCESSES AGAINST ${indicators.length} IOCS` : `MATCHING LIVE DATA FROM SENSORS AGAINST ${indicators.length} IOCS`}
+            />
 
-          <div style={{ margin: '12px 0', fontSize: 12, lineHeight: 1.5, color: 'hsl(var(--muted-foreground))' }}>
-            ARGUS continuously evaluates real-time process execution command lines, open socket connections, and filesystem scans on endpoint <b>WS-0427</b> against the threat intelligence repository.
-          </div>
+            <div style={{ margin: '12px 0', fontSize: 12, lineHeight: 1.5, color: 'hsl(var(--muted-foreground))' }}>
+              {mode === 'realtime' ? (
+                <>ARGUS is continuously evaluating real-time process execution command lines (<b>{activeProcessCount}</b> processes), open outbound network sockets (<b>{activeSocketCount}</b> sockets), and filesystem artifacts on endpoint <b>{hostName}</b> against global threat intelligence feeds.</>
+              ) : (
+                <>ARGUS continuously evaluates real-time process execution command lines, open socket connections, and filesystem scans on demonstration endpoint <b>WS-0427</b> against the threat intelligence repository.</>
+              )}
+            </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {correlations.map((match, idx) => (
-              <div
-                key={idx}
-                style={{
-                  padding: 14,
-                  borderRadius: 6,
-                  background: 'hsla(0, 75%, 62%, 0.06)',
-                  border: '1px solid hsl(var(--destructive))',
-                }}
-              >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 8 }}>
-                  <div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <span className="badge badge-critical" style={{ fontSize: 10 }}>
-                        CORRELATED MATCH · {match.source.toUpperCase()}
-                      </span>
-                      <span className="mono" style={{ fontWeight: 800, fontSize: 14 }}>
-                        {match.indicatorValue}
-                      </span>
-                      <span className="badge badge-muted" style={{ fontSize: 10 }}>
-                        {match.indicatorType.toUpperCase()}
-                      </span>
-                    </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {correlations.map((match, idx) => {
+                const isClean = match.severity === 'low' || match.indicatorId === 'live-host-audit';
+                return (
+                  <div
+                    key={idx}
+                    style={{
+                      padding: 14,
+                      borderRadius: 6,
+                      background: isClean ? 'hsla(142, 70%, 45%, 0.06)' : 'hsla(0, 75%, 62%, 0.06)',
+                      border: isClean ? '1px solid hsl(var(--signal-good))' : '1px solid hsl(var(--destructive))',
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 8 }}>
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <span className={cn('badge', isClean ? 'badge-good' : 'badge-critical')} style={{ fontSize: 10, display: 'flex', alignItems: 'center', gap: 4 }}>
+                            {isClean ? <ShieldCheck size={12} /> : <ShieldAlert size={12} />}
+                            {isClean ? 'AUDIT VERIFIED CLEAN' : `CORRELATED MATCH · ${match.source.toUpperCase()}`}
+                          </span>
+                          <span className="mono" style={{ fontWeight: 800, fontSize: 14 }}>
+                            {match.indicatorValue}
+                          </span>
+                          <span className="badge badge-muted" style={{ fontSize: 10 }}>
+                            {match.indicatorType.toUpperCase()}
+                          </span>
+                        </div>
 
-                    <div style={{ fontWeight: 600, fontSize: 13, marginTop: 6, color: 'hsl(var(--foreground))' }}>
-                      {match.details}
-                    </div>
+                        <div style={{ fontWeight: 600, fontSize: 13, marginTop: 6, color: 'hsl(var(--foreground))' }}>
+                          {match.details}
+                        </div>
 
-                    <div className="mono muted" style={{ fontSize: 11, marginTop: 4 }}>
-                      Observed at: {new Date(match.timestamp).toLocaleTimeString()} · Target: WS-0427
+                        <div className="mono muted" style={{ fontSize: 11, marginTop: 4 }}>
+                          Evaluated at: {new Date(match.timestamp).toLocaleTimeString()} · Host: {mode === 'realtime' ? hostName : 'WS-0427'}
+                        </div>
+                      </div>
+
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        {onNavigate && (
+                          <button
+                            type="button"
+                            className="btn btn-sm btn-ghost"
+                            style={{ border: '1px solid hsl(var(--border))' }}
+                            onClick={() => onNavigate(match.source === 'process' ? '/processes' : match.source === 'network' ? '/network' : '/files')}
+                          >
+                            Inspect {match.source} <ArrowRight size={12} />
+                          </button>
+                        )}
+                        {!isClean && (
+                          <button
+                            type="button"
+                            className="btn btn-sm btn-danger"
+                            onClick={() => {
+                              toast('Containment triggered', `Remediation initiated for ${match.indicatorValue}`);
+                            }}
+                          >
+                            Remediate IOC
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
+                );
+              })}
+            </div>
+          </div>
 
-                  <div style={{ display: 'flex', gap: 8 }}>
-                    {onNavigate && (
-                      <button
-                        type="button"
-                        className="btn btn-sm btn-ghost"
-                        style={{ border: '1px solid hsl(var(--border))' }}
-                        onClick={() => onNavigate(match.source === 'process' ? '/processes' : match.source === 'network' ? '/network' : '/files')}
-                      >
-                        Inspect {match.source} <ArrowRight size={12} />
-                      </button>
-                    )}
-                    <button
-                      type="button"
-                      className="btn btn-sm btn-danger"
-                      onClick={() => {
-                        toast('Containment triggered', `Remediation initiated for ${match.indicatorValue}`);
-                      }}
-                    >
-                      Remediate IOC
-                    </button>
+          {/* Live Host Monitored Network Endpoints Table */}
+          {mode === 'realtime' && liveMonitoredSockets.length > 0 && (
+            <div style={{ borderTop: '1px solid hsl(var(--border))', paddingTop: 16 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                <div>
+                  <h3 style={{ fontSize: 13, fontWeight: 700, margin: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <Activity size={14} className="signal-good" />
+                    Live Monitored Host Sockets (Active Remote Endpoints)
+                  </h3>
+                  <div className="mono muted" style={{ fontSize: 11 }}>
+                    Showing {liveMonitoredSockets.length} live established socket connections on {hostName} audited against intelligence database
                   </div>
                 </div>
               </div>
-            ))}
-          </div>
+
+              <div style={{ overflowX: 'auto' }}>
+                <table className="table" style={{ width: '100%', fontSize: 12 }}>
+                  <thead>
+                    <tr>
+                      <th style={{ textAlign: 'left', padding: '6px 8px' }}>Process</th>
+                      <th style={{ textAlign: 'left', padding: '6px 8px' }}>PID</th>
+                      <th style={{ textAlign: 'left', padding: '6px 8px' }}>Remote Endpoint</th>
+                      <th style={{ textAlign: 'left', padding: '6px 8px' }}>State</th>
+                      <th style={{ textAlign: 'left', padding: '6px 8px' }}>Intel Status</th>
+                      <th style={{ textAlign: 'right', padding: '6px 8px' }}>Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {liveMonitoredSockets.map((sock, i) => (
+                      <tr key={i} style={{ borderBottom: '1px solid hsl(var(--border))' }}>
+                        <td style={{ padding: '6px 8px', fontWeight: 600 }}>
+                          <span className="mono">{sock.processName}</span>
+                        </td>
+                        <td style={{ padding: '6px 8px' }}>
+                          <span className="badge badge-muted mono" style={{ fontSize: 10 }}>{sock.pid}</span>
+                        </td>
+                        <td style={{ padding: '6px 8px' }}>
+                          <span className="mono" style={{ color: 'hsl(var(--primary))', fontWeight: 700 }}>
+                            {sock.remoteAddr}
+                          </span>
+                          <span className="mono muted" style={{ fontSize: 10, marginLeft: 4 }}>:{sock.remotePort || 443}</span>
+                        </td>
+                        <td style={{ padding: '6px 8px' }}>
+                          <span className="badge badge-low" style={{ fontSize: 10 }}>{sock.state || 'ESTABLISHED'}</span>
+                        </td>
+                        <td style={{ padding: '6px 8px' }}>
+                          {sock.matchedIoc ? (
+                            <span className="badge badge-critical" style={{ fontSize: 10 }}>MALICIOUS IOC MATCH</span>
+                          ) : (
+                            <span className="badge badge-good" style={{ fontSize: 10 }}>CLEAN PEER</span>
+                          )}
+                        </td>
+                        <td style={{ padding: '6px 8px', textAlign: 'right' }}>
+                          <button
+                            type="button"
+                            className="btn btn-ghost btn-sm"
+                            style={{ padding: '2px 8px', fontSize: 11 }}
+                            onClick={() => {
+                              handleQuickChipClick(sock.remoteAddr);
+                              setActiveTab('iocs');
+                            }}
+                          >
+                            Investigate Dossier <ArrowRight size={11} />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

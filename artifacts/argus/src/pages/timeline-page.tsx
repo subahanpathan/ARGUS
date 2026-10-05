@@ -40,9 +40,18 @@ import type { ProcessMonitorState, RealProcessEvent } from '@/hooks/use-process-
 import type { ThreatAnalysisState } from '@/hooks/use-threat-analysis';
 import type { FileScanState } from '@/hooks/use-file-scan';
 import type { NetworkMonitorState } from '@/hooks/use-network-monitor';
+import type { useTelemetryStream } from '@/hooks/use-telemetry-stream';
 
 function cn(...values: Array<string | false | undefined | null>) {
   return values.filter(Boolean).join(' ');
+}
+
+function fmtBytes(bytes?: number | null): string {
+  if (bytes == null || isNaN(bytes)) return '—';
+  if (bytes >= 1073741824) return `${(bytes / 1073741824).toFixed(1)} GB`;
+  if (bytes >= 1048576) return `${(bytes / 1048576).toFixed(1)} MB`;
+  if (bytes >= 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+  return `${bytes} B`;
 }
 
 type EvidenceStatus = 'observed' | 'potential' | 'confirmed';
@@ -69,6 +78,7 @@ export type TimelinePageProps = {
   networkMonitor?: NetworkMonitorState;
   threatAnalysis?: ThreatAnalysisState;
   fileScan?: FileScanState;
+  telemetry?: ReturnType<typeof useTelemetryStream>;
   contained?: boolean;
   onNavigate?: (path: string) => void;
 };
@@ -173,17 +183,17 @@ export default function TimelinePage({
   networkMonitor,
   threatAnalysis,
   fileScan,
+  telemetry,
   contained = false,
   onNavigate,
 }: TimelinePageProps) {
-  // Real-time detection across all active sensors
-  const isReal = Boolean(
-    (processMonitor?.hasData && processMonitor.snapshot.length > 0) ||
-    (networkMonitor?.snapshot && networkMonitor.snapshot.connections.length > 0) ||
-    (fileScan?.findings && fileScan.findings.length > 0) ||
-    (processMonitor?.connected && processMonitor.events.length > 0) ||
-    (threatAnalysis?.threats && threatAnalysis.threats.length > 0)
-  );
+  const hasLiveTelemetry = Boolean(telemetry?.connected && telemetry?.telemetry);
+  const [dataMode, setDataMode] = useState<'real' | 'demo'>('real');
+  const isReal = dataMode === 'real' && (hasLiveTelemetry || Boolean(processMonitor?.hasData));
+
+  const hostName = telemetry?.telemetry?.source === 'windows_system_monitor'
+    ? 'Local Windows Host'
+    : (telemetry?.telemetry?.source || 'WS-0427');
 
   // Unified multi-subsystem timeline dataset
   const activeEvents: TimelineEvent[] = useMemo(() => {
@@ -194,7 +204,24 @@ export default function TimelinePage({
     const merged: TimelineEvent[] = [];
     const now = Date.now();
 
-    // 1. Process Lifecycle Events from SSE
+    // 1. Host Hardware Boot & Sensor Online
+    if (telemetry?.telemetry?.system?.boot_time) {
+      const bootMs = telemetry.telemetry.system.boot_time * 1000;
+      merged.push({
+        id: 'evt-system-boot',
+        rawTimestamp: bootMs,
+        time: new Date(bootMs).toLocaleTimeString(),
+        title: `Host System Boot: ${hostName}`,
+        detail: `Hardware booted and kernel initialized. ${telemetry.telemetry.cpu?.count || '12'} logical cores, ${Math.round((telemetry.telemetry.memory?.total_bytes || 0) / (1024 ** 3))} GB RAM. Sensor streaming telemetry.`,
+        category: 'appearance',
+        status: 'confirmed',
+        subsystem: 'detection',
+        entity: hostName,
+        confidence: 100,
+      });
+    }
+
+    // 2. Process Lifecycle Events from SSE
     if (processMonitor?.events && processMonitor.events.length > 0) {
       processMonitor.events
         .filter((e) => e.event_type !== 'SNAPSHOT')
@@ -216,7 +243,7 @@ export default function TimelinePage({
         });
     }
 
-    // 2. Active Snapshot Processes (Prominent tools, user processes, high resource)
+    // 3. Active Snapshot Processes (Prominent tools, user processes, high resource)
     if (processMonitor?.snapshot && processMonitor.snapshot.length > 0) {
       const interestingNames = new Set([
         'powershell.exe', 'cmd.exe', 'python.exe', 'node.exe', 'explorer.exe',
@@ -252,33 +279,33 @@ export default function TimelinePage({
       });
     }
 
-    // 3. File Scan Findings
+    // 4. File Scan Findings
     if (fileScan?.findings && fileScan.findings.length > 0) {
       fileScan.findings.slice(0, 8).forEach((f, idx) => {
         let ts: number;
-        if (f.last_modified) {
-          const parsed = new Date(f.last_modified).getTime();
+        if (f.modified || f.timestamp) {
+          const parsed = new Date((f.modified || f.timestamp)!).getTime();
           ts = isNaN(parsed) ? now - ((idx + 3) * 45000) : parsed;
         } else {
           ts = now - ((idx + 3) * 45000);
         }
 
         merged.push({
-          id: `evt-file-${idx}`,
+          id: `evt-file-${f.id || idx}`,
           rawTimestamp: ts,
           time: new Date(ts).toLocaleTimeString(),
-          title: `Filesystem Finding: ${f.file_name}`,
-          detail: `Sensitive file candidate identified at ${f.file_path}. Classification: ${f.classification.toUpperCase()}, Size: ${(f.size_bytes / 1024).toFixed(1)} KB, Entropy: ${(f.entropy ?? 0).toFixed(2)}. ${f.reason || 'Monitored directory finding.'}`,
+          title: `Filesystem Finding: ${f.name}`,
+          detail: `Sensitive file candidate identified at ${f.path}. Classification: ${(f.className || 'Suspicious').toUpperCase()}${f.size_bytes ? `, Size: ${(f.size_bytes / 1024).toFixed(1)} KB` : ''}. ${f.reason || 'Monitored directory finding.'}`,
           category: 'collection',
           status: 'observed',
           subsystem: 'file',
-          entity: f.file_name,
+          entity: f.name,
           confidence: 96,
         });
       });
     }
 
-    // 4. Live Network Socket Connections
+    // 5. Live Network Socket Connections
     if (networkMonitor?.snapshot?.connections && networkMonitor.snapshot.connections.length > 0) {
       const conns = [...networkMonitor.snapshot.connections].slice(0, 10);
       conns.forEach((c, idx) => {
@@ -307,7 +334,27 @@ export default function TimelinePage({
       });
     }
 
-    // 5. Threat Detections / Rules
+    // 6. Network Adapter Activity from Host Telemetry
+    if (telemetry?.telemetry?.network?.interfaces) {
+      telemetry.telemetry.network.interfaces.forEach((iface, idx) => {
+        if (iface.is_up && (iface.bytes_sent || 0) + (iface.bytes_recv || 0) > 0) {
+          merged.push({
+            id: `evt-net-adapter-${idx}`,
+            rawTimestamp: now - (idx + 1) * 25000,
+            time: new Date(now - (idx + 1) * 25000).toLocaleTimeString(),
+            title: `Network Interface Active: ${iface.name}`,
+            detail: `Active Windows adapter ${iface.name}. Bound IPs: ${iface.addresses?.join(', ') || 'DHCP'}. Total throughput: ${fmtBytes(iface.bytes_sent)} sent / ${fmtBytes(iface.bytes_recv)} received.`,
+            category: 'transmission',
+            status: 'observed',
+            subsystem: 'network',
+            entity: iface.name,
+            confidence: 100,
+          });
+        }
+      });
+    }
+
+    // 7. Threat Detections / Rules
     if (threatAnalysis?.threats && threatAnalysis.threats.length > 0) {
       threatAnalysis.threats.slice(0, 6).forEach((t, idx) => {
         let ts: number;
@@ -334,18 +381,18 @@ export default function TimelinePage({
       });
     }
 
-    // 6. Host Containment Status (if contained)
+    // 8. Host Containment Status (if contained)
     if (contained) {
       merged.push({
         id: 'evt-containment',
         rawTimestamp: now,
         time: new Date(now).toLocaleTimeString(),
-        title: 'Host Containment Enforced: WS-0427',
-        detail: 'Network isolation and active socket termination enforced on host WS-0427. Outbound routing severed.',
+        title: `Host Containment Enforced: ${hostName}`,
+        detail: `Network isolation and active socket termination enforced on host ${hostName}. Outbound routing severed.`,
         category: 'containment',
         status: 'observed',
         subsystem: 'containment',
-        entity: 'WS-0427',
+        entity: hostName,
         confidence: 100,
       });
     }
@@ -359,12 +406,14 @@ export default function TimelinePage({
     return merged;
   }, [
     isReal,
+    telemetry?.telemetry,
     processMonitor?.events,
     processMonitor?.snapshot,
     networkMonitor?.snapshot?.connections,
     fileScan?.findings,
     threatAnalysis?.threats,
     contained,
+    hostName,
   ]);
 
   // Subsystem counts
@@ -494,7 +543,7 @@ export default function TimelinePage({
       <div className="page-heading">
         <div>
           <div className="eyebrow">
-            Forensic Chronology & Attack Reconstruction · {isReal ? 'LIVE HOST WS-0427' : 'INC-2024-1042'}
+            Forensic Chronology & Attack Reconstruction · {isReal ? hostName.toUpperCase() : 'INC-2024-1042'}
           </div>
           <h1 className="page-title">Forensic Timeline</h1>
           <p className="page-subtitle">
@@ -502,7 +551,27 @@ export default function TimelinePage({
           </p>
         </div>
 
-        <div className="actions" style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+        <div className="actions" style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+          {/* Mode Switcher */}
+          <div style={{ display: 'inline-flex', background: 'hsl(var(--muted))', padding: 2, borderRadius: 6, border: '1px solid hsl(var(--border))' }}>
+            <button
+              type="button"
+              className={cn('btn btn-sm', dataMode === 'real' ? 'btn-primary' : 'btn-ghost')}
+              style={{ fontSize: 11, padding: '3px 9px', height: 26 }}
+              onClick={() => setDataMode('real')}
+            >
+              <Radio size={11} style={{ marginRight: 4 }} /> Real Host Timeline
+            </button>
+            <button
+              type="button"
+              className={cn('btn btn-sm', dataMode === 'demo' ? 'btn-primary' : 'btn-ghost')}
+              style={{ fontSize: 11, padding: '3px 9px', height: 26 }}
+              onClick={() => setDataMode('demo')}
+            >
+              <AlertTriangle size={11} style={{ marginRight: 4 }} /> Simulated Drill
+            </button>
+          </div>
+
           {isReal ? (
             <span
               className="badge badge-low"

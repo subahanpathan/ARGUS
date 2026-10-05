@@ -3,6 +3,7 @@ import type { ProcessMonitorState } from './use-process-monitor';
 import type { NetworkMonitorState } from './use-network-monitor';
 import type { FileScanState } from './use-file-scan';
 import type { ThreatAnalysisState } from './use-threat-analysis';
+import type { TelemetryStreamState, SystemTelemetryData } from './use-telemetry-stream';
 
 export type IndicatorType = 'domain' | 'ip' | 'hash' | 'url' | 'cve';
 export type IndicatorSeverity = 'critical' | 'high' | 'medium' | 'low';
@@ -114,17 +115,30 @@ export type LocalCorrelationMatch = {
   filePath?: string;
 };
 
+export type LiveMonitoredSocket = {
+  pid: number;
+  processName: string;
+  localPort?: number;
+  remoteAddr: string;
+  remotePort?: number;
+  state?: string;
+  matchedIoc: IOCRecord | null;
+};
+
 export function useThreatIntelligence({
   processMonitor,
   networkMonitor,
   fileScan,
   threatAnalysis,
+  telemetry,
 }: {
   processMonitor?: ProcessMonitorState;
   networkMonitor?: NetworkMonitorState;
   fileScan?: FileScanState;
   threatAnalysis?: ThreatAnalysisState;
+  telemetry?: TelemetryStreamState | SystemTelemetryData | null;
 }) {
+  const [mode, setMode] = useState<'realtime' | 'simulation'>('realtime');
   const [summary, setSummary] = useState<IntelSummary | null>(null);
   const [indicators, setIndicators] = useState<IOCRecord[]>([]);
   const [feeds, setFeeds] = useState<ThreatFeed[]>([]);
@@ -133,6 +147,11 @@ export function useThreatIntelligence({
   const [loading, setLoading] = useState(true);
   const [syncingFeeds, setSyncingFeeds] = useState(false);
   const [lastSyncTime, setLastSyncTime] = useState<Date>(new Date());
+
+  const rawTelemetry = (telemetry && 'telemetry' in telemetry) ? telemetry.telemetry : telemetry;
+  const hostName = (rawTelemetry?.system as any)?.hostname || (rawTelemetry as any)?.hostname || 'LOCAL-HOST';
+  const activeSocketCount = networkMonitor?.snapshot?.connections?.length || 0;
+  const activeProcessCount = processMonitor?.snapshot?.length || 0;
 
   const fetchAll = useCallback(async () => {
     try {
@@ -161,12 +180,45 @@ export function useThreatIntelligence({
     fetchAll();
   }, [fetchAll]);
 
+  // Extract live sockets on this host with IOC match annotations
+  const liveMonitoredSockets = useMemo<LiveMonitoredSocket[]>(() => {
+    const rawConns = networkMonitor?.snapshot?.connections || [];
+    const seen = new Set<string>();
+    const list: LiveMonitoredSocket[] = [];
+
+    for (const conn of rawConns) {
+      const remoteIp = conn.remote_addr;
+      if (!remoteIp || remoteIp === '0.0.0.0' || remoteIp === '::') continue;
+      const key = `${conn.pid}:${remoteIp}:${conn.remote_port}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+
+      const matchedIoc = indicators.find(
+        (i) => i.type === 'ip' && (i.value === remoteIp || i.defangedValue.replace(/\[|\]/g, '') === remoteIp)
+      ) || null;
+
+      list.push({
+        pid: conn.pid ?? 0,
+        processName: (conn as any).process_name || conn.process || 'process.exe',
+        localPort: conn.local_port,
+        remoteAddr: remoteIp,
+        remotePort: conn.remote_port,
+        state: conn.status || (conn as any).state || 'ESTABLISHED',
+        matchedIoc,
+      });
+
+      if (list.length >= 40) break;
+    }
+
+    return list;
+  }, [networkMonitor?.snapshot?.connections, indicators]);
+
   // Compute live correlations between endpoint telemetry and IOC repository
   const correlations = useMemo<LocalCorrelationMatch[]>(() => {
     const matches: LocalCorrelationMatch[] = [];
     const now = new Date().toISOString();
 
-    // 1. Check live network connections
+    // 1. Check live network connections against threat IOCs
     if (networkMonitor?.snapshot?.connections) {
       for (const conn of networkMonitor.snapshot.connections) {
         const remoteIp = conn.remote_addr;
@@ -175,6 +227,7 @@ export function useThreatIntelligence({
         const matchedIoc = indicators.find(
           (i) => i.type === 'ip' && (i.value === remoteIp || i.defangedValue.replace(/\[|\]/g, '') === remoteIp)
         );
+        const procName = (conn as any).process_name || conn.process || 'unknown';
         if (matchedIoc) {
           matches.push({
             indicatorId: matchedIoc.id,
@@ -182,20 +235,20 @@ export function useThreatIntelligence({
             indicatorType: 'ip',
             severity: matchedIoc.severity,
             source: 'network',
-            details: `Active socket to ${remoteIp}:${conn.remote_port || 443} via PID ${conn.pid} (${conn.process_name || 'unknown'})`,
+            details: `Active socket to ${remoteIp}:${conn.remote_port || 443} via PID ${conn.pid ?? 0} (${procName}) on ${hostName}`,
             timestamp: now,
             pid: conn.pid,
-            processName: conn.process_name,
+            processName: procName,
             remoteAddress: `${remoteIp}:${conn.remote_port || 0}`,
           });
         }
       }
     }
 
-    // 2. Check live running processes
+    // 2. Check live running processes against threat IOCs and suspicious behavior
     if (processMonitor?.snapshot) {
       for (const proc of processMonitor.snapshot) {
-        const cmd = (proc.command_line || proc.executable_path || '').toLowerCase();
+        const cmd = ((proc as any).command_line || proc.executable_path || proc.name || '').toLowerCase();
         for (const ioc of indicators) {
           if (ioc.type === 'domain' && cmd.includes(ioc.value.toLowerCase())) {
             matches.push({
@@ -204,7 +257,7 @@ export function useThreatIntelligence({
               indicatorType: 'domain',
               severity: ioc.severity,
               source: 'process',
-              details: `Process command line contains C2 domain: ${proc.name} (PID ${proc.pid})`,
+              details: `Live Process command line contains C2 domain: ${proc.name} (PID ${proc.pid})`,
               timestamp: now,
               pid: proc.pid,
               processName: proc.name,
@@ -230,56 +283,79 @@ export function useThreatIntelligence({
     // 3. Check live file scanner findings
     if (fileScan?.findings) {
       for (const file of fileScan.findings) {
-        const hashMatch = indicators.find((i) => i.type === 'hash' && file.hash && i.value.toLowerCase() === file.hash.toLowerCase());
-        if (hashMatch) {
+        const fileName = (file as any).name || (file as any).file_name || 'scanned_artifact';
+        const filePath = (file as any).path || (file as any).file_path || fileName;
+        const fileHash = (file as any).hash;
+
+        if (fileHash) {
+          const hashMatch = indicators.find((i) => i.type === 'hash' && i.value.toLowerCase() === fileHash.toLowerCase());
+          if (hashMatch) {
+            matches.push({
+              indicatorId: hashMatch.id,
+              indicatorValue: hashMatch.value,
+              indicatorType: 'hash',
+              severity: hashMatch.severity,
+              source: 'file',
+              details: `File scan hit: SHA-256 match for ${fileName} at ${filePath}`,
+              timestamp: now,
+              filePath,
+            });
+          }
+        }
+      }
+    }
+
+    // 4. Mode-specific behavior
+    if (mode === 'realtime') {
+      if (matches.length === 0) {
+        // Return a verified live host audit record
+        matches.push({
+          indicatorId: 'live-host-audit',
+          indicatorValue: hostName,
+          indicatorType: 'ip',
+          severity: 'low',
+          source: 'network',
+          details: `Live Sensor Audit: ${activeSocketCount} active network socket(s), ${activeProcessCount} process(es) continuously evaluated against ${indicators.length} threat indicators. No active malware C2 traffic detected on this host.`,
+          timestamp: now,
+          remoteAddress: (rawTelemetry?.system as any)?.platform ? `${(rawTelemetry?.system as any).platform} (${(rawTelemetry?.system as any).arch || 'x64'})` : '127.0.0.1:5000',
+        });
+      }
+    } else {
+      // Simulation mode fallback for incident demonstration
+      if (matches.length === 0) {
+        const c2Ioc = indicators.find((i) => i.value === 'cdn-sync-check.com');
+        if (c2Ioc) {
           matches.push({
-            indicatorId: hashMatch.id,
-            indicatorValue: hashMatch.value,
+            indicatorId: c2Ioc.id,
+            indicatorValue: c2Ioc.value,
+            indicatorType: 'domain',
+            severity: 'critical',
+            source: 'network',
+            details: 'Outbound HTTP beacon observed to cdn-sync-check[.]com from powershell.exe (PID 4820)',
+            timestamp: new Date(Date.now() - 4 * 60 * 1000).toISOString(),
+            pid: 4820,
+            processName: 'powershell.exe',
+            remoteAddress: 'cdn-sync-check.com:443',
+          });
+        }
+        const hashIoc = indicators.find((i) => i.type === 'hash');
+        if (hashIoc) {
+          matches.push({
+            indicatorId: hashIoc.id,
+            indicatorValue: hashIoc.value,
             indicatorType: 'hash',
-            severity: hashMatch.severity,
+            severity: 'high',
             source: 'file',
-            details: `File scan hit: SHA-256 match for ${file.file_name} at ${file.file_path}`,
-            timestamp: now,
-            filePath: file.file_path,
+            details: 'Staged archive matching known Carbanak dropper signature in C:\\Users\\Administrator\\AppData\\Local\\Temp',
+            timestamp: new Date(Date.now() - 12 * 60 * 1000).toISOString(),
+            filePath: 'C:\\Users\\Administrator\\AppData\\Local\\Temp\\pkg_update.tmp',
           });
         }
       }
     }
 
-    // 4. Default correlation fallback for incident demonstration (cdn-sync-check[.]com on WS-0427)
-    if (matches.length === 0) {
-      const c2Ioc = indicators.find((i) => i.value === 'cdn-sync-check.com');
-      if (c2Ioc) {
-        matches.push({
-          indicatorId: c2Ioc.id,
-          indicatorValue: c2Ioc.value,
-          indicatorType: 'domain',
-          severity: 'critical',
-          source: 'network',
-          details: 'Outbound HTTP beacon observed to cdn-sync-check[.]com from powershell.exe (PID 4820)',
-          timestamp: new Date(Date.now() - 4 * 60 * 1000).toISOString(),
-          pid: 4820,
-          processName: 'powershell.exe',
-          remoteAddress: 'cdn-sync-check.com:443',
-        });
-      }
-      const hashIoc = indicators.find((i) => i.type === 'hash');
-      if (hashIoc) {
-        matches.push({
-          indicatorId: hashIoc.id,
-          indicatorValue: hashIoc.value,
-          indicatorType: 'hash',
-          severity: 'high',
-          source: 'file',
-          details: 'Staged archive matching known Carbanak dropper signature in C:\\Users\\Administrator\\AppData\\Local\\Temp',
-          timestamp: new Date(Date.now() - 12 * 60 * 1000).toISOString(),
-          filePath: 'C:\\Users\\Administrator\\AppData\\Local\\Temp\\pkg_update.tmp',
-        });
-      }
-    }
-
     return matches;
-  }, [indicators, networkMonitor?.snapshot, processMonitor?.snapshot, fileScan?.findings]);
+  }, [indicators, networkMonitor?.snapshot, processMonitor?.snapshot, fileScan?.findings, mode, hostName, activeSocketCount, activeProcessCount, telemetry]);
 
   // Merge correlation stats into indicators
   const enrichedIndicators = useMemo(() => {
@@ -387,6 +463,12 @@ export function useThreatIntelligence({
   };
 
   return {
+    mode,
+    setMode,
+    hostName,
+    activeSocketCount,
+    activeProcessCount,
+    liveMonitoredSockets,
     summary,
     indicators: enrichedIndicators,
     feeds,

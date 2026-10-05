@@ -14,6 +14,7 @@ import {
   FileSearch,
   FileText,
   Fingerprint,
+  GitBranch,
   HardDrive,
   History,
   Layers,
@@ -36,12 +37,14 @@ import type { ThreatAnalysisState } from '@/hooks/use-threat-analysis';
 import type { FileScanState } from '@/hooks/use-file-scan';
 import type { ProcessMonitorState } from '@/hooks/use-process-monitor';
 import type { NetworkMonitorState } from '@/hooks/use-network-monitor';
+import ProcessTreeView from '@/components/exposure/process-tree-view';
+import BlastRadiusMap from '@/components/exposure/blast-radius-map';
 
 function cn(...values: Array<string | false | undefined | null>) {
   return values.filter(Boolean).join(' ');
 }
 
-type Severity = 'critical' | 'high' | 'medium' | 'low';
+export type Severity = 'critical' | 'high' | 'medium' | 'low';
 
 export type ExposurePageProps = {
   phase: number;
@@ -55,7 +58,7 @@ export type ExposurePageProps = {
   onContain?: () => void;
 };
 
-type ExposureTab = 'killchain' | 'blastradius' | 'riskfactors' | 'playbook';
+export type ExposureTab = 'killchain' | 'processtree' | 'blastradius' | 'riskfactors' | 'playbook';
 
 export default function ExposurePage({
   phase,
@@ -84,7 +87,7 @@ export default function ExposurePage({
       if (threatAnalysis && threatAnalysis.threatCount > 0) {
         const crit = threatAnalysis.criticalCount * 28;
         const high = threatAnalysis.highCount * 16;
-        const med = threatAnalysis.mediumCount * 8;
+        const med = Math.max(0, threatAnalysis.threatCount - threatAnalysis.criticalCount - threatAnalysis.highCount) * 8;
         return Math.min(96, Math.max(30, 20 + crit + high + med));
       }
       return 26; // Monitored baseline risk when sensors are active with no uncontained critical threats
@@ -138,11 +141,17 @@ export default function ExposurePage({
           observed: true,
           route: '/processes',
           metric: topProc ? `PID ${topProc.pid} · User: ${topProc.username || 'Analyst'}` : 'Live Telemetry',
+          mitre: {
+            id: 'T1059.001',
+            tactic: 'Execution',
+            name: 'PowerShell / Script Host',
+            url: 'https://attack.mitre.org/techniques/T1059/001/',
+          },
         },
         {
           stage: 'Sensitive Data Collection',
           target: findingCount > 0
-            ? fileScan!.findings.slice(0, 3).map((f) => f.file_name).join(', ')
+            ? fileScan!.findings.slice(0, 3).map((f) => f.name).join(', ')
             : 'Candidate Filesystem Inspection',
           evidenceType: 'Observed Telemetry',
           status: 'confirmed',
@@ -152,6 +161,12 @@ export default function ExposurePage({
           observed: true,
           route: '/files',
           metric: `${findingCount} Files Scanned · ${(fileScan?.findings ? fileScan.findings.reduce((acc, f) => acc + (f.size_bytes || 0), 0) / 1024 : 0).toFixed(1)} KB`,
+          mitre: {
+            id: 'T1005',
+            tactic: 'Collection',
+            name: 'Data from Local System',
+            url: 'https://attack.mitre.org/techniques/T1005/',
+          },
         },
         {
           stage: 'Archive Staging',
@@ -162,6 +177,12 @@ export default function ExposurePage({
           observed: true,
           route: '/files',
           metric: '4 Monitored Root Directories',
+          mitre: {
+            id: 'T1560.001',
+            tactic: 'Collection',
+            name: 'Archive via Utility',
+            url: 'https://attack.mitre.org/techniques/T1560/001/',
+          },
         },
         {
           stage: 'Potential Exfiltration',
@@ -172,6 +193,12 @@ export default function ExposurePage({
           observed: false,
           route: '/network',
           metric: `${connCount} Active Sockets (Flow Inferred)`,
+          mitre: {
+            id: 'T1071.001',
+            tactic: 'Command and Control',
+            name: 'Web Protocols (HTTP/HTTPS)',
+            url: 'https://attack.mitre.org/techniques/T1071/001/',
+          },
         },
         {
           stage: 'Confirmed Exfiltration',
@@ -182,6 +209,12 @@ export default function ExposurePage({
           observed: false,
           route: '/reports',
           metric: 'Not established (Protected by DLP)',
+          mitre: {
+            id: 'T1041',
+            tactic: 'Exfiltration',
+            name: 'Exfiltration Over C2 Channel',
+            url: 'https://attack.mitre.org/techniques/T1041/',
+          },
         },
       ];
     }
@@ -197,6 +230,12 @@ export default function ExposurePage({
         observed: true,
         route: '/processes',
         metric: 'PID 8420 · 09:37:16 UTC',
+        mitre: {
+          id: 'T1059.001',
+          tactic: 'Execution',
+          name: 'PowerShell Execution',
+          url: 'https://attack.mitre.org/techniques/T1059/001/',
+        },
       },
       {
         stage: 'Sensitive Data Collection',
@@ -207,6 +246,12 @@ export default function ExposurePage({
         observed: true,
         route: '/files',
         metric: '3 Files · 239.5 KB total',
+        mitre: {
+          id: 'T1005',
+          tactic: 'Collection',
+          name: 'Data from Local System',
+          url: 'https://attack.mitre.org/techniques/T1005/',
+        },
       },
       {
         stage: 'Archive Staging',
@@ -217,6 +262,12 @@ export default function ExposurePage({
         observed: true,
         route: '/files',
         metric: '845 KB compressed archive',
+        mitre: {
+          id: 'T1560.001',
+          tactic: 'Collection',
+          name: 'Archive via Utility (7-Zip)',
+          url: 'https://attack.mitre.org/techniques/T1560/001/',
+        },
       },
       {
         stage: 'Potential Exfiltration',
@@ -227,6 +278,12 @@ export default function ExposurePage({
         observed: false,
         route: '/network',
         metric: '18.4 KB transmitted (Flow inferred)',
+        mitre: {
+          id: 'T1071.001',
+          tactic: 'Command and Control',
+          name: 'Web Protocols (TLS 1.3)',
+          url: 'https://attack.mitre.org/techniques/T1071/001/',
+        },
       },
       {
         stage: 'Confirmed Exfiltration',
@@ -237,6 +294,12 @@ export default function ExposurePage({
         observed: false,
         route: '/reports',
         metric: 'Not established (Protected by DLP)',
+        mitre: {
+          id: 'T1041',
+          tactic: 'Exfiltration',
+          name: 'Exfiltration Over C2 Channel',
+          url: 'https://attack.mitre.org/techniques/T1041/',
+        },
       },
     ];
   }, [isReal, topProc, topConn, connCount, establishedCount, findingCount, fileScan?.findings]);
@@ -696,11 +759,20 @@ export default function ExposurePage({
 
         <button
           type="button"
+          className={cn('btn btn-ghost', activeTab === 'processtree' && 'btn-primary')}
+          style={{ fontSize: 11, padding: '5px 14px', height: 28 }}
+          onClick={() => setActiveTab('processtree')}
+        >
+          <GitBranch size={13} style={{ marginRight: 6 }} /> Live Process Tree & Sockets
+        </button>
+
+        <button
+          type="button"
           className={cn('btn btn-ghost', activeTab === 'blastradius' && 'btn-primary')}
           style={{ fontSize: 11, padding: '5px 14px', height: 28 }}
           onClick={() => setActiveTab('blastradius')}
         >
-          <Server size={13} style={{ marginRight: 6 }} /> Blast Radius & Asset Impact
+          <Server size={13} style={{ marginRight: 6 }} /> Blast Radius & Concentric Rings
         </button>
 
         <button
@@ -779,6 +851,47 @@ export default function ExposurePage({
                           {idx + 1}
                         </div>
                         <span style={{ fontWeight: 700, fontSize: 13 }}>{item.stage}</span>
+                        {item.mitre && (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginLeft: 4 }}>
+                            <a
+                              href={item.mitre.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="mono"
+                              style={{
+                                fontSize: 10,
+                                padding: '1px 6px',
+                                background: 'hsl(var(--accent) / 0.12)',
+                                border: '1px solid hsl(var(--accent) / 0.3)',
+                                borderRadius: 4,
+                                color: 'hsl(var(--accent))',
+                                textDecoration: 'none',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: 3,
+                              }}
+                              title={`${item.mitre.name} (${item.mitre.tactic})`}
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <span>{item.mitre.id}</span>
+                              <ExternalLink size={9} />
+                            </a>
+                            <span
+                              style={{
+                                fontSize: 9,
+                                padding: '1px 6px',
+                                background: 'hsl(var(--muted))',
+                                borderRadius: 4,
+                                color: 'hsl(var(--muted-foreground))',
+                                textTransform: 'uppercase',
+                                fontWeight: 600,
+                                letterSpacing: '0.04em',
+                              }}
+                            >
+                              {item.mitre.tactic}
+                            </span>
+                          </div>
+                        )}
                       </div>
 
                       <span
@@ -930,77 +1043,28 @@ export default function ExposurePage({
         </div>
       )}
 
-      {/* Tab 2: Blast Radius & Asset Impact */}
+      {/* Tab 2: Live Process Execution Tree & Sockets */}
+      {activeTab === 'processtree' && (
+        <ProcessTreeView
+          processes={processMonitor?.snapshot || []}
+          connections={networkMonitor?.snapshot?.connections || []}
+          onNavigate={onNavigate}
+          toast={toast}
+          onRefresh={processMonitor?.refetchSnapshot}
+        />
+      )}
+
+      {/* Tab 3: Concentric Blast Radius & Asset Impact */}
       {activeTab === 'blastradius' && (
-        <div className="grid" style={{ gridTemplateColumns: 'repeat(2, 1fr)', gap: 16 }}>
-          {blastRadiusAssets.map((asset) => {
-            const Icon = asset.icon;
-            return (
-              <section key={asset.name} className="card card-pad" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <div
-                      style={{
-                        padding: 7,
-                        borderRadius: 6,
-                        background: 'hsl(var(--muted))',
-                        color: 'hsl(var(--primary))',
-                      }}
-                    >
-                      <Icon size={16} />
-                    </div>
-                    <div>
-                      <div className="muted" style={{ fontSize: 10, textTransform: 'uppercase' }}>
-                        {asset.type}
-                      </div>
-                      <div style={{ fontWeight: 700, fontSize: 13 }}>{asset.name}</div>
-                    </div>
-                  </div>
-
-                  <span
-                    className={cn(
-                      'badge',
-                      asset.severity === 'critical'
-                        ? 'badge-critical'
-                        : asset.severity === 'high'
-                        ? 'badge-high'
-                        : 'badge-low'
-                    )}
-                  >
-                    {asset.severity.toUpperCase()}
-                  </span>
-                </div>
-
-                <div
-                  style={{
-                    background: 'hsl(var(--muted))',
-                    padding: '8px 12px',
-                    borderRadius: 6,
-                    fontSize: 11,
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: 4,
-                  }}
-                >
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span className="muted">Entity / Owner:</span>
-                    <span className="mono">{asset.owner}</span>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span className="muted">Network / Scope:</span>
-                    <span className="mono">{asset.ip}</span>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span className="muted">Remediation Status:</span>
-                    <span className="mono" style={{ color: 'hsl(var(--foreground))', fontWeight: 600 }}>
-                      {asset.status}
-                    </span>
-                  </div>
-                </div>
-              </section>
-            );
-          })}
-        </div>
+        <BlastRadiusMap
+          assets={blastRadiusAssets}
+          contained={contained}
+          onContain={onContain}
+          onNavigate={onNavigate}
+          toast={toast}
+          riskScore={riskScore}
+          isReal={isReal}
+        />
       )}
 
       {/* Tab 3: Contributing Risk Factors */}

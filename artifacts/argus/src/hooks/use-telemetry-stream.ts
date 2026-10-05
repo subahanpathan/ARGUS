@@ -68,6 +68,9 @@ export type SystemTelemetryData = {
   network?: TelemetryNetwork;
 };
 
+export type TelemetryPayload = SystemTelemetryData;
+export type SystemTelemetry = SystemTelemetryData;
+
 export type TelemetryStreamState = {
   /** Whether the SSE connection is active */
   connected: boolean;
