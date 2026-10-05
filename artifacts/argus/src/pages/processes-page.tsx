@@ -280,6 +280,8 @@ export default function ProcessesPage({
   const [showTerminateConfirm, setShowTerminateConfirm] = useState<RealProcessInfo | ProcessRecord | null>(null);
   const [killTree, setKillTree] = useState(true);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(0);
+  const PAGE_SIZE = 50;
 
   const copyToClipboard = (text: string, key: string, label: string) => {
     navigator.clipboard.writeText(text);
@@ -292,11 +294,33 @@ export default function ProcessesPage({
   const demoContainedPids = contained ? [8420, 9136, 10544] : [];
   const demoFlaggedPids = [8420, 9136];
 
-  // Build graph nodes
+  // Build graph nodes — capped at 120 for performance (prioritise flagged + high-cpu)
   const graphNodes: ProcessGraphNode[] = useMemo(() => {
     if (isReal && monitorData) {
+      const snapshot = monitorData.snapshot;
+      const GRAPH_CAP = 120;
+
+      let subset = snapshot;
+      if (snapshot.length > GRAPH_CAP) {
+        const pidMap = new Map(snapshot.map((p) => [p.pid, p]));
+        const mustInclude = new Set<number>(demoFlaggedPids);
+        // Walk up ancestor chain of selected PID so its tree is visible
+        if (selectedPid) {
+          let cur = pidMap.get(selectedPid);
+          while (cur) {
+            mustInclude.add(cur.pid);
+            cur = cur.parent_pid != null ? pidMap.get(cur.parent_pid) : undefined;
+          }
+        }
+        const must = snapshot.filter((p) => mustInclude.has(p.pid));
+        const rest = snapshot
+          .filter((p) => !mustInclude.has(p.pid))
+          .sort((a, b) => (b.cpu_percent ?? 0) - (a.cpu_percent ?? 0));
+        subset = [...must, ...rest].slice(0, GRAPH_CAP);
+      }
+
       return buildGraphFromTelemetry(
-        monitorData.snapshot.map((s) => ({
+        subset.map((s) => ({
           pid: s.pid,
           parent_pid: s.parent_pid ?? null,
           name: s.name,
@@ -310,7 +334,7 @@ export default function ProcessesPage({
       );
     }
     return buildGraphFromSeed(processSeed, demoContainedPids);
-  }, [isReal, monitorData, contained, demoContainedPids]);
+  }, [isReal, monitorData, contained, demoContainedPids, selectedPid]);
 
   // Process list for table/filtering
   const filteredProcesses = useMemo(() => {
@@ -358,6 +382,14 @@ export default function ProcessesPage({
       return true;
     });
   }, [isReal, monitorData, searchTerm, resourceFilter, sortField, sortOrder]);
+
+  // Reset to first page whenever filter/search changes
+  const paginatedProcesses = useMemo(() => {
+    const start = currentPage * PAGE_SIZE;
+    return filteredProcesses.slice(start, start + PAGE_SIZE);
+  }, [filteredProcesses, currentPage, PAGE_SIZE]);
+
+  const totalPages = Math.ceil(filteredProcesses.length / PAGE_SIZE);
 
   // Selected process object
   const selectedRealProcess = useMemo(() => {
@@ -548,7 +580,7 @@ export default function ProcessesPage({
           <input
             className="search"
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(0); }}
             placeholder="Search processes by Name, PID, Executable path, or User..."
           />
           {searchTerm && (
@@ -566,7 +598,7 @@ export default function ProcessesPage({
         <select
           className="select"
           value={resourceFilter}
-          onChange={(e) => setResourceFilter(e.target.value as any)}
+          onChange={(e) => { setResourceFilter(e.target.value as any); setCurrentPage(0); }}
           style={{ fontSize: 11, height: 32 }}
         >
           <option value="all">All Processes</option>
@@ -598,7 +630,8 @@ export default function ProcessesPage({
         </div>
 
         <div className="mono muted" style={{ fontSize: 11, marginLeft: 'auto' }}>
-          Showing {filteredProcesses.length} of {isReal ? monitorData?.snapshot.length : processSeed.length} processes
+          Showing {Math.min((currentPage + 1) * PAGE_SIZE, filteredProcesses.length)} of {filteredProcesses.length} processes
+          {isReal && monitorData && filteredProcesses.length < monitorData.snapshot.length && ` (filtered from ${monitorData.snapshot.length})`}
         </div>
       </div>
 
@@ -657,7 +690,7 @@ export default function ProcessesPage({
                   </thead>
                   <tbody>
                     {isReal
-                      ? (filteredProcesses as RealProcessInfo[]).map((p) => {
+                      ? (paginatedProcesses as RealProcessInfo[]).map((p) => {
                           const isSel = p.pid === selectedPid;
                           const cpu = p.cpu_percent ?? 0;
                           const risk = computeProcessRisk(p);
@@ -751,7 +784,35 @@ export default function ProcessesPage({
                         })}
                   </tbody>
                 </table>
-              </div>
+                </div>
+                {/* Pagination Controls */}
+                {isReal && totalPages > 1 && (
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', borderTop: '1px solid hsl(var(--border))' }}>
+                    <span className="mono muted" style={{ fontSize: 11 }}>
+                      Page {currentPage + 1} of {totalPages} · {filteredProcesses.length} processes
+                    </span>
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      <button
+                        type="button"
+                        className="btn btn-ghost"
+                        style={{ fontSize: 11, padding: '4px 10px' }}
+                        disabled={currentPage === 0}
+                        onClick={() => setCurrentPage((p) => Math.max(0, p - 1))}
+                      >
+                        ← Prev
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-ghost"
+                        style={{ fontSize: 11, padding: '4px 10px' }}
+                        disabled={currentPage >= totalPages - 1}
+                        onClick={() => setCurrentPage((p) => Math.min(totalPages - 1, p + 1))}
+                      >
+                        Next →
+                      </button>
+                    </div>
+                  </div>
+                )}
             </Card>
           )}
         </div>
