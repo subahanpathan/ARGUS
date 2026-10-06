@@ -331,7 +331,9 @@ export type BroadcastTopic =
   | "network.ports"
   | "network.port_events"
   | "files.scan"
-  | "detections";
+  | "detections"
+  | "incidents"
+  | "recovery";
 
 export type SystemTelemetry = {
   timestamp: string;
@@ -809,6 +811,15 @@ class EventHub {
     return this.fileScan;
   }
 
+  private onDetectionListeners: Array<(detection: Detection) => void> = [];
+
+  onDetection(listener: (detection: Detection) => void): () => void {
+    this.onDetectionListeners.push(listener);
+    return () => {
+      this.onDetectionListeners = this.onDetectionListeners.filter((l) => l !== listener);
+    };
+  }
+
   /** Store a new detection and broadcast it to SSE clients. */
   addDetection(detection: Detection): void {
     this.detections.push(detection);
@@ -819,6 +830,13 @@ class EventHub {
       { type: "detection", timestamp: detection.timestamp, detection },
       ["detections"],
     );
+    for (const listener of this.onDetectionListeners) {
+      try {
+        listener(detection);
+      } catch (err) {
+        // listener failure must not crash event hub
+      }
+    }
   }
 
   /** Get buffered detections, newest first. */
@@ -901,7 +919,7 @@ class EventHub {
   }
 
   /** Broadcast a payload to connected SSE clients subscribed to one of the given topics. */
-  private broadcast(payload: ProcessEvent | SystemTelemetry | NetworkSnapshot | NetworkTopologySnapshot | NetworkConnectionEventBroadcast | PortIntelligenceSnapshot | PortEventBroadcast | FileScanSnapshot | DetectionBroadcast, topics?: BroadcastTopic[]): void {
+  public broadcast(payload: any, topics?: BroadcastTopic[]): void {
     const data = `data: ${JSON.stringify(payload)}\n\n`;
     const deadClients: string[] = [];
 

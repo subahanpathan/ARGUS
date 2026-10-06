@@ -98,6 +98,41 @@ export type IncidentRecord = {
   closedTime?: string;
   closureReason?: string;
   evidenceSummaryReport?: string;
+  evidenceSnapshot?: {
+    incidentId: string;
+    ruleId: string;
+    ruleName: string;
+    ruleTitle: string;
+    severity: string;
+    confidence: number;
+    detectionTimestamp: string;
+    firstSeenTimestamp: string;
+    evidenceCapturedTimestamp: string;
+    pid: number;
+    ppid: number | null;
+    processName: string;
+    executablePath: string | null;
+    commandLine: string | null;
+    username: string | null;
+    processAncestry: Array<{ pid: number; name: string }>;
+    executableHash: string | null;
+    localEndpoint?: string;
+    remoteEndpoint?: string;
+    protocol?: string;
+    socketState?: string;
+    mitreTechniques: string[];
+    relevantFileEvents: Array<any>;
+    monitoredFileHashes: Array<{ filePath: string; hash: string }>;
+  };
+  t_first_seen?: string;
+  t_detected?: string;
+  t_evidence_captured?: string;
+  t_containment_started?: string;
+  t_contained?: string;
+  exposureDurationMs?: number;
+  exposureDurationSeconds?: number;
+  containmentStatus?: string;
+  correlatedTrace?: any;
 };
 
 export function useIncidents() {
@@ -124,6 +159,12 @@ export function useIncidents() {
       setLoading(false);
     }
   }, []);
+
+  useEffect(() => {
+    fetchIncidents();
+    const interval = setInterval(fetchIncidents, 2000);
+    return () => clearInterval(interval);
+  }, [fetchIncidents]);
 
   const getIncidentById = useCallback(async (incidentId: string): Promise<IncidentRecord | null> => {
     try {

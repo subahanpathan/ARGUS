@@ -153,6 +153,147 @@ router.get("/quarantine", (_req: Request, res: Response) => {
   });
 });
 
+export function performFileQuarantine(params: {
+  targetPath: string;
+  name?: string;
+  source?: string;
+  severity?: "critical" | "high" | "medium" | "low";
+  reason?: string;
+  threatId?: string;
+  mitreTechnique?: string;
+}): {
+  success: boolean;
+  status: "Quarantined" | "QUARANTINE_FAILED";
+  message: string;
+  item: QuarantineRecord;
+} {
+  const {
+    targetPath,
+    name,
+    source = "operator_action",
+    severity = "high",
+    reason = "Manual forensic isolation",
+    threatId,
+    mitreTechnique = "T1204 - User Execution",
+  } = params;
+
+  if (!targetPath || typeof targetPath !== "string") {
+    throw new Error("Missing required 'targetPath'");
+  }
+
+  const cleanPath = targetPath.trim();
+  const fileName = name || path.basename(cleanPath) || "quarantined_artifact";
+  const timestampStr = new Date().toLocaleString();
+
+  let hash = "";
+  let sizeBytes = 0;
+  let sizeStr = "0 KB";
+  let entropy = 7.15;
+  let isolatedFilePath: string | undefined = undefined;
+
+  let removeOriginalSucceeded = false;
+  let removeOriginalError = "";
+
+  if (fs.existsSync(cleanPath) && fs.statSync(cleanPath).isFile()) {
+    const buffer = fs.readFileSync(cleanPath);
+    sizeBytes = buffer.length;
+    sizeStr = `${(sizeBytes / 1024).toFixed(1)} KB`;
+    hash = crypto.createHash("sha256").update(buffer).digest("hex");
+    entropy = calculateEntropy(buffer);
+
+    // 1. Copy into isolated vault directory
+    const safeIsolatedName = `${hash.slice(0, 12)}_${fileName}.quarantined`;
+    isolatedFilePath = path.join(ISOLATED_DIR, safeIsolatedName);
+    fs.writeFileSync(isolatedFilePath, buffer, { mode: 0o400 }); // read-only
+
+    // 2. Verify vault copy exists and size matches
+    const copyVerified = fs.existsSync(isolatedFilePath) && fs.statSync(isolatedFilePath).size === sizeBytes;
+    if (!copyVerified) {
+      throw new Error("Vault copy verification failed");
+    }
+
+    // 3. Remove original file from target location
+    try {
+      fs.unlinkSync(cleanPath);
+      removeOriginalSucceeded = !fs.existsSync(cleanPath);
+    } catch (unlinkErr: any) {
+      removeOriginalError = unlinkErr?.message || "Could not delete original file (file in use or permission denied)";
+    }
+  } else {
+    // Create cryptographic seal for simulated/virtual artifact
+    hash = crypto.createHash("sha256").update(cleanPath + timestampStr).digest("hex");
+    sizeBytes = Math.floor(Math.random() * 500000) + 12000;
+    sizeStr = `${(sizeBytes / 1024).toFixed(1)} KB`;
+    removeOriginalSucceeded = true;
+  }
+
+  const quarantineStatus: "Quarantined" | "QUARANTINE_FAILED" = removeOriginalSucceeded ? "Quarantined" : "QUARANTINE_FAILED";
+
+  const newRecord: QuarantineRecord = {
+    id: `q-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+    name: fileName,
+    path: cleanPath,
+    date: timestampStr,
+    source,
+    hash,
+    status: quarantineStatus,
+    threatId,
+    size: sizeStr,
+    sizeBytes,
+    severity,
+    entropy,
+    quarantineReason: reason,
+    mitreTechnique,
+    isolatedFilePath,
+    custodyLog: [
+      {
+        timestamp: timestampStr,
+        action: "EVIDENCE_ISOLATION",
+        actor: "ARGUS Security Vault Engine",
+        detail: `File handle isolated from ${cleanPath} into secure evidence vault.`,
+      },
+      {
+        timestamp: timestampStr,
+        action: "CRYPTOGRAPHIC_SEAL",
+        actor: "SHA-256 Engine",
+        detail: `Computed SHA-256: ${hash}. Entropy: ${entropy}. Size: ${sizeStr}.`,
+      },
+      ...(removeOriginalSucceeded
+        ? [
+            {
+              timestamp: timestampStr,
+              action: "ORIGINAL_UNLINKED",
+              actor: "ARGUS Quarantine Engine",
+              detail: `Original file ${cleanPath} successfully purged from disk and verified removed.`,
+            },
+          ]
+        : [
+            {
+              timestamp: timestampStr,
+              action: "ORIGINAL_UNLINK_FAILED",
+              actor: "ARGUS Quarantine Engine",
+              detail: `Failed to remove original file: ${removeOriginalError}`,
+            },
+          ]),
+    ],
+  };
+
+  const records = readManifest();
+  records.unshift(newRecord);
+  writeManifest(records);
+
+  logger.info({ id: newRecord.id, name: newRecord.name, hash: newRecord.hash, status: quarantineStatus }, "File quarantined to evidence vault");
+
+  return {
+    success: removeOriginalSucceeded,
+    status: quarantineStatus,
+    message: removeOriginalSucceeded
+      ? "File successfully sequestered in quarantine vault and original removed"
+      : `File copied to vault but original could not be deleted: ${removeOriginalError}`,
+    item: newRecord,
+  };
+}
+
 // POST /api/quarantine — Isolate a file into the evidence vault
 router.post("/quarantine", (req: Request, res: Response) => {
   try {
@@ -171,118 +312,17 @@ router.post("/quarantine", (req: Request, res: Response) => {
       return;
     }
 
-    const cleanPath = targetPath.trim();
-    const fileName = name || path.basename(cleanPath) || "quarantined_artifact";
-    const timestampStr = new Date().toLocaleString();
-
-    let hash = "";
-    let sizeBytes = 0;
-    let sizeStr = "0 KB";
-    let entropy = 7.15;
-    let isolatedFilePath: string | undefined = undefined;
-
-    // Check if physical file exists on disk
-    let removeOriginalSucceeded = false;
-    let removeOriginalError = "";
-
-    if (fs.existsSync(cleanPath) && fs.statSync(cleanPath).isFile()) {
-      const buffer = fs.readFileSync(cleanPath);
-      sizeBytes = buffer.length;
-      sizeStr = `${(sizeBytes / 1024).toFixed(1)} KB`;
-      hash = crypto.createHash("sha256").update(buffer).digest("hex");
-      entropy = calculateEntropy(buffer);
-
-      // 1. Copy into isolated vault directory
-      const safeIsolatedName = `${hash.slice(0, 12)}_${fileName}.quarantined`;
-      isolatedFilePath = path.join(ISOLATED_DIR, safeIsolatedName);
-      fs.writeFileSync(isolatedFilePath, buffer, { mode: 0o400 }); // read-only
-
-      // 2. Verify vault copy exists and size matches
-      const copyVerified = fs.existsSync(isolatedFilePath) && fs.statSync(isolatedFilePath).size === sizeBytes;
-      if (!copyVerified) {
-        throw new Error("Vault copy verification failed");
-      }
-
-      // 3. Remove original file from target location
-      try {
-        fs.unlinkSync(cleanPath);
-        removeOriginalSucceeded = !fs.existsSync(cleanPath);
-      } catch (unlinkErr: any) {
-        removeOriginalError = unlinkErr?.message || "Could not delete original file (file in use or permission denied)";
-      }
-    } else {
-      // Create cryptographic seal for simulated/virtual artifact
-      hash = crypto.createHash("sha256").update(cleanPath + timestampStr).digest("hex");
-      sizeBytes = Math.floor(Math.random() * 500000) + 12000;
-      sizeStr = `${(sizeBytes / 1024).toFixed(1)} KB`;
-      removeOriginalSucceeded = true;
-    }
-
-    const quarantineStatus = removeOriginalSucceeded ? "Quarantined" : "QUARANTINE_FAILED";
-
-    const newRecord: QuarantineRecord = {
-      id: `q-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
-      name: fileName,
-      path: cleanPath,
-      date: timestampStr,
+    const result = performFileQuarantine({
+      targetPath,
+      name,
       source,
-      hash,
-      status: quarantineStatus,
-      threatId,
-      size: sizeStr,
-      sizeBytes,
       severity,
-      entropy,
-      quarantineReason: reason,
+      reason,
+      threatId,
       mitreTechnique,
-      isolatedFilePath,
-      custodyLog: [
-        {
-          timestamp: timestampStr,
-          action: "EVIDENCE_ISOLATION",
-          actor: "ARGUS Security Vault Engine",
-          detail: `File handle isolated from ${cleanPath} into secure evidence vault.`,
-        },
-        {
-          timestamp: timestampStr,
-          action: "CRYPTOGRAPHIC_SEAL",
-          actor: "SHA-256 Engine",
-          detail: `Computed SHA-256: ${hash}. Entropy: ${entropy}. Size: ${sizeStr}.`,
-        },
-        ...(removeOriginalSucceeded
-          ? [
-              {
-                timestamp: timestampStr,
-                action: "ORIGINAL_UNLINKED",
-                actor: "ARGUS Quarantine Engine",
-                detail: `Original file ${cleanPath} successfully purged from disk and verified removed.`,
-              },
-            ]
-          : [
-              {
-                timestamp: timestampStr,
-                action: "ORIGINAL_UNLINK_FAILED",
-                actor: "ARGUS Quarantine Engine",
-                detail: `Failed to remove original file: ${removeOriginalError}`,
-              },
-            ]),
-      ],
-    };
-
-    const records = readManifest();
-    records.unshift(newRecord);
-    writeManifest(records);
-
-    logger.info({ id: newRecord.id, name: newRecord.name, hash: newRecord.hash, status: quarantineStatus }, "File quarantined to evidence vault");
-
-    res.status(201).json({
-      success: removeOriginalSucceeded,
-      status: quarantineStatus,
-      message: removeOriginalSucceeded
-        ? "File successfully sequestered in quarantine vault and original removed"
-        : `File copied to vault but original could not be deleted: ${removeOriginalError}`,
-      item: newRecord,
     });
+
+    res.status(201).json(result);
   } catch (err: any) {
     logger.error({ err }, "Error quarantining file");
     res.status(500).json({ error: "Failed to isolate file to quarantine vault", detail: err?.message });

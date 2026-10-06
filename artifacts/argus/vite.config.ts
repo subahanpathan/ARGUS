@@ -7,7 +7,7 @@ import { defineConfig } from 'vite';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const port = Number(process.env.PORT || '5173');
+const port = Number(process.env.CLIENT_PORT || process.env.VITE_PORT || (process.env.PORT && process.env.PORT !== '5000' ? process.env.PORT : '5173'));
 const basePath = process.env.BASE_PATH || '/';
 
 const plugins: import('vite').Plugin[] = [react(), tailwindcss()];

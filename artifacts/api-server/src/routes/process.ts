@@ -337,7 +337,8 @@ export async function terminateProcessTree(pid: number, procName = `PID ${pid}`)
  * Terminate a process by PID and emit a PROCESS_TERMINATED event.
  */
 router.post("/processes/:pid/terminate", async (req: Request, res: Response) => {
-  const pid = parseInt(req.params.pid, 10);
+  const rawPid = Array.isArray(req.params.pid) ? req.params.pid[0] : req.params.pid;
+  const pid = parseInt(String(rawPid), 10);
   if (isNaN(pid) || pid <= 0) {
     res.status(400).json({ error: "Invalid PID" });
     return;

@@ -30,7 +30,7 @@ router.get("/incidents", (_req: Request, res: Response) => {
  * Retrieve single orchestrated incident by ID.
  */
 router.get("/incidents/:id", (req: Request, res: Response) => {
-  const { id } = req.params;
+  const id = String(req.params.id);
   const incident = responseOrchestrator.getIncidentById(id);
 
   if (!incident) {
@@ -46,7 +46,7 @@ router.get("/incidents/:id", (req: Request, res: Response) => {
  * Get extended lifecycle timeline for an incident.
  */
 router.get("/incidents/:id/timeline", (req: Request, res: Response) => {
-  const { id } = req.params;
+  const id = String(req.params.id);
   const incident = responseOrchestrator.getIncidentById(id);
 
   if (!incident) {
@@ -66,7 +66,7 @@ router.get("/incidents/:id/timeline", (req: Request, res: Response) => {
  * Get immutable audit log trail for an incident.
  */
 router.get("/incidents/:id/audit", (req: Request, res: Response) => {
-  const { id } = req.params;
+  const id = String(req.params.id);
   const incident = responseOrchestrator.getIncidentById(id);
 
   if (!incident) {
@@ -86,7 +86,7 @@ router.get("/incidents/:id/audit", (req: Request, res: Response) => {
  * Trigger process containment execution and post-action verification.
  */
 router.post("/incidents/:id/contain", async (req: Request, res: Response) => {
-  const { id } = req.params;
+  const id = String(req.params.id);
   const actor = typeof req.body?.actor === "string" ? req.body.actor : "USER";
 
   try {
@@ -109,7 +109,7 @@ router.post("/incidents/:id/contain", async (req: Request, res: Response) => {
  * Trigger verified data recovery for affected files in the incident.
  */
 router.post("/incidents/:id/recovery", async (req: Request, res: Response) => {
-  const { id } = req.params;
+  const id = String(req.params.id);
   const actor = typeof req.body?.actor === "string" ? req.body.actor : "USER";
 
   try {
@@ -131,7 +131,7 @@ router.post("/incidents/:id/recovery", async (req: Request, res: Response) => {
  * Request incident closure.
  */
 router.post("/incidents/:id/close", (req: Request, res: Response) => {
-  const { id } = req.params;
+  const id = String(req.params.id);
   const actor = typeof req.body?.actor === "string" ? req.body.actor : "USER";
   const reason = typeof req.body?.reason === "string" ? req.body.reason : undefined;
 

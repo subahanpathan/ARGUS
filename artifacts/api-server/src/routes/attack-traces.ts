@@ -49,7 +49,7 @@ router.get("/attack-traces/stream", (req: Request, res: Response) => {
  * Get single correlated incident trace by ID.
  */
 router.get("/attack-traces/:id", (req: Request, res: Response) => {
-  const { id } = req.params;
+  const id = String(req.params.id);
   const incidents = attackCorrelationEngine.getCorrelatedIncidents();
   const incident = incidents.find((i) => i.incidentId.toLowerCase() === id.toLowerCase());
 
@@ -66,7 +66,7 @@ router.get("/attack-traces/:id", (req: Request, res: Response) => {
  * Get timeline events for an incident trace.
  */
 router.get("/attack-traces/:id/timeline", (req: Request, res: Response) => {
-  const { id } = req.params;
+  const id = String(req.params.id);
   const incidents = attackCorrelationEngine.getCorrelatedIncidents();
   const incident = incidents.find((i) => i.incidentId.toLowerCase() === id.toLowerCase());
 
@@ -87,7 +87,7 @@ router.get("/attack-traces/:id/timeline", (req: Request, res: Response) => {
  * Get node and edge graph representation for an incident trace.
  */
 router.get("/attack-traces/:id/graph", (req: Request, res: Response) => {
-  const { id } = req.params;
+  const id = String(req.params.id);
   const incidents = attackCorrelationEngine.getCorrelatedIncidents();
   const incident = incidents.find((i) => i.incidentId.toLowerCase() === id.toLowerCase());
 
@@ -107,7 +107,7 @@ router.get("/attack-traces/:id/graph", (req: Request, res: Response) => {
  * Get list of affected files for an incident trace.
  */
 router.get("/attack-traces/:id/files", (req: Request, res: Response) => {
-  const { id } = req.params;
+  const id = String(req.params.id);
   const incidents = attackCorrelationEngine.getCorrelatedIncidents();
   const incident = incidents.find((i) => i.incidentId.toLowerCase() === id.toLowerCase());
 
@@ -128,7 +128,7 @@ router.get("/attack-traces/:id/files", (req: Request, res: Response) => {
  * Get detailed impact assessment breakdown and conceptual data flow for an incident trace.
  */
 router.get("/attack-traces/:id/impact", (req: Request, res: Response) => {
-  const { id } = req.params;
+  const id = String(req.params.id);
   const incidents = attackCorrelationEngine.getCorrelatedIncidents();
   const incident = incidents.find((i) => i.incidentId.toLowerCase() === id.toLowerCase());
 
@@ -149,7 +149,7 @@ router.get("/attack-traces/:id/impact", (req: Request, res: Response) => {
  * Get 3D Backtrace & Network Intelligence model for an incident trace.
  */
 router.get("/attack-traces/:id/backtrace", async (req: Request, res: Response) => {
-  const { id } = req.params;
+  const id = String(req.params.id);
   const { backtraceEngine } = await import("../lib/backtrace-engine");
   const data = backtraceEngine.generateUnifiedBacktrace(id);
 

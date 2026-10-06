@@ -60,17 +60,32 @@ export function normalizeNetworkConnections(snapshot: NetworkSnapshot): NetworkV
       pid,
       process_name: conn.process || (pid > 0 ? `pid-${pid}` : "system"),
       executable_path: conn.executable_path ?? null,
-      protocol: conn.type === "SOCK_STREAM" ? "TCP" : conn.type === "SOCK_DGRAM" ? "UDP" : undefined,
+      protocol:
+        conn.type === "SOCK_STREAM"
+          ? "TCP"
+          : conn.type === "SOCK_DGRAM"
+          ? "UDP"
+          : conn.protocol
+          ? String(conn.protocol).toUpperCase()
+          : undefined,
       address_family: conn.address_family,
       local_addr: conn.local_addr,
       local_port: conn.local_port,
       remote_addr: conn.remote_addr,
       remote_port: conn.remote_port,
       local_role: conn.local_role,
-      remote_role: conn.remote_role,
-      state: (conn.status || "").toUpperCase() || undefined,
+      remote_role:
+        conn.remote_role ||
+        (conn.remote_addr
+          ? conn.remote_addr.startsWith("127.") || conn.remote_addr === "::1"
+            ? "LOOPBACK"
+            : conn.remote_addr.startsWith("10.") || conn.remote_addr.startsWith("192.168.")
+            ? "PRIVATE"
+            : "REMOTE"
+          : undefined),
+      state: (conn.status || (conn as any).state || "").toUpperCase() || undefined,
       connection_id: key,
-      metadata: { stableKey: `net:${key}` },
+      metadata: { stableKey: `net:${key}`, direction: conn.direction },
     };
   });
 }
