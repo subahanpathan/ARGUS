@@ -283,6 +283,30 @@ export type FileScanSnapshot = {
   findings: FileFinding[];
 };
 
+export type FileActivityOperation = "CREATE" | "MODIFY" | "DELETE" | "RENAME" | "ACCESS";
+
+export type FileActivityEvent = {
+  eventId: string;
+  timestamp: string;
+  eventType: "FILE_CREATED" | "FILE_MODIFIED" | "FILE_DELETED" | "FILE_RENAMED" | "FILE_ACCESSED" | "FILE_DIRECTORY_CHANGED";
+  filePath: string;
+  oldFilePath?: string | null;
+  newFilePath?: string | null;
+  operation: FileActivityOperation;
+  pid?: number | null;
+  processName?: string | null;
+  executablePath?: string | null;
+  parentPid?: number | null;
+  parentProcessName?: string | null;
+  fileSize?: number | null;
+  extension?: string | null;
+  hash?: string | null;
+  source: string;
+  observationStatus: "OBSERVED" | "CORRELATED" | "INFERRED" | "UNKNOWN";
+  hashStatus?: "HASH_OBSERVED" | "HASH_NOT_AVAILABLE";
+  metadata?: Record<string, unknown>;
+};
+
 /** SSE broadcast wrapper emitted when a detection is created or updated. */
 export type DetectionBroadcast = {
   type: string;
@@ -358,6 +382,24 @@ const MAX_BUFFERED_EVENTS = 500;
 const MAX_SSE_CLIENTS = 50;
 const MAX_BUFFERED_CONNECTION_EVENTS = 1000;
 const MAX_BUFFERED_DETECTIONS = 300;
+export type SecurityProvidersSnapshot = {
+  timestamp: string;
+  source: string;
+  observed: boolean;
+  discovery_state: string;
+  provider_count: number;
+  providers: Array<Record<string, unknown>>;
+  alerts: Array<Record<string, unknown>>;
+  errors: Array<Record<string, unknown>>;
+};
+
+export type ServicesSnapshot = {
+  timestamp: string;
+  source: string;
+  observed: boolean;
+  service_count: number;
+  services: Array<Record<string, unknown>>;
+};
 
 class EventHub {
   private events: ProcessEvent[] = [];
@@ -369,9 +411,75 @@ class EventHub {
   private ports: PortIntelligenceSnapshot | null = null;
   private portEventHistory: PortEvent[] = [];
   private fileScan: FileScanSnapshot | null = null;
+  private fileActivityHistory: FileActivityEvent[] = [];
   private detections: Detection[] = [];
+  private agentHeartbeat: AgentHeartbeat | null = null;
+  private lastHeartbeatTime = 0;
+  private securityProviders: SecurityProvidersSnapshot | null = null;
+  private servicesSnapshot: ServicesSnapshot | null = null;
   private sseClients: Map<string, SSEClient> = new Map();
   private clientCounter = 0;
+
+  addFileActivity(event: FileActivityEvent): void {
+    // Deduplicate identical events within 500ms
+    const existingIndex = this.fileActivityHistory.findIndex(
+      (e) =>
+        e.filePath === event.filePath &&
+        e.operation === event.operation &&
+        Math.abs(new Date(e.timestamp).getTime() - new Date(event.timestamp).getTime()) < 500
+    );
+    if (existingIndex >= 0) return;
+
+    this.fileActivityHistory.push(event);
+    if (this.fileActivityHistory.length > 500) {
+      this.fileActivityHistory = this.fileActivityHistory.slice(-500);
+    }
+    this.broadcast({ type: "file.activity", timestamp: event.timestamp, event } as any, ["files.scan", "telemetry"]);
+  }
+
+  getFileActivity(limit = 200): FileActivityEvent[] {
+    if (limit <= 0) return [];
+    return [...this.fileActivityHistory].slice(-limit).reverse();
+  }
+
+  setSecurityProviders(snapshot: SecurityProvidersSnapshot): void {
+    this.securityProviders = snapshot;
+    this.broadcast(snapshot as any, ["telemetry"]);
+  }
+
+  getSecurityProviders(): SecurityProvidersSnapshot | null {
+    return this.securityProviders;
+  }
+
+  setServices(snapshot: ServicesSnapshot): void {
+    this.servicesSnapshot = snapshot;
+    this.broadcast(snapshot as any, ["telemetry"]);
+  }
+
+  getServices(): ServicesSnapshot | null {
+    return this.servicesSnapshot;
+  }
+
+  recordAgentHeartbeat(heartbeat: AgentHeartbeat): void {
+    this.agentHeartbeat = heartbeat;
+    this.lastHeartbeatTime = Date.now();
+    this.broadcast({ type: "monitoring.agent", timestamp: new Date().toISOString(), heartbeat } as any, ["telemetry"]);
+  }
+
+  getAgentHeartbeat(): AgentHeartbeat | null {
+    return this.agentHeartbeat;
+  }
+
+  isAgentLive(ttlMs = 15000): boolean {
+    if (!this.lastHeartbeatTime) {
+      // Also return true if telemetry or snapshot arrived recently from security engine
+      const telemetryTime = this.telemetry?.timestamp ? new Date(this.telemetry.timestamp).getTime() : 0;
+      const snapshotTime = this.snapshot?.timestamp ? new Date(this.snapshot.timestamp).getTime() : 0;
+      const latest = Math.max(telemetryTime, snapshotTime);
+      return latest > 0 && Date.now() - latest < ttlMs;
+    }
+    return Date.now() - this.lastHeartbeatTime < ttlMs;
+  }
 
   /** Store a process event and broadcast to SSE clients. */
   addEvent(event: ProcessEvent): void {

@@ -13,7 +13,7 @@ import {
   History, Info, Laptop, LayoutDashboard, LockKeyhole, LogOut, Menu, Network,
   Pause, Play, Plus, RefreshCw, Radar, Search, Send, Settings2, Shield,
   ShieldAlert, ShieldCheck, SlidersHorizontal, Sparkles, TerminalSquare,
-  Trash2, Wifi, X, Zap, Radio, ExternalLink
+  Trash2, Wifi, X, Zap, Radio, ExternalLink, GitBranch, Compass
 } from 'lucide-react';
 import { useProcessMonitor, type RealProcessEvent, type RealProcessInfo } from '@/hooks/use-process-monitor';
 import { useAutonomousDemo, DEMO_STEP, DEMO_DASHBOARD_DURATION_MS, type AutonomousDemoState, type DemoRunState } from '@/hooks/use-autonomous-demo';
@@ -42,12 +42,14 @@ import { hasActivationMarker, fetchActivationStatus, deactivate } from '@/lib/ac
 import FilesPage from '@/pages/files-page';
 import ExposurePage from '@/pages/exposure-page';
 import TimelinePage from '@/pages/timeline-page';
+import AttackTracePage from '@/pages/attack-trace-page';
 import ExposureWindowPage from '@/pages/exposure-window-page';
 import QuarantinePage from '@/pages/quarantine-page';
 import IntelligencePage from '@/pages/intelligence-page';
 import ReportsPage from '@/pages/reports-page';
 import HistoryPage from '@/pages/history-page';
 import CyberCellPage from '@/pages/cyber-cell-page';
+import BacktraceInvestigationPage from '@/pages/backtrace-investigation-page';
 import { useQuarantine } from '@/hooks/use-quarantine';
 import { useReports } from '@/hooks/use-reports';
 
@@ -116,7 +118,7 @@ const navGroups: Array<{ label: string; items: Array<[string, string, typeof Act
     ['/processes', 'Processes', TerminalSquare], ['/files', 'Files', FileSearch],     ['/network', 'Network Universe', Network],
   ]},
   { label: 'Investigate', items: [
-    ['/exposure', 'Exposure assessment', Eye], ['/exposure-window', 'Exposure window', Clock3], ['/timeline', 'Forensic timeline', History],
+    ['/exposure', 'Exposure assessment', Eye], ['/attack-trace', 'Live Attack Trace', GitBranch], ['/backtrace', '3D Backtrace', Compass], ['/exposure-window', 'Exposure window', Clock3], ['/timeline', 'Forensic timeline', History],
     ['/quarantine', 'Quarantine', Archive], ['/intelligence', 'Intelligence', BrainCircuit],
   ]},
   { label: 'Decide', items: [
@@ -925,6 +927,8 @@ function AppContent() {
     }} />;
     if (location === '/network') return <NetworkPage toast={toast} contained={contained} />;
     if (location === '/exposure') return <ExposurePage phase={phase} toast={toast} threatAnalysis={threatAnalysis} fileScan={fileScan} processMonitor={processMonitor} networkMonitor={networkMonitor} onNavigate={setLocation} contained={contained} onContain={() => containThreat('thr-1')} />;
+    if (location === '/attack-trace') return <AttackTracePage toast={toast} onNavigate={setLocation} />;
+    if (location === '/backtrace' || location === '/backtrace-3d') return <BacktraceInvestigationPage onNavigate={setLocation} />;
     if (location === '/exposure-window') return <ExposureWindowPage phase={phase} toast={toast} threatAnalysis={threatAnalysis} processMonitor={processMonitor} networkMonitor={networkMonitor} fileScan={fileScan} telemetry={telemetryStream} contained={contained} onNavigate={setLocation} />;
     if (location === '/timeline') return <TimelinePage phase={phase} toast={toast} processMonitor={processMonitor} networkMonitor={networkMonitor} threatAnalysis={threatAnalysis} fileScan={fileScan} telemetry={telemetryStream} contained={contained} onNavigate={setLocation} />;
     if (location === '/quarantine') return <QuarantinePage items={quarantineManager.items} setItems={quarantineManager.setItems} toast={toast} setModal={setModal} setLocation={setLocation} onAddQuarantine={quarantineManager.addQuarantine} onRestore={quarantineManager.restoreQuarantine} onPurge={quarantineManager.purgeQuarantine} onVerify={quarantineManager.verifyIntegrity} vaultPath={quarantineManager.vaultPath} />;

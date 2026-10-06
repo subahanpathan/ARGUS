@@ -12,6 +12,8 @@ import recoveryRouter from "./recovery";
 import intelligenceRouter from "./intelligence";
 import quarantineRouter from "./quarantine";
 import reportsRouter from "./reports";
+import attackTracesRouter from "./attack-traces";
+import incidentsRouter from "./incidents";
 
 const router: IRouter = Router();
 
@@ -28,5 +30,7 @@ router.use(recoveryRouter);
 router.use(intelligenceRouter);
 router.use(quarantineRouter);
 router.use(reportsRouter);
+router.use(attackTracesRouter);
+router.use(incidentsRouter);
 
 export default router;
