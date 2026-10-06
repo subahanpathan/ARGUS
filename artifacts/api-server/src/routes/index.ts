@@ -6,9 +6,14 @@ import networkRouter from "./network";
 import iconRouter from "./icon";
 import fileRouter from "./file";
 import detectionsRouter from "./detections";
+import authRouter from "./auth";
+import monitoringRouter from "./monitoring";
+import recoveryRouter from "./recovery";
 import intelligenceRouter from "./intelligence";
 import quarantineRouter from "./quarantine";
 import reportsRouter from "./reports";
+import attackTracesRouter from "./attack-traces";
+import incidentsRouter from "./incidents";
 
 const router: IRouter = Router();
 
@@ -19,8 +24,13 @@ router.use(networkRouter);
 router.use(iconRouter);
 router.use(fileRouter);
 router.use(detectionsRouter);
+router.use(authRouter);
+router.use(monitoringRouter);
+router.use(recoveryRouter);
 router.use(intelligenceRouter);
 router.use(quarantineRouter);
 router.use(reportsRouter);
+router.use(attackTracesRouter);
+router.use(incidentsRouter);
 
 export default router;

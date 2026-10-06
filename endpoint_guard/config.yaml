@@ -1,0 +1,147 @@
+# Endpoint Guard Configuration File
+version: "1.0.0"
+
+general:
+  app_name: "Endpoint Guard"
+  log_level: "INFO"
+  data_dir: "C:\\ProgramData\\EndpointGuard"
+  db_path: "C:\\ProgramData\\EndpointGuard\\endpoint_guard.db"
+  quarantine_dir: "C:\\ProgramData\\EndpointGuard\\quarantine"
+  incident_dir: "C:\\ProgramData\\EndpointGuard\\incidents"
+  canary_dir: "C:\\ProgramData\\EndpointGuard\\canaries"
+  dry_run: false  # If true, detects and logs only; does not kill processes or block firewall
+
+dashboard:
+  host: "127.0.0.1"
+  port: 8443
+  secret_key: "endpoint-guard-local-secure-key"
+
+self_protection:
+  heartbeat_interval_seconds: 5
+  protected_processes:
+    - "endpoint_guard"
+    - "python.exe"  # When running endpoint_guard main
+  critical_system_processes:
+    - "system"
+    - "smss.exe"
+    - "csrss.exe"
+    - "wininit.exe"
+    - "services.exe"
+    - "lsass.exe"
+    - "svchost.exe"
+    - "explorer.exe"
+    - "winlogon.exe"
+    - "spoolsv.exe"
+
+network:
+  scan_interval_seconds: 1.0
+  port_scan_threshold: 15          # distinct ports hit in window
+  port_scan_window_seconds: 10
+  brute_force_threshold: 5          # failed attempts in window
+  brute_force_window_seconds: 60
+  # Common reverse-shell / C2 payload ports
+  suspicious_ports:
+    - 4444
+    - 4445
+    - 1337
+    - 8888
+    - 9001
+    - 5555
+    - 6666
+    - 31337
+  trusted_ips:
+    - "127.0.0.1"
+    - "::1"
+    - "0.0.0.0"
+  trusted_subnets:
+    - "127.0.0.0/8"
+
+process:
+  poll_interval_seconds: 1.0
+  suspicious_lolbins:
+    - "certutil.exe"
+    - "bitsadmin.exe"
+    - "mshta.exe"
+    - "regsvr32.exe"
+    - "wmic.exe"
+    - "rundll32.exe"
+    - "cscript.exe"
+    - "wscript.exe"
+  suspicious_parents:
+    - "winword.exe"
+    - "excel.exe"
+    - "powerpnt.exe"
+    - "outlook.exe"
+    - "acrobat.exe"
+  suspicious_children:
+    - "cmd.exe"
+    - "powershell.exe"
+    - "pwsh.exe"
+    - "wscript.exe"
+    - "cscript.exe"
+    - "bash.exe"
+    - "sh.exe"
+  untrusted_execution_paths:
+    - "AppData\\Local\\Temp"
+    - "Windows\\Temp"
+    - "Downloads"
+
+files:
+  protected_directories:
+    - "Documents"
+    - "Desktop"
+    - "Downloads"
+  bulk_read_threshold: 20           # files touched in window
+  bulk_read_window_seconds: 10
+  sensitive_extensions:
+    - ".docx"
+    - ".xlsx"
+    - ".pdf"
+    - ".txt"
+    - ".key"
+    - ".kdbx"
+    - ".env"
+    - ".pem"
+    - ".id_rsa"
+    - ".sql"
+    - ".db"
+
+canary:
+  enabled: true
+  files:
+    - name: "passwords.xlsx"
+      rel_path: "Documents\\passwords.xlsx"
+    - name: "corporate_secrets.docx"
+      rel_path: "Desktop\\corporate_secrets.docx"
+    - name: "vpn_credentials.txt"
+      rel_path: "Documents\\vpn_credentials.txt"
+
+peripherals:
+  poll_interval_seconds: 1.0
+  approved_camera_apps:
+    - "zoom.exe"
+    - "teams.exe"
+    - "chrome.exe"
+    - "msedge.exe"
+    - "firefox.exe"
+    - "obs64.exe"
+    - "skype.exe"
+  approved_microphone_apps:
+    - "zoom.exe"
+    - "teams.exe"
+    - "chrome.exe"
+    - "msedge.exe"
+    - "firefox.exe"
+    - "obs64.exe"
+    - "discord.exe"
+    - "audacity.exe"
+
+response_playbook:
+  low:
+    action: "log"
+  medium:
+    action: "alert_and_capture"
+  high:
+    action: "kill_and_block"
+  critical:
+    action: "isolate_host_and_quarantine"

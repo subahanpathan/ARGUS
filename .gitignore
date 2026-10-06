@@ -50,7 +50,10 @@ Thumbs.db
 .local/
 
 .vercel
+.env
 .env*.local
+*.pid
+*.pyc
 
 # Local run logs and python cache
 *.log
@@ -58,6 +61,9 @@ Thumbs.db
 __pycache__/
 .venv/
 .app.pid
+scratch/
+var/
+vercel-error.json
 
 # Quarantine isolated files and runtime vault
 *.quarantined

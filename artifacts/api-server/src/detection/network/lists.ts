@@ -18,11 +18,14 @@ const NON_REMOTE_ROLES = new Set(["LOCAL", "LOOPBACK", "PRIVATE", "LINK_LOCAL", 
  */
 const KNOWN_TOOL_PORTS = new Set<number>([
   23, // Telnet (tunnelled C2)
+  1337, // Elite / common hacker listener
   4444, // Metasploit meterpreter default
   4445, // Metasploit alternate
   5555, // ADB reverse / backdoor default
   6666, // IRC botnet channel
   6667, // IRC botnet channel
+  8888, // Common proxy / reverse shell
+  9001, // Tor / netcat reverse shell
   9999, // Common reverse-shell / backdoor wildcard
   12345, // NetBus / classic RAT
   31337, // Back Orifice / "elite" rootkit
@@ -32,6 +35,25 @@ const KNOWN_TOOL_PORTS = new Set<number>([
 /** True when the address role represents an actual remote (public) endpoint. */
 export function isRemoteRole(role: string | null | undefined): boolean {
   return typeof role === "string" && !NON_REMOTE_ROLES.has(role);
+}
+
+/** Loopback / local machine addresses that are never external endpoints. */
+const STRICT_LOCAL_ROLES = new Set(["LOCAL", "LOOPBACK"]);
+const STRICT_LOCAL_ADDRS = new Set(["127.0.0.1", "::1", "0.0.0.0", "localhost", ""]);
+
+/**
+ * Returns true if the address represents an external device (either public internet
+ * OR a private network host such as a virtual Kali VM, LAN attacker, or rogue gateway).
+ */
+export function isExternalOrPrivateRole(
+  role: string | null | undefined,
+  remoteAddr?: string | null
+): boolean {
+  if (remoteAddr && (STRICT_LOCAL_ADDRS.has(remoteAddr) || remoteAddr.startsWith("127."))) {
+    return false;
+  }
+  if (!role) return Boolean(remoteAddr && !STRICT_LOCAL_ADDRS.has(remoteAddr));
+  return !STRICT_LOCAL_ROLES.has(role.toUpperCase());
 }
 
 /** True when the port is on the known offensive-tooling list. */

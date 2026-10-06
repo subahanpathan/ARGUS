@@ -17,6 +17,7 @@ import json
 import logging
 import signal
 import sys
+import os
 import threading
 import time
 from typing import Any
@@ -30,6 +31,7 @@ from network_monitor import NetworkTopologyWatcher, NetworkTopologySnapshot
 from network_monitor import PortIntelligenceWatcher, PortIntelligenceSnapshot
 from file_monitor import FileMonitorWatcher, FileScanSnapshot
 from file_monitor.scanner import running_process_paths
+from peripheral_monitor import PeripheralWatcher
 from api_client import ArgusApiClient
 
 logging.basicConfig(
@@ -56,17 +58,46 @@ class ArgusEngine:
         self._topology_monitor: NetworkTopologyWatcher | None = None
         self._port_monitor: PortIntelligenceWatcher | None = None
         self._file_monitor: FileMonitorWatcher | None = None
+        self._peripheral_monitor: PeripheralWatcher | None = None
         self._snapshot_thread: threading.Thread | None = None
         self._last_running_paths: set[str] = set()
         self._event_buffer: list[dict[str, Any]] = []
         self._flush_interval = 2.0  # seconds
         self._running = False
 
+    def _deploy_canary_files(self) -> None:
+        try:
+            user_profile = os.environ.get("USERPROFILE", "C:\\Users\\Default")
+            canaries = [
+                (os.path.join(user_profile, "Documents", "passwords.xlsx"), b"PK\x03\x04[ARGUS_HONEYPOT_PASSWORDS]\nadmin:ArgusPass2026!\n"),
+                (os.path.join(user_profile, "Desktop", "corporate_secrets.docx"), b"PK\x03\x04[ARGUS_HONEYPOT_SECRETS]\nConfidential Corporate Plans 2026\n"),
+            ]
+            for path, content in canaries:
+                os.makedirs(os.path.dirname(path), exist_ok=True)
+                if not os.path.exists(path):
+                    with open(path, "wb") as f:
+                        f.write(content)
+        except Exception as e:
+            logger.debug("Canary setup notice: %s", e)
+
+    def _on_peripheral_event(self, event_data: dict[str, Any]) -> None:
+        logger.warning(
+            "SURVEILLANCE INTERCEPT: Unauthorized %s access by %s (PID %s)!",
+            event_data.get("device"),
+            event_data.get("process_name"),
+            event_data.get("pid"),
+        )
+        if self._api_client:
+            self._api_client.send_event(event_data)
+
     def start(self) -> None:
         """Initialize and start all engine components."""
         logger.info("=" * 60)
-        logger.info("ARGUS Security Engine — Phase 1/2/3: Process, System & Network Monitoring")
+        logger.info("ARGUS Security Engine — Active Defense & Threat Prevention")
         logger.info("=" * 60)
+
+        # Deploy honeytoken decoy canary files
+        self._deploy_canary_files()
 
         if self._use_api:
             self._api_client = ArgusApiClient()
@@ -89,6 +120,13 @@ class ArgusEngine:
             on_event=self._on_process_event,
         )
         self._watcher.start()
+
+        # Start Camera & Microphone Peripheral Watcher
+        self._peripheral_monitor = PeripheralWatcher(
+            on_event=self._on_peripheral_event,
+            poll_interval_ms=1000,
+        )
+        self._peripheral_monitor.start()
 
         if self._use_api:
             self._system_monitor = SystemMonitorWatcher(
@@ -127,11 +165,9 @@ class ArgusEngine:
         self._running = True
 
         logger.info(
-            "Engine running — process polling every %dms, telemetry every %dms, network/topology every %dms, ports every %dms, files every %dms",
+            "Engine running — active defense, peripherals, process polling %dms, network %dms, files %dms",
             Config.PROCESS_POLL_INTERVAL_MS,
-            Config.TELEMETRY_INTERVAL_MS,
             Config.CONNECTION_POLL_INTERVAL_MS,
-            Config.PORT_POLL_INTERVAL_MS,
             Config.FILE_POLL_INTERVAL_MS,
         )
         logger.info("Press Ctrl+C to stop")
@@ -294,6 +330,10 @@ class ArgusEngine:
                 self._file_monitor.snapshot_count,
                 self._file_monitor.callback_errors,
             )
+
+        if self._peripheral_monitor:
+            self._peripheral_monitor.stop()
+            logger.info("Peripheral watcher stopped.")
 
         if self._watcher:
             self._watcher.stop()

@@ -13,7 +13,7 @@ import {
   History, Info, Laptop, LayoutDashboard, LockKeyhole, LogOut, Menu, Network,
   Pause, Play, Plus, RefreshCw, Radar, Search, Send, Settings2, Shield,
   ShieldAlert, ShieldCheck, SlidersHorizontal, Sparkles, TerminalSquare,
-  Trash2, Wifi, X, Zap, Radio, ExternalLink
+  Trash2, Wifi, X, Zap, Radio, ExternalLink, GitBranch, Compass
 } from 'lucide-react';
 import { useProcessMonitor, type RealProcessEvent, type RealProcessInfo } from '@/hooks/use-process-monitor';
 import { useAutonomousDemo, DEMO_STEP, DEMO_DASHBOARD_DURATION_MS, type AutonomousDemoState, type DemoRunState } from '@/hooks/use-autonomous-demo';
@@ -37,15 +37,19 @@ import { LiveChart } from '@/motion/live-chart';
 import NotFound from '@/pages/not-found';
 import MonitoringPage from '@/pages/monitoring-page';
 import ProcessesPage from '@/pages/processes-page';
+import ActivationScreen from '@/components/activation/activation-screen';
+import { hasActivationMarker, fetchActivationStatus, deactivate } from '@/lib/activation';
 import FilesPage from '@/pages/files-page';
 import ExposurePage from '@/pages/exposure-page';
 import TimelinePage from '@/pages/timeline-page';
+import AttackTracePage from '@/pages/attack-trace-page';
 import ExposureWindowPage from '@/pages/exposure-window-page';
 import QuarantinePage from '@/pages/quarantine-page';
 import IntelligencePage from '@/pages/intelligence-page';
 import ReportsPage from '@/pages/reports-page';
 import HistoryPage from '@/pages/history-page';
 import CyberCellPage from '@/pages/cyber-cell-page';
+import BacktraceInvestigationPage from '@/pages/backtrace-investigation-page';
 import AutoRemediationPage from '@/pages/auto-remediation-page';
 import { ThreatsPage } from '@/pages/threats-page';
 import { DashboardPage } from '@/pages/dashboard-page';
@@ -117,7 +121,7 @@ const navGroups: Array<{ label: string; items: Array<[string, string, typeof Act
     ['/processes', 'Processes', TerminalSquare], ['/files', 'Files', FileSearch],     ['/network', 'Network Universe', Network],
   ]},
   { label: 'Investigate', items: [
-    ['/exposure', 'Exposure assessment', Eye], ['/exposure-window', 'Exposure window', Clock3], ['/timeline', 'Forensic timeline', History],
+    ['/exposure', 'Exposure assessment', Eye], ['/attack-trace', 'Live Attack Trace', GitBranch], ['/backtrace', '3D Backtrace', Compass], ['/exposure-window', 'Exposure window', Clock3], ['/timeline', 'Forensic timeline', History],
     ['/quarantine', 'Quarantine', Archive], ['/intelligence', 'Intelligence', BrainCircuit],
   ]},
   { label: 'Decide', items: [
@@ -913,8 +917,8 @@ function AutonomousDemoPill({ demo, onStop }: { demo: AutonomousDemoState; onSto
 
 function AppContent() {
   const [location, setLocation] = useLocation();
-  const [session, setSession] = useState(false);
-  const [userName, setUserName] = useState('');
+  const [session, setSession] = useState(() => hasActivationMarker());
+  const [userName, setUserName] = useState('Analyst');
   const [authMode, setAuthMode] = useState<AuthMode>('login');
   const [mobileOpen, setMobileOpen] = useState(false);
   const [phase, setPhase] = useState(0);
@@ -926,6 +930,16 @@ function AppContent() {
   const [cyberCellSubmitted, setCyberCellSubmitted] = useState(false);
   const [modal, setModal] = useState<ModalState>(null);
   const [toasts, setToasts] = useState<Array<{ id: number; title: string; body: string }>>([]);
+
+  useEffect(() => {
+    fetchActivationStatus().then((active) => {
+      if (active === true) {
+        setSession(true);
+      } else if (active === false) {
+        setSession(false);
+      }
+    });
+  }, []);
 
   const processMonitor = useProcessMonitor();
   const telemetryStream = useTelemetryStream();
@@ -1020,12 +1034,13 @@ function AppContent() {
 
   const logout = () => {
     stopDemo();
+    deactivate();
     setSession(false);
     setAuthMode('login');
     setMobileOpen(false);
     setModal(null);
-    setLocation('/login');
-    toast('Signed out', 'Session cleared. Incident demo state is preserved for the next sign-in.');
+    setLocation('/activate');
+    toast('Deactivated', 'ARGUS session deactivated.');
   };
 
   useEffect(() => {
@@ -1046,7 +1061,7 @@ function AppContent() {
   }, [phase, demoState, autoDemo.state.demoMode]);
 
   useEffect(() => {
-    if (!session && location !== '/login') setLocation('/login');
+    if (!session && location !== '/activate' && location !== '/login') setLocation('/activate');
   }, [session, location, setLocation]);
 
   const incidentStatus = phase >= 8 ? 'Contained' : phase >= 7 ? 'Detected' : phase >= 5 ? 'Assessing' : phase > 0 ? 'Monitoring' : 'Open';
@@ -1071,6 +1086,8 @@ function AppContent() {
     }} />;
     if (location === '/network') return <NetworkPage toast={toast} contained={contained} />;
     if (location === '/exposure') return <ExposurePage phase={phase} toast={toast} threatAnalysis={threatAnalysis} fileScan={fileScan} processMonitor={processMonitor} networkMonitor={networkMonitor} onNavigate={setLocation} contained={contained} onContain={() => containThreat('thr-1')} />;
+    if (location === '/attack-trace') return <AttackTracePage toast={toast} onNavigate={setLocation} />;
+    if (location === '/backtrace' || location === '/backtrace-3d') return <BacktraceInvestigationPage onNavigate={setLocation} />;
     if (location === '/exposure-window') return <ExposureWindowPage phase={phase} toast={toast} threatAnalysis={threatAnalysis} processMonitor={processMonitor} networkMonitor={networkMonitor} fileScan={fileScan} telemetry={telemetryStream} contained={contained} onNavigate={setLocation} />;
     if (location === '/timeline') return <TimelinePage phase={phase} toast={toast} processMonitor={processMonitor} networkMonitor={networkMonitor} threatAnalysis={threatAnalysis} fileScan={fileScan} telemetry={telemetryStream} contained={contained} onNavigate={setLocation} />;
     if (location === '/quarantine') return <QuarantinePage items={quarantineManager.items} setItems={quarantineManager.setItems} toast={toast} setModal={setModal} setLocation={setLocation} onAddQuarantine={quarantineManager.addQuarantine} onRestore={quarantineManager.restoreQuarantine} onPurge={quarantineManager.purgeQuarantine} onVerify={quarantineManager.verifyIntegrity} vaultPath={quarantineManager.vaultPath} />;
@@ -1085,19 +1102,15 @@ function AppContent() {
 
   const toastStack = <div className="toast-stack">{toasts.map((t) => <div className="toast" key={t.id} data-testid={`toast-${t.id}`}><strong>{t.title}</strong><p>{t.body}</p></div>)}</div>;
 
-  if (!session || location === '/login') {
+  if (!session || location === '/login' || location === '/activate') {
     return <>
-      <AuthScreen
-        onAuthed={(name) => {
-          setUserName(name || 'Analyst');
+      <ActivationScreen
+        onActivated={() => {
+          setUserName('Analyst');
           setSession(true);
-          setAuthMode('login');
           setLocation('/dashboard');
-          toast(authMode === 'register' ? `Welcome, ${name || 'Analyst'}` : `Welcome back, ${name || 'Investigator'}`, authMode === 'register' ? 'Account provisioned and secure workspace initialized with local synthetic telemetry.' : 'Demo workspace initialized with local synthetic telemetry.');
+          toast('ARGUS Activated', 'ARGUS installation activated successfully.');
         }}
-        onSwitch={setAuthMode}
-        mode={authMode}
-        initialName={userName ? userName.split(' ')[0] : ''}
       />
       {toastStack}
     </>;
