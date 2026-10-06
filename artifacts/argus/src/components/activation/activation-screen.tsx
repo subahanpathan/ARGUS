@@ -68,11 +68,11 @@ export function ActivationScreen({ onActivated }: { onActivated: () => void }) {
     setDownloadError(null);
     try {
       // Ask the server whether the installer exists, then trigger the download.
-      // The endpoint either serves the bundled installer or redirects (302) to
-      // a static asset on serverless hosts — follow up to the final status.
+      // The endpoint serves the bundled installer, or redirects (302) to a
+      // static asset on serverless hosts, or to the GitHub Release asset.
       let status = 0;
       let url = '/api/desktop/download';
-      for (let hop = 0; hop < 3; hop++) {
+      for (let hop = 0; hop < 4; hop++) {
         const probe = await fetch(url, { method: 'HEAD', redirect: 'manual' });
         status = probe.status;
         const loc = probe.headers.get('location');

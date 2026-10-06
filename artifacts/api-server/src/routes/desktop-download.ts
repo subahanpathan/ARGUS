@@ -9,13 +9,17 @@ const router: IRouter = Router();
 /**
  * Serves the ARGUS desktop installer when it is bundled next to the server.
  *
- * Layouts supported (relative to the server bundle directory):
- *   downloads/ARGUS-Setup.exe   <- preferred: drop the installer in ./downloads
- *   ../downloads/ARGUS-Setup.exe
+ * Resolution order:
+ *   1. downloads/ARGUS-Setup.exe bundled next to the server (local install)
+ *   2. /ARGUS-Setup.exe static asset in the web app's public output (serverless)
+ *   3. Latest GitHub Release asset (repo is clean of binaries - CI uploads there)
  *
- * If no installer is bundled the endpoint reports 404 with a JSON error so the
- * UI can fall back gracefully.
+ * If none exist the endpoint reports 404 so the UI can fall back gracefully.
  */
+
+const RELEASE_FALLBACK =
+  process.env.ARGUS_INSTALLER_URL ||
+  "https://github.com/subahanpathan/ARGUS/releases/latest/download/ARGUS-Setup.exe";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const CANDIDATES = [
@@ -53,7 +57,7 @@ router.get("/desktop/download", (_req, res) => {
     res.sendFile(installer);
     return;
   }
-  // Serverless / static-hosting fallback: redirect to the public asset.
+  // Serverless / static-hosting fallback, then the GitHub Release asset.
   res.redirect(302, STATIC_FALLBACK);
 });
 
@@ -68,5 +72,7 @@ router.head("/desktop/download", (_req, res) => {
   // Follows the redirect to /ARGUS-Setup.exe; static host answers 200/404.
   res.redirect(302, STATIC_FALLBACK);
 });
+
+export { RELEASE_FALLBACK };
 
 export default router;
