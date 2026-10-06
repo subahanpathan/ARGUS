@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   ShieldAlert,
   ShieldCheck,
@@ -24,6 +24,7 @@ import type { ProcessMonitorState } from '@/hooks/use-process-monitor';
 import type { NetworkMonitorState } from '@/hooks/use-network-monitor';
 import type { FileScanState } from '@/hooks/use-file-scan';
 import type { ThreatAnalysisState } from '@/hooks/use-threat-analysis';
+import { useRemediationLedger } from '@/hooks/use-remediation-ledger';
 
 function cn(...values: Array<string | false | undefined | null>) {
   return values.filter(Boolean).join(' ');
@@ -73,6 +74,25 @@ export default function CyberCellPage({
   const activeProcesses = processMonitor?.snapshot || [];
   const activeConnections = networkMonitor?.snapshot?.connections || [];
   const filesFound = fileScan?.findings || [];
+
+  const isLive = Boolean(
+    (processMonitor?.hasData && (processMonitor.snapshot?.length || 0) > 0) ||
+    (rawTelemetry && (telemetry && 'connected' in telemetry ? telemetry.connected : true))
+  );
+
+  const { remediations } = useRemediationLedger({ toast, showToasts: false });
+  const sensitiveThreats = useMemo(() => {
+    return remediations.filter((r) => r.isSensitiveData && r.directedToCyberCell);
+  }, [remediations]);
+
+  // Auto-switch mode based on real host telemetry vs simulation
+  useEffect(() => {
+    if (isLive) {
+      setMode('realtime');
+    } else {
+      setMode('simulation');
+    }
+  }, [isLive]);
 
   // Generate authentic live summary
   const liveSummary = useMemo(() => {
@@ -229,31 +249,7 @@ Forensic Assessment: Live sensor fabric stream attached to endpoint. Cryptograph
           </div>
         </div>
 
-        <div style={{ display: 'flex', gap: 8 }}>
-          <button
-            type="button"
-            className={cn('btn btn-sm', mode === 'realtime' ? 'btn-primary' : 'btn-ghost')}
-            style={mode === 'realtime' ? { background: 'hsl(var(--signal-good))', borderColor: 'hsl(var(--signal-good))', color: '#000' } : {}}
-            onClick={() => {
-              setMode('realtime');
-              toast('Live Host Escalation', `Switched Cyber Cell brief to compile evidence for ${hostName}`);
-            }}
-          >
-            <Activity size={13} />
-            Live Host Evidence
-          </button>
-          <button
-            type="button"
-            className={cn('btn btn-sm', mode === 'simulation' ? 'btn-primary' : 'btn-ghost')}
-            onClick={() => {
-              setMode('simulation');
-              toast('Drill Mode', 'Switched Cyber Cell brief to synthetic demo sequence');
-            }}
-          >
-            <Radar size={13} />
-            Simulated Drill
-          </button>
-        </div>
+
       </div>
 
       {/* Main Submission Card or Confirmation Card */}
@@ -342,9 +338,99 @@ Forensic Assessment: Live sensor fabric stream attached to endpoint. Cryptograph
           </div>
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.8fr) minmax(0, 1.2fr)', gap: 16, alignItems: 'start' }}>
-          {/* Submission Form Card */}
-          <div className="card card-pad" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <>
+          {/* Auto-Escalated Sensitive Incidents Banner */}
+          {sensitiveThreats.length > 0 && (
+            <div
+              className="card card-pad"
+              style={{
+                marginBottom: 16,
+                border: '1px solid hsla(280, 80%, 50%, 0.35)',
+                background: 'linear-gradient(135deg, hsla(280, 80%, 40%, 0.08), hsla(280, 70%, 20%, 0.04))',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, flexWrap: 'wrap', gap: 10 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <ShieldAlert size={20} style={{ color: 'hsl(280 85% 70%)' }} />
+                  <div>
+                    <h3 style={{ fontSize: 14, fontWeight: 700, margin: 0, color: 'hsl(280 85% 90%)' }}>
+                      Detection Engine · Auto-Escalated Sensitive Incident Dockets
+                    </h3>
+                    <p className="muted" style={{ fontSize: 11, margin: '2px 0 0 0' }}>
+                      {sensitiveThreats.length} high-criticality sensitive artifact(s) automatically neutralized and referred for law enforcement &amp; CERT-In escalation.
+                    </p>
+                  </div>
+                </div>
+                <span
+                  className="badge badge-critical"
+                  style={{
+                    fontSize: 10,
+                    background: 'hsl(280 80% 20%)',
+                    color: 'hsl(280 80% 85%)',
+                    border: '1px solid hsl(280 80% 40%)',
+                  }}
+                >
+                  AUTOMATICALLY ATTACHED TO DOSSIER
+                </span>
+              </div>
+
+              <div style={{ display: 'grid', gap: 8 }}>
+                {sensitiveThreats.map((st) => (
+                  <div
+                    key={st.id}
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      padding: '8px 12px',
+                      borderRadius: 6,
+                      background: 'hsl(var(--card))',
+                      border: '1px solid hsl(var(--border))',
+                      fontSize: 11,
+                      flexWrap: 'wrap',
+                      gap: 8,
+                    }}
+                  >
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span className="mono" style={{ fontWeight: 700, color: 'hsl(280 85% 75%)' }}>
+                          {st.cyberCellCaseId}
+                        </span>
+                        <b>{st.name}</b>
+                        <span className="badge badge-low" style={{ fontSize: 9 }}>
+                          ⚡ {st.timeIntervalFormatted} dwell
+                        </span>
+                      </div>
+                      <div className="mono muted" style={{ fontSize: 10, marginTop: 2 }}>
+                        {st.path} · {st.sensitiveCategory}
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <span className="mono muted" style={{ fontSize: 10 }}>
+                        SHA-256: {st.hash.slice(0, 8)}…{st.hash.slice(-8)}
+                      </span>
+                      <span
+                        className="badge"
+                        style={{
+                          fontSize: 9,
+                          background: st.actionTaken === 'AUTOMATED_PURGE_DELETED' ? 'hsl(0 80% 15%)' : 'hsl(38 90% 15%)',
+                          color: st.actionTaken === 'AUTOMATED_PURGE_DELETED' ? 'hsl(0 80% 75%)' : 'hsl(38 90% 75%)',
+                          border: st.actionTaken === 'AUTOMATED_PURGE_DELETED' ? '1px solid hsl(0 80% 30%)' : '1px solid hsl(38 90% 30%)',
+                        }}
+                      >
+                        {st.actionTaken === 'AUTOMATED_PURGE_DELETED' ? 'PURGED FROM DISK' : 'QUARANTINED'}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.8fr) minmax(0, 1.2fr)', gap: 16, alignItems: 'start' }}>
+            {/* Submission Form Card */}
+            <div className="card card-pad" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <h2 style={{ fontSize: 16, fontWeight: 700, margin: 0 }}>Incident Escalation Brief</h2>
               <span className="badge badge-muted mono" style={{ fontSize: 10 }}>
@@ -617,7 +703,8 @@ Forensic Assessment: Live sensor fabric stream attached to endpoint. Cryptograph
             )}
           </div>
         </div>
-      )}
+      </>
+    )}
     </div>
   );
 }

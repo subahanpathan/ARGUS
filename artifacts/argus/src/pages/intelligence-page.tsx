@@ -332,31 +332,7 @@ export default function IntelligencePage({
           </div>
         </div>
 
-        <div style={{ display: 'flex', gap: 8 }}>
-          <button
-            type="button"
-            className={cn('btn btn-sm', mode === 'realtime' ? 'btn-primary' : 'btn-ghost')}
-            style={mode === 'realtime' ? { background: 'hsl(var(--signal-good))', borderColor: 'hsl(var(--signal-good))', color: '#000' } : {}}
-            onClick={() => {
-              setMode('realtime');
-              toast('Live Host Mode', `Switched Threat Intel Hub to monitor host ${hostName}`);
-            }}
-          >
-            <Activity size={13} />
-            Live Host Correlation
-          </button>
-          <button
-            type="button"
-            className={cn('btn btn-sm', mode === 'simulation' ? 'btn-primary' : 'btn-ghost')}
-            onClick={() => {
-              setMode('simulation');
-              toast('Drill Mode', 'Switched Threat Intel Hub to synthetic drill feed');
-            }}
-          >
-            <Radar size={13} />
-            Simulated Drill
-          </button>
-        </div>
+
       </div>
 
       {/* KPI Metrics Cards */}

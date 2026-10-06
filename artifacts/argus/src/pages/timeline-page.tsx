@@ -189,7 +189,18 @@ export default function TimelinePage({
 }: TimelinePageProps) {
   const hasLiveTelemetry = Boolean(telemetry?.connected && telemetry?.telemetry);
   const [dataMode, setDataMode] = useState<'real' | 'demo'>('real');
-  const isReal = dataMode === 'real' && (hasLiveTelemetry || Boolean(processMonitor?.hasData));
+  const liveAvailable = Boolean(hasLiveTelemetry || processMonitor?.hasData);
+
+  // Auto-switch mode based on real host telemetry stream vs simulation
+  useEffect(() => {
+    if (liveAvailable) {
+      setDataMode('real');
+    } else {
+      setDataMode('demo');
+    }
+  }, [liveAvailable]);
+
+  const isReal = dataMode === 'real' && liveAvailable;
 
   const hostName = telemetry?.telemetry?.source === 'windows_system_monitor'
     ? 'Local Windows Host'
@@ -552,25 +563,7 @@ export default function TimelinePage({
         </div>
 
         <div className="actions" style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-          {/* Mode Switcher */}
-          <div style={{ display: 'inline-flex', background: 'hsl(var(--muted))', padding: 2, borderRadius: 6, border: '1px solid hsl(var(--border))' }}>
-            <button
-              type="button"
-              className={cn('btn btn-sm', dataMode === 'real' ? 'btn-primary' : 'btn-ghost')}
-              style={{ fontSize: 11, padding: '3px 9px', height: 26 }}
-              onClick={() => setDataMode('real')}
-            >
-              <Radio size={11} style={{ marginRight: 4 }} /> Real Host Timeline
-            </button>
-            <button
-              type="button"
-              className={cn('btn btn-sm', dataMode === 'demo' ? 'btn-primary' : 'btn-ghost')}
-              style={{ fontSize: 11, padding: '3px 9px', height: 26 }}
-              onClick={() => setDataMode('demo')}
-            >
-              <AlertTriangle size={11} style={{ marginRight: 4 }} /> Simulated Drill
-            </button>
-          </div>
+
 
           {isReal ? (
             <span

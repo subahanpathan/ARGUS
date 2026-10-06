@@ -1,4 +1,4 @@
-import { useMemo, useState, type CSSProperties, type ReactNode } from 'react';
+import { useMemo, useState, useEffect, type CSSProperties, type ReactNode } from 'react';
 import {
   AlertTriangle,
   ArrowRight,
@@ -204,6 +204,16 @@ export default function FilesPage({
 }: FilesPageProps) {
   const [mode, setMode] = useState<'realtime' | 'simulation'>('realtime');
   const isReal = Boolean(fileScan?.hasData && (fileScan.findings.length > 0 || fileScan.snapshot != null));
+
+  // Auto-switch mode based on real Windows filesystem scan data vs simulation
+  useEffect(() => {
+    if (isReal) {
+      setMode('realtime');
+    } else {
+      setMode('simulation');
+    }
+  }, [isReal]);
+
   const rawTelemetry = (telemetry && 'telemetry' in telemetry) ? telemetry.telemetry : telemetry;
   const hostName = (rawTelemetry?.system as any)?.hostname || (rawTelemetry as any)?.hostname || 'LOCAL-HOST';
 
