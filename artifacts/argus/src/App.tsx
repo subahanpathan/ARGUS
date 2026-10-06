@@ -1061,14 +1061,18 @@ function AppContent() {
   }, [phase, demoState, autoDemo.state.demoMode]);
 
   useEffect(() => {
-    if (!session && location !== '/activate' && location !== '/login') setLocation('/activate');
+    if (!session && location !== '/activate' && location !== '/login') {
+      setLocation('/activate');
+    } else if (session && (location === '/' || location === '')) {
+      setLocation('/dashboard');
+    }
   }, [session, location, setLocation]);
 
   const incidentStatus = phase >= 8 ? 'Contained' : phase >= 7 ? 'Detected' : phase >= 5 ? 'Assessing' : phase > 0 ? 'Monitoring' : 'Open';
   const contained = phase >= 8 || threats.some((t) => t.status === 'quarantined' && (t.id === 'thr-1' || t.id === 'thr-2'));
 
   const page = useMemo(() => {
-    if (location === '/dashboard') return <DashboardPage phase={phase} demoState={demoState} demo={autoDemo.state} startDemo={startDemo} pauseDemo={pauseDemo} resumeDemo={resumeDemo} toast={toast} telemetry={telemetryStream} processMonitor={processMonitor} userName={userName} threatAnalysis={threatAnalysis} networkMonitor={networkMonitor} fileScan={fileScan} detections={detections} onNavigate={setLocation} />;
+    if (location === '/' || location === '/dashboard') return <DashboardPage phase={phase} demoState={demoState} demo={autoDemo.state} startDemo={startDemo} pauseDemo={pauseDemo} resumeDemo={resumeDemo} toast={toast} telemetry={telemetryStream} processMonitor={processMonitor} userName={userName} threatAnalysis={threatAnalysis} networkMonitor={networkMonitor} fileScan={fileScan} detections={detections} onNavigate={setLocation} />;
     if (location === '/threats') return <ThreatsPage threats={threats} onContain={containThreat} toast={toast} setModal={setModal} setLocation={setLocation} threatAnalysis={threatAnalysis} demoReached={autoDemo.state.demoReached} processMonitor={processMonitor} networkMonitor={networkMonitor} fileScan={fileScan} detections={detections} telemetry={telemetryStream} />;
     if (location === '/auto-remediation') return <AutoRemediationPage threats={threats} toast={toast} onNavigate={setLocation} telemetry={telemetryStream} processMonitor={processMonitor} networkMonitor={networkMonitor} fileScan={fileScan} />;
     if (location === '/detections') return <DetectionsPage detections={detections} toast={toast} setLocation={setLocation} />;
