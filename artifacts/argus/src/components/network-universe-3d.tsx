@@ -72,6 +72,7 @@ type QualityLevel = "high" | "medium" | "low";
 
 const _v1 = new THREE.Vector3();
 const _v2 = new THREE.Vector3();
+const _qIdent = new THREE.Quaternion();
 
 function dampn(a: number, b: number, lambda: number, dt: number): number {
   return b + (a - b) * Math.exp(-lambda * dt);
@@ -1164,17 +1165,22 @@ function GhostNodeView({ node, onDone }: { node: UniverseNode; onDone: () => voi
     return () => window.clearTimeout(id);
   }, [onDone]);
 
-  useFrame((state) => {
+  useFrame((_, delta) => {
     if (shared.paused) return;
+    const dt = Math.min(delta, 0.05);
     const g = ref.current;
     if (!g) return;
-    const age = Math.min(state.clock.getDelta() * 0 + 0.012, 0.05);
-    void age;
-    let s = g.scale.x;
-    s -= 0.85 * 0.016;
+    // frame-rate independent fade + shrink (graceful despawn)
+    const k = dt / 0.016; // normalized to 60fps step
+    const s = g.scale.x * Math.exp(-2.6 * dt);
     g.scale.setScalar(Math.max(0.001, s));
-    const m0 = (g.children[0] as THREE.Mesh).material as THREE.MeshBasicMaterial;
-    m0.opacity = Math.max(0, m0.opacity - 0.016);
+    for (const child of g.children) {
+      const mesh = child as THREE.Mesh;
+      if (mesh.material) {
+        const m = mesh.material as THREE.MeshBasicMaterial;
+        m.opacity = Math.max(0, m.opacity - 1.0 * k * 0.016);
+      }
+    }
   });
 
   return (
@@ -1388,6 +1394,7 @@ function PacketLayer({ flowBoost }: { flowBoost: number }) {
   const qualityRef = shared.qualityRef;
   const mat = useRef(new THREE.Matrix4());
   const tmp = useRef(new THREE.Vector3());
+  const tmpScale = useRef(new THREE.Vector3());
   const lastBoost = useRef(0);
   useEffect(() => {
     lastBoost.current = flowBoost;
@@ -1414,10 +1421,9 @@ function PacketLayer({ flowBoost }: { flowBoost: number }) {
         bind.offsets[k] = (bind.offsets[k] + bind.dir * bind.speed * dt) % 1;
         if (bind.offsets[k] < 0) bind.offsets[k] += 1;
         pointAt(bind.points, bind.offsets[k], out);
-        m.makeTranslation(out.x, out.y, out.z);
         const fade = 0.6 + 0.4 * Math.sin(bind.offsets[k] * Math.PI);
         const s = 0.014 * fade * (1 + boost * 0.05);
-        m.scale(new THREE.Vector3(s, s, s));
+        m.compose(out, _qIdent, tmpScale.current.set(s, s, s));
         mesh.setMatrixAt(used, m);
         mesh.setColorAt(used, bind.color);
         used++;
@@ -1442,6 +1448,7 @@ function PacketLayer({ flowBoost }: { flowBoost: number }) {
 
 type LabelEntry = { priority: number; rect: { x: number; y: number; w: number; h: number } | null; active: boolean };
 const labelContext: { entries: Map<string, LabelEntry> } = { entries: new Map() };
+const labelScratch: { entries: LabelEntry[]; chosen: Array<{ x: number; y: number; w: number; h: number }> } = { entries: [], chosen: [] };
 
 function labelPriority(node: UniverseNode): number {
   switch (node.type) {
@@ -1506,8 +1513,7 @@ function NodeLabel({ node, hovered, selected }: {
       if (g.visible) g.visible = false;
       return;
     }
-    ndc.current.copy(g.getWorldPosition(world.current)).project(camera);
-    const px = ndc.current.x * 0.5 * size.width + size.width * 0.5;
+    ndc.current.copy(g.getWorldPosition(world.current)).project(camera);    const px = ndc.current.x * 0.5 * size.width + size.width * 0.5;
     const py = -ndc.current.y * 0.5 * size.height + size.height * 0.5;
     if (ndc.current.z > 1 || ndc.current.z < -1 || px < -size.width * 0.3 || px > size.width * 1.3 || py < -size.height * 0.3 || py > size.height * 1.3) {
       entry.rect = null;
@@ -1525,9 +1531,16 @@ function NodeLabel({ node, hovered, selected }: {
     entry.rect = { x: px * pr - w / 2, y: py * pr - hh, w, h: hh * 2 };
     entry.priority = labelPriority(node) + boosted;
     labelContext.entries.set(entryId, entry);
-    const entries = [...labelContext.entries.values()];
+    if (labelScratch.entries.length === 0) {
+      labelScratch.entries = [...labelContext.entries.values()];
+    } else {
+      labelScratch.entries.length = 0;
+      for (const e of labelContext.entries.values()) labelScratch.entries.push(e);
+    }
+    const entries = labelScratch.entries;
     entries.sort((a, b) => b.priority - a.priority);
-    const chosen: Array<{ x: number; y: number; w: number; h: number }> = [];
+    const chosen = labelScratch.chosen;
+    chosen.length = 0;
     const cap = labelCapFor();
     let picked = true;
     for (const e of entries) {
@@ -1553,7 +1566,7 @@ function NodeLabel({ node, hovered, selected }: {
     entry.active = picked;
     g.visible = true;
     const cur = g.scale.x;
-    const nx = THREE.MathUtils.damp(cur, picked ? 1 : 0, picked ? 6.5 : 9, Math.min(state.clock.getDelta(), 0.05));
+    const nx = THREE.MathUtils.damp(cur, picked ? 1 : 0, picked ? 6.5 : 9, Math.min(0.016, 0.016));
     g.scale.setScalar(Math.max(0.0001, nx));
     if (nx < 0.15) g.visible = false;
   });
@@ -1877,6 +1890,7 @@ function CameraRig({ mode, selectedNodeId, model, apiRef }: {
   const prevSelected = useRef<string | null>(null);
   const shared = useSceneShared();
   const targetV = useRef(new THREE.Vector3());
+  const goalSph = useRef(new THREE.Spherical());
 
   const preset = useCallback((m: CameraMode) => {
     overrideRef.current = false;
@@ -1989,10 +2003,10 @@ function CameraRig({ mode, selectedNodeId, model, apiRef }: {
     // spherical damp: current offset about current target vs goal offset
     sph.current.setFromVector3(camera.position.clone().sub(curTarget));
     const goalRel = _v1.copy(goal.current.pos).sub(goal.current.target);
-    const gs = new THREE.Spherical().setFromVector3(goalRel);
-    sph.current.radius = dampn(sph.current.radius, gs.radius, lambda, dt);
-    sph.current.phi = dampn(sph.current.phi, gs.phi, lambda, dt);
-    sph.current.theta = dampAngle(sph.current.theta, gs.theta, lambda, dt);
+    goalSph.current.setFromVector3(goalRel);
+    sph.current.radius = dampn(sph.current.radius, goalSph.current.radius, lambda, dt);
+    sph.current.phi = dampn(sph.current.phi, goalSph.current.phi, lambda, dt);
+    sph.current.theta = dampAngle(sph.current.theta, goalSph.current.theta, lambda, dt);
     camera.position.copy(curTarget).add(_v2.setFromSpherical(sph.current));
     if (controls) {
       controls.target.copy(curTarget);

@@ -6,12 +6,10 @@
     "node": ">=20"
   },
   "scripts": {
-    "dev": "pnpm --filter @workspace/argus dev",
-    "dev:api": "pnpm --filter @workspace/api-server dev",
     "preinstall": "node -e \"const fs=require('fs');try{fs.unlinkSync('package-lock.json')}catch{};try{fs.unlinkSync('yarn.lock')}catch{};const u=process.env.npm_config_user_agent||'';if(!u.startsWith('pnpm/')){console.error('Use pnpm instead');process.exit(1)}\"",
     "dev": "pnpm -r --filter @workspace/api-server --filter @workspace/argus --parallel run dev",
-    "dev:api": "pnpm --filter @workspace/api-server run dev",
-    "dev:web": "pnpm --filter @workspace/argus run dev",
+    "dev:api": "pnpm --filter @workspace/api-server dev",
+    "dev:web": "pnpm --filter @workspace/argus dev",
     "build": "pnpm run typecheck && pnpm -r --if-present run build",
     "typecheck:libs": "tsc --build",
     "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run typecheck"
