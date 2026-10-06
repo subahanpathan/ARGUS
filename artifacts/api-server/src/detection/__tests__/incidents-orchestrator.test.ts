@@ -35,7 +35,7 @@ describe("Phase 5 & Phase 6: Automated Incident Response Orchestration & Verifie
     assert.equal(incident.responseLevel, "LEVEL_2_CONTAIN");
     assert.equal(incident.recommendedAction, "CONTAIN_PROCESS");
     assert.ok(incident.recommendationReasons.length > 0);
-    assert.ok(["DETECTED", "TRACING", "INVESTIGATING"].includes(incident.state));
+    assert.ok(["DETECTED", "TRACING", "INVESTIGATING", "CONTAINMENT_PENDING", "CONTAINED"].includes(incident.state));
   });
 
   test("Orchestrator records immutable audit log entries", () => {

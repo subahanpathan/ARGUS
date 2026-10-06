@@ -11,6 +11,7 @@
  */
 
 import {
+  isExternalOrPrivateRole,
   isKnownToolPort,
   isRemoteRole,
   isWildcardBinding,
@@ -242,10 +243,96 @@ const remoteFanOut = (event: NetworkViewEvent): RuleMatch | null => {
 };
 
 /**
+ * Shell binaries that should never maintain established interactive network sockets.
+ */
+const INTERACTIVE_SHELLS = new Set([
+  "cmd.exe",
+  "powershell.exe",
+  "pwsh.exe",
+  "nc.exe",
+  "ncat.exe",
+  "netcat.exe",
+  "socat.exe",
+  "bash.exe",
+  "sh.exe",
+]);
+
+/**
+ * NET-008: Active reverse shell or C2 connection established to an external
+ * or private endpoint (e.g. Kali VM). High-fidelity critical signal.
+ */
+const interactiveReverseShell: (event: NetworkViewEvent) => RuleMatch | null = (event) => {
+  if (!isEstablished(event)) return null;
+  if (!isExternalOrPrivateRole(event.remote_role, event.remote_addr)) return null;
+
+  const procLower = (event.process_name || "").toLowerCase();
+  const isShell = INTERACTIVE_SHELLS.has(procLower);
+  const isToolPort = isKnownToolPort(event.remote_port);
+  const isInterpreter = isScriptInterpreter(event.process_name) || isLolBin(event.process_name);
+
+  if (isShell || (isInterpreter && isToolPort)) {
+    return {
+      rule_id: "NET-008-REVERSE-SHELL",
+      rule_name: "Interactive shell or C2 reverse connection established",
+      title: `Critical reverse shell: ${event.process_name} connected to ${endpoint(event.remote_addr, event.remote_port)}`,
+      explanation: `${event.process_name} (pid ${event.pid}) established an active network socket to '${endpoint(event.remote_addr, event.remote_port)}'. Command shells and script interpreters maintaining direct sockets to remote or private virtual hosts (such as an attacker VM) indicate an active interactive reverse shell or C2 payload session.`,
+      recommended_action:
+        "Execute automated host containment immediately: terminate process tree, block remote endpoint in Windows Firewall, and quarantine the payload.",
+      evidence: [
+        ev("reverse_socket", `Established reverse socket: ${endpoint(event.local_addr, event.local_port)} -> ${endpoint(event.remote_addr, event.remote_port)}`, "network"),
+        ev("shell_process", `Process ${event.process_name} (PID ${event.pid}) running shell/interpreter`, "process", event.executable_path),
+        ...(event.remote_port ? [ev("remote_port", `Target port ${event.remote_port}`, "network")] : []),
+      ],
+      baseSeverity: "critical",
+      baseConfidence: 0.95,
+    };
+  }
+
+  return null;
+};
+
+/**
+ * NET-009: Data exfiltration attempt over network socket.
+ */
+const dataExfiltration: (event: NetworkViewEvent) => RuleMatch | null = (event) => {
+  if (!isEstablished(event)) return null;
+  if (!isExternalOrPrivateRole(event.remote_role, event.remote_addr)) return null;
+
+  const cmdLower = (event.command_line || "").toLowerCase();
+  const isTransferCmd =
+    cmdLower.includes("upload") ||
+    cmdLower.includes("transfer") ||
+    cmdLower.includes("scp") ||
+    cmdLower.includes("curl -f") ||
+    cmdLower.includes("bitsadmin /transfer");
+
+  if (isTransferCmd) {
+    return {
+      rule_id: "NET-009-DATA-EXFILTRATION",
+      rule_name: "Active data exfiltration transfer detected",
+      title: `${event.process_name} exfiltrating data to ${event.remote_addr}`,
+      explanation: `${event.process_name} (pid ${event.pid}) is executing a transfer command while holding an established connection to '${endpoint(event.remote_addr, event.remote_port)}'. Potential data theft in progress.`,
+      recommended_action:
+        "Sever network connection, kill process tree, and verify affected files.",
+      evidence: [
+        ev("exfil_socket", `Exfiltration endpoint: ${endpoint(event.remote_addr, event.remote_port)}`, "network"),
+        ev("command_line", `Transfer command: ${event.command_line}`, "process"),
+      ],
+      baseSeverity: "high",
+      baseConfidence: 0.85,
+    };
+  }
+
+  return null;
+};
+
+/**
  * The ordered, stable set of NET rules evaluated for every normalized network/
  * port event.
  */
 export const NET_RULES: Array<(event: NetworkViewEvent) => RuleMatch | null> = [
+  interactiveReverseShell,
+  dataExfiltration,
   userWritableOutbound,
   knownToolPort,
   scriptInterpreterListener,
@@ -284,6 +371,18 @@ export type RuleCatalogEntry = {
 
 /** Stable catalog of the active NET rules, exposed via the API. */
 export const NET_RULE_CATALOG: RuleCatalogEntry[] = [
+  {
+    rule_id: "NET-008-REVERSE-SHELL",
+    rule_name: "Interactive shell or C2 reverse connection established",
+    description:
+      "An interactive shell (cmd, powershell, netcat) or interpreter holds an established connection to an external or private endpoint (e.g. Kali VM).",
+  },
+  {
+    rule_id: "NET-009-DATA-EXFILTRATION",
+    rule_name: "Active data exfiltration transfer detected",
+    description:
+      "A process holds an established connection while executing file transfer or upload commands.",
+  },
   {
     rule_id: "NET-001-USER-WRITABLE-OUTBOUND",
     rule_name: "Outbound network I/O from a user-writable binary",

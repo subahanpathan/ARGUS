@@ -164,6 +164,20 @@ class ResponseOrchestrator {
       reasons.push(`High severity detection (${trace.severity.toUpperCase()})`);
       responseLevel = "LEVEL_2_CONTAIN";
       recommendedAction = "CONTAIN_PROCESS";
+
+      // ZERO-TOUCH ACTIVE DEFENSE: Automatically trigger containment immediately for active attacks!
+      if (!existing.containmentExecuted && !(existing as any).containmentPendingTrigger) {
+        (existing as any).containmentPendingTrigger = true;
+        this.incidentStates.set(trace.incidentId, existing);
+        setImmediate(() => {
+          this.orchestrateContainment(trace.incidentId, {
+            actor: "ARGUS_ORCHESTRATOR",
+            force: true,
+          }).catch((err) => {
+            logger.error(`[AutoContainment] Failed for ${trace.incidentId}: ${err?.message}`);
+          });
+        });
+      }
     }
 
     if (impact.potentialSensitiveExposureCount > 0) {
@@ -279,19 +293,55 @@ class ResponseOrchestrator {
     // Set state to CONTAINMENT_PENDING
     this.updateIncidentState(incidentId, "CONTAINMENT_PENDING", { userApprovedContainment: true });
 
-    // Attempt real process termination via Windows taskkill or os.kill
+    // Attempt real process termination via Windows taskkill tree kill or os.kill
     let terminated = false;
     let errMessage = "";
+    let firewallBlocked = false;
+    let quarantinedPayload = false;
+
+    // Resolve attacker IP from remote endpoint or connections
+    const remoteIp =
+      incident.correlatedTrace.remoteEndpoint?.ip ||
+      incident.correlatedTrace.connections?.find(
+        (c) => c.remote_addr && !c.remote_addr.startsWith("127.") && c.remote_addr !== "0.0.0.0"
+      )?.remote_addr;
 
     try {
       if (process.platform === "win32") {
         const { execSync } = await import("child_process");
         try {
-          execSync(`taskkill /F /PID ${pid}`, { stdio: "ignore" });
+          // Forcefully terminate process and all its child processes (/T)
+          execSync(`taskkill /F /T /PID ${pid}`, { stdio: "ignore" });
           terminated = true;
         } catch {
           // Process may have already exited
           terminated = true;
+        }
+
+        // Active Defense: Block attacker remote IP in Windows Firewall
+        if (remoteIp && remoteIp !== "127.0.0.1" && remoteIp !== "::1" && remoteIp !== "0.0.0.0") {
+          try {
+            const cleanIp = remoteIp.replace(/[.:]/g, "_");
+            execSync(
+              `powershell -NoProfile -NonInteractive -Command "New-NetFirewallRule -DisplayName 'ARGUS_BLOCK_${cleanIp}_IN' -Direction Inbound -Action Block -RemoteAddress '${remoteIp}' -Profile Any -ErrorAction SilentlyContinue; New-NetFirewallRule -DisplayName 'ARGUS_BLOCK_${cleanIp}_OUT' -Direction Outbound -Action Block -RemoteAddress '${remoteIp}' -Profile Any -ErrorAction SilentlyContinue"`,
+              { stdio: "ignore" }
+            );
+            firewallBlocked = true;
+          } catch {}
+        }
+
+        // Active Defense: Quarantine untrusted payload file if located outside Windows system roots
+        const exePath = incident.correlatedTrace.primaryProcess.executablePath;
+        if (exePath && !exePath.toLowerCase().includes("\\system32\\") && !exePath.toLowerCase().includes("\\syswow64\\")) {
+          try {
+            const fs = await import("fs/promises");
+            const path = await import("path");
+            const qDir = "C:\\ProgramData\\ARGUS\\quarantine";
+            await fs.mkdir(qDir, { recursive: true });
+            const dest = path.join(qDir, `${path.basename(exePath)}_${Date.now()}.quarantine`);
+            await fs.copyFile(exePath, dest);
+            quarantinedPayload = true;
+          } catch {}
         }
       } else {
         process.kill(pid, "SIGKILL");
@@ -308,6 +358,12 @@ class ResponseOrchestrator {
     const verified = terminated && !stillRunning;
     const nextState: IncidentState = verified ? "CONTAINED" : "CONTAINMENT_FAILED";
 
+    const actionSummary = [
+      verified ? `Terminated process tree for PID ${pid}` : `Failed to terminate PID ${pid}`,
+      firewallBlocked ? `Blocked attacker IP ${remoteIp} in Windows Firewall` : null,
+      quarantinedPayload ? `Quarantined payload into ARGUS Quarantine Vault` : null,
+    ].filter(Boolean).join("; ");
+
     this.updateIncidentState(incidentId, nextState, {
       containmentExecuted: true,
       containmentVerified: verified,
@@ -315,7 +371,7 @@ class ResponseOrchestrator {
         targetPid: pid,
         processName,
         executedAt: new Date().toISOString(),
-        result: verified ? "TERMINATED_AND_VERIFIED" : `TERMINATION_FAILED: ${errMessage}`,
+        result: verified ? actionSummary : `TERMINATION_FAILED: ${errMessage}`,
         verified,
       },
     });
@@ -326,7 +382,7 @@ class ResponseOrchestrator {
       actor,
       target: `${processName} (PID ${pid})`,
       reason: incident.recommendationReasons.join("; "),
-      evidence: verified ? `PID ${pid} verified stopped` : `PID ${pid} still active in process table`,
+      evidence: verified ? `PID ${pid} verified stopped. ${actionSummary}` : `PID ${pid} still active in process table`,
       result: verified ? "SUCCESS" : "FAILED",
       verification: verified ? "VERIFIED_TERMINATED" : "VERIFICATION_FAILED",
     });
@@ -334,7 +390,7 @@ class ResponseOrchestrator {
     return {
       success: verified,
       state: nextState,
-      message: verified ? `Process ${processName} (PID ${pid}) successfully contained and verified.` : `Containment failed for PID ${pid}: ${errMessage}`,
+      message: verified ? actionSummary : `Containment failed for PID ${pid}: ${errMessage}`,
     };
   }
 
