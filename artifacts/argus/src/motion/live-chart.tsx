@@ -1,7 +1,6 @@
 import { useEffect, useId, useRef, useState } from 'react';
-import { usePrefersReducedMotion, easeOutCubic } from './use-reduced-motion';
+import { usePrefersReducedMotion } from './use-reduced-motion';
 import { AnimatedNumber } from './animated-number';
-import { SETTLE_MS } from './tokens';
 
 type Sample = { t: number; v: number };
 
@@ -24,7 +23,7 @@ const VIEW_W = 400;
 const VIEW_H = 120;
 const PAD_TOP = 8;
 const PAD_BOT = 12;
-const MAX_SAMPLES = 320;
+const MAX_SAMPLES = 350;
 const GRID_LINES = [0, 0.25, 0.5, 0.75, 1];
 
 const TONE: Record<NonNullable<LiveChartProps['color']>, { stroke: string }> = {
@@ -35,18 +34,12 @@ const TONE: Record<NonNullable<LiveChartProps['color']>, { stroke: string }> = {
 };
 
 /**
- * Premium live telemetry chart.
+ * Ultra-smooth, 60fps continuous rolling live telemetry chart.
  *
- *  - Incoming values are appended to a time-ordered ring buffer.
- *  - The newest point is eased from the previously displayed value toward the
- *    new value over a short settle time — never a jump.
- *  - A requestAnimationFrame loop drives the path and stops as soon as the
- *    value settles, so idle CPU is effectively zero. Bursts of data restart
- *    the interpolation from the currently displayed value, so the line
- *    follows smoothly without snapping.
- *  - Path updates happen through direct DOM attribute mutation per frame;
- *    no React re-render is triggered by the animation loop.
- *  - prefers-reduced-motion: values are reflected instantly, no rAF loop.
+ *  - Continuous horizontal time scroll (never freezes between telemetry samples).
+ *  - Easing interpolation glides the leading edge value toward incoming samples.
+ *  - Direct SVG DOM mutations per frame; zero React re-render overhead.
+ *  - Auto-pauses on visibility hidden, respects prefers-reduced-motion.
  */
 export function LiveChart({
   value,
@@ -66,9 +59,13 @@ export function LiveChart({
   const areaRef = useRef<SVGPolygonElement>(null);
   const dotRef = useRef<HTMLDivElement>(null);
   const tagRef = useRef<HTMLDivElement>(null);
-  const animRef = useRef<{ from: number; to: number; start: number } | null>(null);
-  const displayedRef = useRef(0);
-  const rafRef = useRef(0);
+
+  const targetRef = useRef<number>(value ?? 0);
+  const displayedRef = useRef<number>(value ?? 0);
+  const lastTimeRef = useRef<number>(0);
+  const lastPushRef = useRef<number>(0);
+  const rafRef = useRef<number>(0);
+
   const formatRef = useRef(format);
   formatRef.current = format;
   const [ready, setReady] = useState(false);
@@ -78,39 +75,49 @@ export function LiveChart({
   const windowRef = useRef(windowMs);
   windowRef.current = windowMs;
 
-  function applyToDom(cur: number) {
+  function applyToDom(cur: number, currentT: number) {
     const buf = bufRef.current;
     const line = lineRef.current;
     const area = areaRef.current;
     const dot = dotRef.current;
     const tag = tagRef.current;
-    if (!line || !area || buf.length === 0) return;
+    if (!line || !area) return;
 
     const currentMax = maxRef.current || 100;
     const usable = windowRef.current || 60_000;
-    const lastT = buf[buf.length - 1].t;
 
     const xs: number[] = [];
     const ys: number[] = [];
+
+    // Map historical points relative to current continuous clock
     for (let i = 0; i < buf.length; i++) {
       const s = buf[i];
-      const age = Math.max(0, lastT - s.t);
+      const age = Math.max(0, currentT - s.t);
       const progress = Math.max(0, Math.min(1, 1 - age / usable));
       xs.push(VIEW_W * (0.02 + 0.98 * progress));
       const ratio = Math.max(0, Math.min(1, s.v / currentMax));
       ys.push(VIEW_H - PAD_BOT - ratio * (VIEW_H - PAD_TOP - PAD_BOT));
     }
 
-    // Light 3-point moving average keeps the trace smooth without adding lag.
+    // Append the active leading head point pinned to the right edge (progress = 1.0)
+    const headRatio = Math.max(0, Math.min(1, cur / currentMax));
+    const headX = VIEW_W;
+    const headY = VIEW_H - PAD_BOT - headRatio * (VIEW_H - PAD_TOP - PAD_BOT);
+    xs.push(headX);
+    ys.push(headY);
+
+    if (xs.length < 2) return;
+
+    // Moving average smoothing for internal points
     const smooth: number[] = [];
     for (let i = 0; i < ys.length; i++) {
-      if (i === ys.length - 1) {
-        smooth.push(cur);
-        continue;
+      if (i === 0 || i === ys.length - 1) {
+        smooth.push(ys[i]);
+      } else {
+        const prev = ys[i - 1];
+        const next = ys[i + 1];
+        smooth.push((prev + ys[i] + next) / 3);
       }
-      const prev = ys[i - 1] ?? ys[i];
-      const next = ys[i + 1] ?? ys[i];
-      smooth.push((prev + ys[i] + next) / 3);
     }
 
     let points = '';
@@ -121,12 +128,10 @@ export function LiveChart({
     line.setAttribute('points', points);
 
     const firstX = Math.max(0, Math.min(VIEW_W, xs[0] ?? 0));
-    const lastX = Math.max(0, Math.min(VIEW_W, xs[smooth.length - 1] ?? VIEW_W));
-    area.setAttribute('points', `${firstX.toFixed(1)},${VIEW_H} ${points} ${lastX.toFixed(1)},${VIEW_H}`);
+    area.setAttribute('points', `${firstX.toFixed(1)},${VIEW_H} ${points} ${VIEW_W.toFixed(1)},${VIEW_H}`);
 
-    const lastY = smooth[smooth.length - 1] ?? 0;
-    const xPct = Math.max(2, Math.min(98, (lastX / VIEW_W) * 100));
-    const yPct = Math.max(5, Math.min(95, (lastY / VIEW_H) * 100));
+    const xPct = 98;
+    const yPct = Math.max(5, Math.min(95, (headY / VIEW_H) * 100));
     if (dot) dot.style.transform = `translate(${xPct}%, ${yPct}%) translate(-50%, -50%)`;
     if (tag) {
       const f = formatRef.current ?? ((n: number) => String(Math.round(n)));
@@ -137,72 +142,81 @@ export function LiveChart({
     }
   }
 
-  function trimBuffer() {
+  function trimBuffer(currentT: number) {
     const buf = bufRef.current;
     if (buf.length === 0) return;
     const usable = windowRef.current || 60_000;
-    const newest = buf[buf.length - 1].t;
     let cut = -1;
     for (let i = 0; i < buf.length - 1; i++) {
-      if (buf[i].t < newest - usable) cut = i;
+      if (buf[i].t < currentT - usable) cut = i;
     }
     if (cut >= 0) buf.splice(0, cut + 1);
     if (buf.length > MAX_SAMPLES) buf.splice(0, buf.length - MAX_SAMPLES);
   }
 
+  // Update target when incoming value changes
   useEffect(() => {
-    const next = value;
-    if (next == null || !isFinite(next)) return;
+    if (value == null || !isFinite(value)) return;
+    targetRef.current = value;
 
     const now = performance.now();
-    bufRef.current.push({ t: now, v: next });
-    trimBuffer();
-    if (!ready && bufRef.current.length > 0) setReady(true);
+    if (bufRef.current.length === 0) {
+      // Seed initial baseline points so the line renders immediately
+      bufRef.current.push({ t: now - 3000, v: value });
+      bufRef.current.push({ t: now, v: value });
+      displayedRef.current = value;
+      lastPushRef.current = now;
+      setReady(true);
+    } else {
+      bufRef.current.push({ t: now, v: value });
+      lastPushRef.current = now;
+      trimBuffer(now);
+    }
+  }, [value]);
 
+  // Continuous 60fps animation loop
+  useEffect(() => {
     if (reduced) {
-      displayedRef.current = next;
-      applyToDom(next);
+      if (value != null && isFinite(value)) {
+        displayedRef.current = value;
+        applyToDom(value, performance.now());
+      }
       return;
     }
 
-    animRef.current = { from: displayedRef.current, to: next, start: now };
-    cancelAnimationFrame(rafRef.current);
+    lastTimeRef.current = performance.now();
 
     const step = (frameNow: number) => {
-      const anim = animRef.current;
-      if (!anim) return;
-      const t = Math.min((frameNow - anim.start) / SETTLE_MS, 1);
-      const eased = easeOutCubic(t);
-      const cur = anim.from + (anim.to - anim.from) * eased;
-      displayedRef.current = cur;
-      applyToDom(cur);
-      if (t >= 1) {
-        animRef.current = null;
+      if (document.hidden) {
+        rafRef.current = requestAnimationFrame(step);
         return;
       }
+
+      const dt = Math.min((frameNow - lastTimeRef.current) / 1000, 0.1);
+      lastTimeRef.current = frameNow;
+
+      // Smooth exponential decay easing toward latest telemetry target
+      const target = targetRef.current;
+      const lerpFactor = 1 - Math.exp(-5.0 * dt);
+      displayedRef.current += (target - displayedRef.current) * lerpFactor;
+
+      // Append intermediate point every 200ms to preserve smooth line contour
+      if (frameNow - lastPushRef.current > 200) {
+        bufRef.current.push({ t: frameNow, v: displayedRef.current });
+        lastPushRef.current = frameNow;
+        trimBuffer(frameNow);
+      }
+
+      applyToDom(displayedRef.current, frameNow);
       rafRef.current = requestAnimationFrame(step);
     };
+
     rafRef.current = requestAnimationFrame(step);
 
     return () => {
       cancelAnimationFrame(rafRef.current);
-      animRef.current = null;
     };
-  }, [value, reduced]);
-
-  // Draw once the SVG has mounted (first buffer write happens before render).
-  useEffect(() => {
-    if (ready && bufRef.current.length > 0) applyToDom(displayedRef.current);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ready]);
-
-  // Redraw when geometry/domain props change (static redraw, not animation).
-  useEffect(() => {
-    if (bufRef.current.length > 0) applyToDom(displayedRef.current);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [max, windowMs, height]);
-
-  useEffect(() => () => cancelAnimationFrame(rafRef.current), []);
+  }, [reduced, ready]);
 
   const seconds = Math.round((windowMs || 60_000) / 1000);
 
@@ -253,7 +267,7 @@ export function LiveChart({
                 className="live-chart-line"
                 fill="none"
                 stroke={tone.stroke}
-                strokeWidth={1.6}
+                strokeWidth={1.8}
                 strokeLinejoin="round"
                 strokeLinecap="round"
                 vectorEffect="non-scaling-stroke"

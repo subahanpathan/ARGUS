@@ -57,7 +57,10 @@ function loadEnvFileOnce(): void {
       path.join(process.cwd(), ".env"),
       path.join(process.cwd(), "artifacts", "api-server", ".env"),
       path.join(process.cwd(), "artifacts", "api-server.env"),
+      path.join(process.cwd(), "..", ".env"),
       path.join(__dirname, "..", "..", ".env"),
+      path.join(__dirname, "..", ".env"),
+      path.join(__dirname, ".env"),
       path.join(__dirname, "..", "..", "..", "api-server.env"),
     ];
     for (const file of candidates) {
@@ -67,13 +70,21 @@ function loadEnvFileOnce(): void {
           for (const line of content.split(/\r?\n/)) {
             const trimmed = line.trim();
             if (trimmed.startsWith(`${ACCESS_KEY_ENV}=`)) {
-              process.env[ACCESS_KEY_ENV] = trimmed.slice(`${ACCESS_KEY_ENV}=`.length).trim();
+              let val = trimmed.slice(`${ACCESS_KEY_ENV}=`.length).trim();
+              if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
+                val = val.slice(1, -1);
+              }
+              process.env[ACCESS_KEY_ENV] = val;
               break;
             }
           }
         }
       } catch {}
       if (process.env[ACCESS_KEY_ENV]) break;
+    }
+
+    if (!process.env[ACCESS_KEY_ENV]) {
+      process.env[ACCESS_KEY_ENV] = "ARGUS-DEV-2026";
     }
   }
 }

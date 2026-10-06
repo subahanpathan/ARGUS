@@ -84,8 +84,8 @@ export type TelemetryStreamState = {
   refresh: () => Promise<void>;
 };
 
-const RECONNECT_DELAY_MS = 3000;
-const POLL_MS = 4000;
+const RECONNECT_DELAY_MS = 2000;
+const POLL_MS = 1500;
 
 export function useTelemetryStream(): TelemetryStreamState {
   const [connected, setConnected] = useState(false);

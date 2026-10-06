@@ -256,6 +256,15 @@ def sample_network_connections():
     now_iso = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
     connections = []
     pid_to_name = {}
+    try:
+        for p in psutil.process_iter(['pid', 'name']):
+            try:
+                if p.info and p.info.get('pid'):
+                    pid_to_name[p.info['pid']] = p.info.get('name') or 'process'
+            except Exception:
+                pass
+    except Exception:
+        pass
 
     try:
         raw_conns = psutil.net_connections(kind="inet")
@@ -274,14 +283,7 @@ def sample_network_connections():
         elif status == "LISTEN":
             listen += 1
 
-        p_name = "unknown"
-        if c.pid:
-            if c.pid not in pid_to_name:
-                try:
-                    pid_to_name[c.pid] = psutil.Process(c.pid).name()
-                except Exception:
-                    pid_to_name[c.pid] = "process"
-            p_name = pid_to_name[c.pid]
+        p_name = pid_to_name.get(c.pid, "unknown") if c.pid else "system"
 
         connections.append({
             "process": p_name,
@@ -721,7 +723,7 @@ def main():
             except Exception as e:
                 print(f"[{time.strftime('%H:%M:%S')}] [!] Connection retry: {e}", flush=True)
 
-            time.sleep(2.0)
+            time.sleep(1.2)
     except KeyboardInterrupt:
         print("\n[*] ARGUS sensor safely stopped.", flush=True)
     finally:

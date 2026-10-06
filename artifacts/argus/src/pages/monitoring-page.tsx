@@ -22,6 +22,7 @@ import {
 import { useTelemetryStream, type SystemTelemetry } from '@/hooks/use-telemetry-stream';
 import type { RealProcessEvent, RealProcessInfo } from '@/hooks/use-process-monitor';
 import { LiveChart } from '@/motion/live-chart';
+import { AnimatedNumber } from '@/motion/animated-number';
 
 function cn(...values: Array<string | false | undefined | null>) {
   return values.filter(Boolean).join(' ');
@@ -128,7 +129,7 @@ function StatCard({
   icon: Icon,
 }: {
   label: string;
-  value: string;
+  value: ReactNode;
   note: string;
   tone?: string;
   icon?: typeof Activity;
@@ -531,7 +532,7 @@ export default function MonitoringPage({ processMonitor, onNavigate }: Monitorin
       <div className="grid metrics" style={{ gridTemplateColumns: 'repeat(4, 1fr)' }}>
         <StatCard
           label="CPU Load"
-          value={`${displayCpu.toFixed(1)}%`}
+          value={<AnimatedNumber value={displayCpu} format={(n) => `${n.toFixed(1)}%`} duration={800} />}
           note={
             isOnline && latest?.cpu?.count != null
               ? `${latest.cpu.count} logical · ${latest.cpu.physical_count ?? '?'} physical cores`
@@ -542,7 +543,7 @@ export default function MonitoringPage({ processMonitor, onNavigate }: Monitorin
         />
         <StatCard
           label="Memory Used"
-          value={`${displayMem.toFixed(1)}%`}
+          value={<AnimatedNumber value={displayMem} format={(n) => `${n.toFixed(1)}%`} duration={800} />}
           note={
             isOnline && latest?.memory
               ? `${fmtBytes(latest.memory.used_bytes)} of ${fmtBytes(latest.memory.total_bytes)}`
@@ -553,7 +554,7 @@ export default function MonitoringPage({ processMonitor, onNavigate }: Monitorin
         />
         <StatCard
           label="Disk Space"
-          value={`${displayDisk.toFixed(1)}%`}
+          value={<AnimatedNumber value={displayDisk} format={(n) => `${n.toFixed(1)}%`} duration={800} />}
           note={
             isOnline && latest?.disk
               ? `${fmtBytes(latest.disk.free_bytes)} free on ${latest.disk.mount ?? 'C:'}`
@@ -565,9 +566,15 @@ export default function MonitoringPage({ processMonitor, onNavigate }: Monitorin
         <StatCard
           label="Active Processes"
           value={
-            isOnline && latest?.processes?.running != null
-              ? String(latest.processes.running)
-              : String(processMonitor?.snapshot?.length || 184)
+            <AnimatedNumber
+              value={
+                isOnline && latest?.processes?.running != null
+                  ? latest.processes.running
+                  : (processMonitor?.snapshot?.length || 184)
+              }
+              format={(n) => String(Math.round(n))}
+              duration={600}
+            />
           }
           note={isOnline ? 'monitored processes on this host' : '184 monitored processes'}
           tone="good"
@@ -602,7 +609,7 @@ export default function MonitoringPage({ processMonitor, onNavigate }: Monitorin
               height={130}
             />
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: 'hsl(var(--muted-foreground))', marginTop: 4, fontFamily: 'var(--app-font-mono)' }}>
-              <span>{isOnline && latest?.memory ? `${fmtBytes(latest.memory.free_bytes)} free` : '8.9 GB free'}</span>
+              <span>{isOnline && latest?.memory ? `${fmtBytes(latest.memory.available_bytes)} free` : '8.9 GB free'}</span>
               <span>{isMemHigh ? 'Elevated' : 'Normal'}</span>
             </div>
           </Card>

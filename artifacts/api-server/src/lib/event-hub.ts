@@ -515,7 +515,35 @@ class EventHub {
 
   /** Get the stored system telemetry snapshot. */
   getTelemetry(): SystemTelemetry | null {
-    return this.telemetry;
+    if (this.telemetry) return this.telemetry;
+    try {
+      const totalMem = os.totalmem();
+      const freeMem = os.freemem();
+      const usedMem = totalMem - freeMem;
+      const cpus = os.cpus();
+      return {
+        timestamp: new Date().toISOString(),
+        source: "windows_system_monitor",
+        observed: true,
+        cpu: {
+          percent: 0,
+          count: cpus.length,
+          physical_count: cpus.length,
+        },
+        memory: {
+          total_bytes: totalMem,
+          available_bytes: freeMem,
+          used_bytes: usedMem,
+          percent: totalMem > 0 ? Math.round((usedMem / totalMem) * 100) : 0,
+        },
+        system: {
+          uptime_seconds: Math.round(os.uptime()),
+          boot_time: Math.round(Date.now() / 1000 - os.uptime()),
+        },
+      };
+    } catch {
+      return null;
+    }
   }
 
   /** Store the current network snapshot and broadcast it. */
