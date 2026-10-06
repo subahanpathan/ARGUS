@@ -1,0 +1,45 @@
+# Render blueprint for the ARGUS API server.
+#
+# Vercel serves the React dashboard (and a serverless /api function); Render
+# hosts the long-running Node server that serves the same API plus the built
+# dashboard from its ./public directory. Both talk to the same code — the
+# server allows any cross-origin caller (cors origin:true, credentials:true),
+# so the Vercel frontend can use this API directly.
+#
+# Deploy: Render Dashboard -> New -> Blueprint -> pick this repo.
+# It reads this render.yaml and creates the services below automatically.
+#
+# Required environment variables (set in the Render dashboard after the first
+# deploy, or in blueprint env sync):
+#   ARGUS_DEV_ACCESS_KEY - the activation key validated by POST /api/auth/activate
+
+services:
+  - type: web
+    name: argus-api
+    runtime: node
+    plan: free
+    region: oregon
+    autoDeploy: true
+    branch: main
+    buildCommand: |
+      corepack enable
+      pnpm install --frozen-lockfile
+      node ./artifacts/api-server/build.mjs
+      pnpm --filter @workspace/argus run build
+    # Start the standalone server. Render injects PORT automatically; the
+    # server reads it (index.ts) and also serves the dashboard from ./public.
+    startCommand: node ./artifacts/api-server/dist/index.mjs
+    healthCheckPath: /api/healthz
+    envVars:
+      - key: NODE_VERSION
+        value: "20"
+      - key: NODE_ENV
+        value: production
+      - key: ARGUS_DATA_DIR
+        value: data
+      - key: ARGUS_DEV_ACCESS_KEY
+        sync: false # set the real key in the Render dashboard; never committed
+      - key: ARGUS_ALLOWED_ORIGINS
+        sync: false # e.g. https://argus.vercel.app,https://argus-git-main-you.vercel.app
+      - key: PORT
+        value: "5000" # Render overrides this with its own assigned port

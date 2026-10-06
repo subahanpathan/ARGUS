@@ -7,6 +7,16 @@ import { logger } from "./lib/logger";
 
 const app: Express = express();
 
+// Cross-origin setup for the split deployment:
+//   - Vercel hosts the React dashboard (https://argus-*.vercel.app)
+//   - Render hosts this API (https://argus-api-*.onrender.com)
+// ARGUS_ALLOWED_ORIGINS is a comma-separated allowlist. When unset (local
+// dev, single-origin deployments, desktop app) any origin is accepted.
+const allowedOrigins = (process.env.ARGUS_ALLOWED_ORIGINS || "")
+  .split(",")
+  .map((o) => o.trim())
+  .filter(Boolean);
+
 app.use(
   pinoHttp({
     logger,
@@ -26,7 +36,19 @@ app.use(
     },
   }),
 );
-app.use(cors({ origin: true, credentials: true }));
+app.use(
+  cors(
+    allowedOrigins.length > 0
+      ? {
+          origin(origin, callback) {
+            if (!origin || allowedOrigins.includes(origin)) callback(null, true);
+            else callback(new Error(`Origin not allowed: ${origin}`));
+          },
+          credentials: true,
+        }
+      : { origin: true, credentials: true },
+  ),
+);
 app.use(cookieParser());
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true }));
