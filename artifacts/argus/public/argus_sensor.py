@@ -252,15 +252,36 @@ def sample_process_snapshot():
         "processes": processes,
     }
 
+def classify_ip_role(ip: str) -> str:
+    if not ip or ip in ("0.0.0.0", "::", "*"):
+        return "WILDCARD"
+    if ip == "127.0.0.1" or ip == "::1" or ip.startswith("127."):
+        return "LOOPBACK"
+    if ip.startswith("169.254."):
+        return "LINK_LOCAL"
+    if ip.startswith("10.") or ip.startswith("192.168."):
+        return "PRIVATE"
+    if ip.startswith("172."):
+        try:
+            sec = int(ip.split(".")[1])
+            if 16 <= sec <= 31:
+                return "PRIVATE"
+        except Exception:
+            pass
+    return "REMOTE"
+
 def sample_network_connections():
     now_iso = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
     connections = []
-    pid_to_name = {}
+    pid_to_proc = {}
     try:
-        for p in psutil.process_iter(['pid', 'name']):
+        for p in psutil.process_iter(['pid', 'name', 'exe']):
             try:
                 if p.info and p.info.get('pid'):
-                    pid_to_name[p.info['pid']] = p.info.get('name') or 'process'
+                    pid_to_proc[p.info['pid']] = {
+                        "name": p.info.get('name') or 'process',
+                        "exe": p.info.get('exe') or None,
+                    }
             except Exception:
                 pass
     except Exception:
@@ -283,16 +304,35 @@ def sample_network_connections():
         elif status == "LISTEN":
             listen += 1
 
-        p_name = pid_to_name.get(c.pid, "unknown") if c.pid else "system"
+        proc_info = pid_to_proc.get(c.pid, {}) if c.pid else {}
+        p_name = proc_info.get("name", "unknown") if c.pid else "system"
+        p_exe = proc_info.get("exe")
+
+        local_ip = c.laddr.ip if c.laddr else "0.0.0.0"
+        local_port = c.laddr.port if c.laddr else 0
+        remote_ip = c.raddr.ip if c.raddr else "0.0.0.0"
+        remote_port = c.raddr.port if c.raddr else 0
+
+        local_role = classify_ip_role(local_ip)
+        remote_role = classify_ip_role(remote_ip)
+
+        # Direction determination
+        direction = "LOCAL"
+        if remote_ip != "0.0.0.0":
+            direction = "OUTBOUND" if status == "ESTABLISHED" else "INBOUND"
 
         connections.append({
             "process": p_name,
             "pid": c.pid or 0,
             "protocol": proto,
-            "local_addr": c.laddr.ip if c.laddr else "0.0.0.0",
-            "local_port": c.laddr.port if c.laddr else 0,
-            "remote_addr": c.raddr.ip if c.raddr else "0.0.0.0",
-            "remote_port": c.raddr.port if c.raddr else 0,
+            "local_addr": local_ip,
+            "local_port": local_port,
+            "remote_addr": remote_ip,
+            "remote_port": remote_port,
+            "local_role": local_role,
+            "remote_role": remote_role,
+            "direction": direction,
+            "executable_path": p_exe,
             "status": status,
             "timestamp": now_iso,
         })

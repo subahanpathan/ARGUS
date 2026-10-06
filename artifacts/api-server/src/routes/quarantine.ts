@@ -182,6 +182,9 @@ router.post("/quarantine", (req: Request, res: Response) => {
     let isolatedFilePath: string | undefined = undefined;
 
     // Check if physical file exists on disk
+    let removeOriginalSucceeded = false;
+    let removeOriginalError = "";
+
     if (fs.existsSync(cleanPath) && fs.statSync(cleanPath).isFile()) {
       const buffer = fs.readFileSync(cleanPath);
       sizeBytes = buffer.length;
@@ -189,16 +192,33 @@ router.post("/quarantine", (req: Request, res: Response) => {
       hash = crypto.createHash("sha256").update(buffer).digest("hex");
       entropy = calculateEntropy(buffer);
 
-      // Copy into isolated vault directory
+      // 1. Copy into isolated vault directory
       const safeIsolatedName = `${hash.slice(0, 12)}_${fileName}.quarantined`;
       isolatedFilePath = path.join(ISOLATED_DIR, safeIsolatedName);
       fs.writeFileSync(isolatedFilePath, buffer, { mode: 0o400 }); // read-only
+
+      // 2. Verify vault copy exists and size matches
+      const copyVerified = fs.existsSync(isolatedFilePath) && fs.statSync(isolatedFilePath).size === sizeBytes;
+      if (!copyVerified) {
+        throw new Error("Vault copy verification failed");
+      }
+
+      // 3. Remove original file from target location
+      try {
+        fs.unlinkSync(cleanPath);
+        removeOriginalSucceeded = !fs.existsSync(cleanPath);
+      } catch (unlinkErr: any) {
+        removeOriginalError = unlinkErr?.message || "Could not delete original file (file in use or permission denied)";
+      }
     } else {
       // Create cryptographic seal for simulated/virtual artifact
       hash = crypto.createHash("sha256").update(cleanPath + timestampStr).digest("hex");
       sizeBytes = Math.floor(Math.random() * 500000) + 12000;
       sizeStr = `${(sizeBytes / 1024).toFixed(1)} KB`;
+      removeOriginalSucceeded = true;
     }
+
+    const quarantineStatus = removeOriginalSucceeded ? "Quarantined" : "QUARANTINE_FAILED";
 
     const newRecord: QuarantineRecord = {
       id: `q-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
@@ -207,7 +227,7 @@ router.post("/quarantine", (req: Request, res: Response) => {
       date: timestampStr,
       source,
       hash,
-      status: "Quarantined",
+      status: quarantineStatus,
       threatId,
       size: sizeStr,
       sizeBytes,
@@ -229,6 +249,23 @@ router.post("/quarantine", (req: Request, res: Response) => {
           actor: "SHA-256 Engine",
           detail: `Computed SHA-256: ${hash}. Entropy: ${entropy}. Size: ${sizeStr}.`,
         },
+        ...(removeOriginalSucceeded
+          ? [
+              {
+                timestamp: timestampStr,
+                action: "ORIGINAL_UNLINKED",
+                actor: "ARGUS Quarantine Engine",
+                detail: `Original file ${cleanPath} successfully purged from disk and verified removed.`,
+              },
+            ]
+          : [
+              {
+                timestamp: timestampStr,
+                action: "ORIGINAL_UNLINK_FAILED",
+                actor: "ARGUS Quarantine Engine",
+                detail: `Failed to remove original file: ${removeOriginalError}`,
+              },
+            ]),
       ],
     };
 
@@ -236,16 +273,19 @@ router.post("/quarantine", (req: Request, res: Response) => {
     records.unshift(newRecord);
     writeManifest(records);
 
-    logger.info({ id: newRecord.id, name: newRecord.name, hash: newRecord.hash }, "File quarantined to evidence vault");
+    logger.info({ id: newRecord.id, name: newRecord.name, hash: newRecord.hash, status: quarantineStatus }, "File quarantined to evidence vault");
 
     res.status(201).json({
-      success: true,
-      message: "File successfully sequestered in quarantine vault",
+      success: removeOriginalSucceeded,
+      status: quarantineStatus,
+      message: removeOriginalSucceeded
+        ? "File successfully sequestered in quarantine vault and original removed"
+        : `File copied to vault but original could not be deleted: ${removeOriginalError}`,
       item: newRecord,
     });
-  } catch (err) {
+  } catch (err: any) {
     logger.error({ err }, "Error quarantining file");
-    res.status(500).json({ error: "Failed to isolate file to quarantine vault" });
+    res.status(500).json({ error: "Failed to isolate file to quarantine vault", detail: err?.message });
   }
 });
 

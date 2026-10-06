@@ -273,41 +273,27 @@ function validateProcessEvent(event: unknown): { valid: true } | { valid: false;
   return { valid: true };
 }
 
-/**
- * POST /api/processes/:pid/terminate
- * Terminate a process by PID and emit a PROCESS_TERMINATED event.
- */
-router.post("/processes/:pid/terminate", (req: Request, res: Response) => {
-  const pid = parseInt(req.params.pid, 10);
+export async function terminateProcessTree(pid: number, procName = `PID ${pid}`): Promise<{ success: boolean; error?: string; detail?: string }> {
   if (isNaN(pid) || pid <= 0) {
-    res.status(400).json({ error: "Invalid PID" });
-    return;
+    return { success: false, error: "Invalid PID" };
   }
-
-  // Refuse to terminate critical system PIDs
   if (pid === 0 || pid === 4) {
-    res.status(403).json({ error: "Cannot terminate core OS system process (PID 0/4)" });
-    return;
+    return { success: false, error: "Cannot terminate core OS system process (PID 0/4)" };
   }
-
-  const procName = typeof req.body?.name === "string" ? req.body.name : `PID ${pid}`;
-  const killTree = Boolean(req.body?.killTree);
 
   if (process.platform === "win32") {
-    import("child_process").then(({ execFile }) => {
-      const taskkillArgs = killTree ? ["/F", "/T", "/PID", String(pid)] : ["/F", "/PID", String(pid)];
-      execFile("taskkill", taskkillArgs, (error, stdout, stderr) => {
-        if (error) {
-          const combined = `${stdout} ${stderr}`;
-          const isAccessDenied = combined.toLowerCase().includes("access is denied");
-          const isNotFound = combined.toLowerCase().includes("not found");
+    const { execFile } = await import("child_process");
+    return new Promise((resolve) => {
+      execFile("taskkill", ["/F", "/T", "/PID", String(pid)], (error, stdout, stderr) => {
+        const combined = `${stdout} ${stderr}`;
+        const isNotFound = combined.toLowerCase().includes("not found") || combined.toLowerCase().includes("no running instance");
+        const isAccessDenied = combined.toLowerCase().includes("access is denied");
 
-          res.status(isAccessDenied ? 403 : isNotFound ? 404 : 500).json({
+        if (error && !isNotFound) {
+          resolve({
             success: false,
             error: isAccessDenied
               ? "Access denied: elevated administrator privileges required to terminate this process."
-              : isNotFound
-              ? "Process not found or already exited."
               : `Termination failed: ${combined.trim() || error.message}`,
             detail: combined.trim(),
           });
@@ -324,18 +310,12 @@ router.post("/processes/:pid/terminate", (req: Request, res: Response) => {
           observed: true,
         });
 
-        res.json({
-          success: true,
-          pid,
-          message: `Process ${procName} (PID ${pid}) was successfully terminated.`,
-        });
+        resolve({ success: true });
       });
-    }).catch((err) => {
-      res.status(500).json({ error: err.message });
     });
   } else {
     try {
-      process.kill(pid, "SIGTERM");
+      process.kill(pid, "SIGKILL");
       eventHub.addEvent({
         id: `term-${pid}-${Date.now()}`,
         event_type: "PROCESS_TERMINATED",
@@ -345,15 +325,42 @@ router.post("/processes/:pid/terminate", (req: Request, res: Response) => {
         source: "remediation_action",
         observed: true,
       });
-      res.json({
-        success: true,
-        pid,
-        message: `Process ${procName} (PID ${pid}) was successfully terminated.`,
-      });
+      return { success: true };
     } catch (err: any) {
-      res.status(500).json({ error: err.message });
+      return { success: false, error: err?.message || "Termination failed" };
     }
   }
+}
+
+/**
+ * POST /api/processes/:pid/terminate
+ * Terminate a process by PID and emit a PROCESS_TERMINATED event.
+ */
+router.post("/processes/:pid/terminate", async (req: Request, res: Response) => {
+  const pid = parseInt(req.params.pid, 10);
+  if (isNaN(pid) || pid <= 0) {
+    res.status(400).json({ error: "Invalid PID" });
+    return;
+  }
+  if (pid === 0 || pid === 4) {
+    res.status(403).json({ error: "Cannot terminate core OS system process (PID 0/4)" });
+    return;
+  }
+
+  const procName = typeof req.body?.name === "string" ? req.body.name : `PID ${pid}`;
+  const result = await terminateProcessTree(pid, procName);
+
+  if (!result.success) {
+    const isAccessDenied = (result.error || "").toLowerCase().includes("access denied");
+    res.status(isAccessDenied ? 403 : 500).json(result);
+    return;
+  }
+
+  res.json({
+    success: true,
+    pid,
+    message: `Process ${procName} (PID ${pid}) was successfully terminated.`,
+  });
 });
 
 export default router;

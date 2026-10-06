@@ -55,7 +55,7 @@ const endpoint = (addr: string | undefined, port: number | undefined): string =>
  */
 const userWritableOutbound: (event: NetworkViewEvent) => RuleMatch | null = (event) => {
   if (!isEstablished(event)) return null;
-  if (!isRemoteRole(event.remote_role)) return null;
+  if (!isRemoteRole(event.remote_role, event.remote_addr)) return null;
   const path = event.executable_path;
   if (!path || !isUserWritableExecutionPath(path)) return null;
 
@@ -83,7 +83,7 @@ const userWritableOutbound: (event: NetworkViewEvent) => RuleMatch | null = (eve
  */
 const knownToolPort: (event: NetworkViewEvent) => RuleMatch | null = (event) => {
   if (!isEstablished(event)) return null;
-  if (!isRemoteRole(event.remote_role)) return null;
+  if (!isRemoteRole(event.remote_role, event.remote_addr)) return null;
   if (!isKnownToolPort(event.remote_port)) return null;
 
   return {
@@ -192,7 +192,7 @@ const wildcardListenerUserWritable: (event: NetworkViewEvent) => RuleMatch | nul
  */
 const interpreterRemoteConnection: (event: NetworkViewEvent) => RuleMatch | null = (event) => {
   if (!isEstablished(event)) return null;
-  if (!isRemoteRole(event.remote_role)) return null;
+  if (!isRemoteRole(event.remote_role, event.remote_addr)) return null;
   const interpreter = isScriptInterpreter(event.process_name);
   const lolbin = isLolBin(event.process_name);
   if (!interpreter && !lolbin) return null;

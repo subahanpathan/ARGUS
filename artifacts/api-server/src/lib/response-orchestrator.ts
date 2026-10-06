@@ -25,7 +25,10 @@ import fs from "node:fs/promises";
 import path from "node:path";
 
 export type IncidentState =
+  | "OBSERVED"
   | "DETECTED"
+  | "EVIDENCE_CAPTURED"
+  | "CONTAINMENT_STARTED"
   | "TRACING"
   | "INVESTIGATING"
   | "IMPACT_ASSESSED"
@@ -38,8 +41,11 @@ export type IncidentState =
   | "RECOVERED"
   | "RECOVERED_UNVERIFIED"
   | "CLOSED"
+  | "RESOLVED"
   | "REOPENED"
   | "FAILED"
+  | "DETECTION_FAILED"
+  | "EVIDENCE_FAILED"
   | "REQUIRES_USER_ACTION";
 
 export type ResponseLevel =
@@ -115,6 +121,42 @@ export type OrchestratedIncident = {
   auditTrail: IncidentAuditRecord[];
   correlatedTrace: CorrelatedIncident;
   lastUpdated: string;
+  // Precise Exposure Window & Lifecycle Timestamps
+  t_first_seen?: string;
+  t_detected?: string;
+  t_evidence_captured?: string;
+  t_containment_started?: string;
+  t_contained?: string;
+  exposureDurationMs?: number;
+  exposureDurationSeconds?: number;
+  evidenceSnapshot?: {
+    incidentId: string;
+    ruleId?: string;
+    ruleName?: string;
+    severity: string;
+    confidence: number;
+    detectionTimestamp: string;
+    firstSeenTimestamp: string;
+    primaryProcess: {
+      pid: number;
+      name: string;
+      executablePath?: string;
+      commandLine?: string;
+      username?: string;
+      parentPid?: number;
+      parentName?: string;
+      ancestry?: Array<{ pid: number; process_name: string }>;
+    };
+    network: {
+      localEndpoint?: string;
+      remoteEndpoint?: string;
+      protocol?: string;
+      socketState?: string;
+    };
+    mitreTechniques: string[];
+    affectedFilesCount: number;
+    capturedAt: string;
+  };
 };
 
 class ResponseOrchestrator {

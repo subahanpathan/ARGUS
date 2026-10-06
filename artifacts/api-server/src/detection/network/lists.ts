@@ -32,14 +32,34 @@ const KNOWN_TOOL_PORTS = new Set<number>([
   54321, // Common trojan / custom C2
 ]);
 
-/** True when the address role represents an actual remote (public) endpoint. */
-export function isRemoteRole(role: string | null | undefined): boolean {
-  return typeof role === "string" && !NON_REMOTE_ROLES.has(role);
+/** True when the address role represents an actual remote (public) endpoint.
+ * In LAB / DEMO mode (ARGUS_MODE=LAB or ALLOW_PRIVATE_RANGES_IN_DETECTION=true),
+ * non-loopback private network endpoints (e.g. Kali VM on 192.168.x.x or 10.x.x.x)
+ * are permitted to be evaluated by remote network rules. Loopback is strictly excluded.
+ */
+export function isRemoteRole(role: string | null | undefined, remoteAddr?: string | null): boolean {
+  const isLabMode =
+    process.env.ARGUS_MODE === "LAB" ||
+    process.env.ALLOW_PRIVATE_RANGES_IN_DETECTION === "true" ||
+    process.env.ARGUS_ALLOW_PRIVATE_RANGES === "true";
+
+  if (isLabMode) {
+    if (remoteAddr && (STRICT_LOCAL_ADDRS.has(remoteAddr) || remoteAddr.startsWith("127."))) {
+      return false;
+    }
+    if (role && STRICT_LOCAL_ROLES.has(role.toUpperCase())) {
+      return false;
+    }
+    // If it's a private address role or unspecified role with non-loopback remote address, allow in lab mode
+    return true;
+  }
+
+  return typeof role === "string" && !NON_REMOTE_ROLES.has(role.toUpperCase());
 }
 
 /** Loopback / local machine addresses that are never external endpoints. */
-const STRICT_LOCAL_ROLES = new Set(["LOCAL", "LOOPBACK"]);
-const STRICT_LOCAL_ADDRS = new Set(["127.0.0.1", "::1", "0.0.0.0", "localhost", ""]);
+export const STRICT_LOCAL_ROLES = new Set(["LOCAL", "LOOPBACK"]);
+export const STRICT_LOCAL_ADDRS = new Set(["127.0.0.1", "::1", "0.0.0.0", "localhost", ""]);
 
 /**
  * Returns true if the address represents an external device (either public internet
