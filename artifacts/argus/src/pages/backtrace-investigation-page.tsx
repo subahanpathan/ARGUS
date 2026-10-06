@@ -45,6 +45,7 @@ import {
 } from "lucide-react";
 import { useBacktrace, type BacktraceNode3D } from "@/hooks/use-backtrace";
 import { Backtrace3DVisualizer } from "@/components/backtrace-3d-visualizer";
+import { X, Trophy } from "lucide-react";
 
 function cn(...values: Array<string | false | undefined | null>) {
   return values.filter(Boolean).join(" ");
@@ -63,6 +64,8 @@ export default function BacktraceInvestigationPage({
     setActiveStep,
     isPlaying,
     setIsPlaying,
+    replayComplete,
+    dismissReplayComplete,
     playbackSpeed,
     setPlaybackSpeed,
     selectedNode,
@@ -269,6 +272,34 @@ export default function BacktraceInvestigationPage({
             onSelectNode={setSelectedNode}
             cameraMode={cameraMode}
           />
+
+          {/* REPLAY COMPLETE — non-blocking toast, bottom-right, auto-dismisses */}
+          {replayComplete && (
+            <div
+              className="replay-complete-toast"
+              role="status"
+              aria-live="polite"
+            >
+              <div className="replay-toast-bar" />
+              <div className="replay-toast-icon">
+                <Trophy size={16} />
+              </div>
+              <div className="replay-toast-body">
+                <div className="replay-toast-title">REPLAY COMPLETE</div>
+                <div className="replay-toast-sub">
+                  {data?.animationSequence?.length || 12} forensic steps reconstructed in 3D.
+                </div>
+              </div>
+              <button
+                type="button"
+                className="replay-toast-close"
+                aria-label="Dismiss replay complete notification"
+                onClick={dismissReplayComplete}
+              >
+                <X size={12} />
+              </button>
+            </div>
+          )}
         </div>
 
         {/* RIGHT COLUMN: 3D Forensic Inspector & Intelligence */}

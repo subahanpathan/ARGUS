@@ -110,6 +110,11 @@ def start_agent(foreground: bool = False) -> bool:
     python_exe = sys.executable
     main_script = ENGINE_DIR / "main.py"
     cmd = [python_exe, str(main_script), "--api", "--snapshot"]
+    # PyInstaller frozen mode: the bundled agent runs as its own executable;
+    # extract the real engine binary path from argv[0] and re-invoke it.
+    if getattr(sys, "frozen", False):
+        main_script = Path(sys.argv[0]).resolve()
+        cmd = [str(main_script), "--api", "--snapshot"]
 
     logger.info("Starting ARGUS Endpoint Agent...")
     logger.info("Command: %s", " ".join(cmd))

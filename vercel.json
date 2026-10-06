@@ -1,7 +1,7 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": null,
-  "buildCommand": "node ./artifacts/api-server/build.mjs && pnpm --filter @workspace/argus run build",
+  "buildCommand": "node ./artifacts/api-server/build.mjs && pnpm --filter @workspace/argus run build && node ./scripts/copy-installer.mjs",
   "outputDirectory": "artifacts/argus/dist/public",
   "functions": {
     "api/index.ts": {

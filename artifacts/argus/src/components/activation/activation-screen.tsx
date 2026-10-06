@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
-  Activity, BrainCircuit, Check, Database, FileSearch, Fingerprint, Laptop, LockKeyhole,
-  Radar, RefreshCw, Shield, ShieldCheck, TerminalSquare,
+  Activity, BrainCircuit, Check, Database, Download, FileSearch, Fingerprint, Laptop, LockKeyhole,
+  MonitorDown, Radar, RefreshCw, Shield, ShieldCheck, ShieldAlert, TerminalSquare, X,
 } from 'lucide-react';
 
 import { ACTIVATION_MESSAGES, activate, writeActivationMarker, type ActivationFailure } from '@/lib/activation';
@@ -16,6 +16,8 @@ import { ACTIVATION_MESSAGES, activate, writeActivationMarker, type ActivationFa
  */
 
 type ActivationPhase = { label: string; detail: string; icon: typeof Activity };
+
+type DesktopPermission = 'pending' | 'accepted' | 'declined';
 
 const PHASES: ActivationPhase[] = [
   { label: 'Submitting access key', detail: 'Encrypting key material for transport', icon: LockKeyhole },
@@ -57,6 +59,61 @@ export function ActivationScreen({ onActivated }: { onActivated: () => void }) {
   const [step, setStep] = useState(0);
   const [failure, setFailure] = useState<ActivationFailure | null>(null);
   const [succeeded, setSucceeded] = useState(false);
+  const [permission, setPermission] = useState<DesktopPermission>('pending');
+  const [downloading, setDownloading] = useState(false);
+  const [downloadError, setDownloadError] = useState<string | null>(null);
+
+  const requestDownload = async () => {
+    setDownloading(true);
+    setDownloadError(null);
+    try {
+      // Ask the server whether the installer exists, then trigger the download.
+      // The endpoint either serves the bundled installer or redirects (302) to
+      // a static asset on serverless hosts — follow up to the final status.
+      let status = 0;
+      let url = '/api/desktop/download';
+      for (let hop = 0; hop < 3; hop++) {
+        const probe = await fetch(url, { method: 'HEAD', redirect: 'manual' });
+        status = probe.status;
+        const loc = probe.headers.get('location');
+        if (status >= 300 && status < 400 && loc) {
+          url = loc.startsWith('http') ? loc : new URL(loc, window.location.origin).href;
+          continue;
+        }
+        break;
+      }
+      if (status !== 200) {
+        setDownloadError('The desktop installer is not available on this server yet.');
+        setDownloading(false);
+        return;
+      }
+      // Native anchor download (browser/desktop window handles Save As).
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'ARGUS-Setup.exe';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setDownloading(false);
+    } catch {
+      setDownloadError('Download failed. Please try again.');
+      setDownloading(false);
+    }
+  };
+
+  const acceptPermission = () => {
+    setPermission('accepted');
+    void requestDownload();
+  };
+
+  const declinePermission = () => {
+    setPermission('declined');
+    onActivated();
+  };
+
+  const continueToWorkspace = () => {
+    onActivated();
+  };
 
   // The handshake is a progress indicator, so it must outlast a fast local API
   // response instead of flashing past. Paused once the key has been accepted.
@@ -99,11 +156,59 @@ export function ActivationScreen({ onActivated }: { onActivated: () => void }) {
 
     setSucceeded(true);
     writeActivationMarker();
-    onActivated();
+    // Per-product flow: after a valid key, ask permission to download the
+    // desktop software. The workspace opens once the prompt is answered.
   };
 
   return (
     <div className="login">
+      {/* PERMISSION PROMPT - download desktop software after a valid key */}
+      {succeeded && permission === 'pending' && (
+        <div className="perm-overlay" role="dialog" aria-modal="true" aria-labelledby="perm-title">
+          <div className="perm-card" data-testid="desktop-download-permission">
+            <div className="perm-icon"><MonitorDown size={22} /></div>
+            <h3 id="perm-title">Download ARGUS Desktop?</h3>
+            <p className="perm-body">
+              Your access key is valid. To finish setup, ARGUS needs permission to
+              download and install the desktop application on this laptop.
+            </p>
+            <ul className="perm-points">
+              <li><ShieldCheck size={12} /> Installs the ARGUS Security Intelligence app locally</li>
+              <li><Laptop size={12} /> Runs the endpoint protection agent on this device</li>
+              <li><Shield size={12} /> No data leaves your machine</li>
+            </ul>
+            {downloadError && <p className="perm-error" role="alert">{downloadError}</p>}
+            <div className="perm-actions">
+              <button type="button" className="btn btn-ghost btn-sm" onClick={declinePermission}>
+                <X size={12} /> No thanks
+              </button>
+              <button type="button" className="btn btn-primary btn-sm" onClick={acceptPermission}>
+                <Download size={12} /> Allow download
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {succeeded && permission === 'accepted' && (
+        <div className="perm-overlay" role="dialog" aria-modal="true" aria-labelledby="perm-downloading">
+          <div className="perm-card" data-testid="desktop-downloading">
+            <div className="perm-icon is-live"><RefreshCw size={22} className="auth-cascade" /></div>
+            <h3 id="perm-downloading">Preparing your download…</h3>
+            <p className="perm-body">
+              Your browser or desktop window will prompt you to save
+              {' '}<b>ARGUS-Setup.exe</b>. Run it once saved to install ARGUS on this laptop.
+            </p>
+            {downloadError && <p className="perm-error" role="alert">{downloadError}</p>}
+            <div className="perm-actions">
+              <button type="button" className="btn btn-primary btn-sm" onClick={continueToWorkspace}>
+                Continue to workspace
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className={`login-visual${busy ? ' is-busy' : ''}`}>
         <div className="login-ambient">
           <i className="login-ring r1" />
@@ -158,7 +263,7 @@ export function ActivationScreen({ onActivated }: { onActivated: () => void }) {
             <div className="login-busy login-fade" data-testid="activation-busy" aria-live="polite">
               <div className="login-spinner"><Radar size={40} /></div>
               <h2>{succeeded ? 'ARGUS activated' : active.label}</h2>
-              <p>{succeeded ? 'Access key accepted. Opening the security intelligence workspace.' : active.detail}</p>
+              <p>{succeeded ? 'Access key accepted.' : active.detail}</p>
               <div className="login-meta">
                 {PHASES.map((phase, index) => (
                   <span key={phase.label} className={index < step ? 'done' : index === step ? 'now' : ''}>

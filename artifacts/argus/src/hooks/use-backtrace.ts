@@ -139,6 +139,7 @@ export function useBacktrace(incidentId?: string) {
   const [loading, setLoading] = useState(false);
   const [activeStep, setActiveStep] = useState<number>(12); // Default to full step 12
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
+  const [replayComplete, setReplayComplete] = useState<boolean>(false);
   const [playbackSpeed, setPlaybackSpeed] = useState<number>(1.0);
   const [selectedNode, setSelectedNode] = useState<BacktraceNode3D | null>(null);
   const [cameraMode, setCameraMode] = useState<"3d" | "globe" | "trace_back" | "trace_forward">("3d");
@@ -172,9 +173,11 @@ export function useBacktrace(incidentId?: string) {
 
     const interval = setInterval(() => {
       setActiveStep((prev) => {
-        if (prev >= (data.animationSequence?.length || 12)) {
+        const maxStep = data.animationSequence?.length || 12;
+        if (prev >= maxStep) {
           setIsPlaying(false);
-          return data.animationSequence?.length || 12;
+          setReplayComplete(true);
+          return maxStep;
         }
         return prev + 1;
       });
@@ -193,9 +196,19 @@ export function useBacktrace(incidentId?: string) {
   }, [data]);
 
   const replay = useCallback(() => {
+    setReplayComplete(false);
     setActiveStep(1);
     setIsPlaying(true);
   }, []);
+
+  const dismissReplayComplete = useCallback(() => setReplayComplete(false), []);
+
+  // Auto-dismiss the completion toast so it never blocks the 3D view
+  useEffect(() => {
+    if (!replayComplete) return;
+    const t = window.setTimeout(() => setReplayComplete(false), 5000);
+    return () => window.clearTimeout(t);
+  }, [replayComplete]);
 
   return {
     data,
@@ -204,6 +217,8 @@ export function useBacktrace(incidentId?: string) {
     setActiveStep,
     isPlaying,
     setIsPlaying,
+    replayComplete,
+    dismissReplayComplete,
     playbackSpeed,
     setPlaybackSpeed,
     selectedNode,
