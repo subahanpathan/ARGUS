@@ -17,6 +17,8 @@ import incidentsRouter from "./incidents";
 import desktopDownloadRouter from "./desktop-download";
 import predictionsRouter from "./predictions";
 import adaptiveDefenseRouter from "./adaptive-defense";
+import simulationsRouter from "./simulations";
+import benchmarkRouter from "./benchmark";
 
 const router: IRouter = Router();
 
@@ -38,6 +40,8 @@ router.use(incidentsRouter);
 router.use(desktopDownloadRouter);
 router.use(predictionsRouter);
 router.use(adaptiveDefenseRouter);
+router.use(simulationsRouter);
+router.use(benchmarkRouter);
 
 export default router;
 

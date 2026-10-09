@@ -35,6 +35,7 @@ export type ImpactCounts = {
   deleted: number;
   accessed: number;
   suspiciouslyTransformed: number;
+  total?: number;
 };
 
 export type AffectedFileRecord = {
@@ -62,6 +63,12 @@ export type ImpactAssessment = {
   evidenceConfidence: "HIGH" | "MEDIUM" | "LOW" | "INCOMPLETE";
   damageScore: number | null;
   damageScoreExplanation: string;
+  overallRisk?: string;
+  hasExfiltrationRisk?: boolean;
+  hasDestructionRisk?: boolean;
+  hasPersistenceRisk?: boolean;
+  sensitiveCategories?: string[];
+  summary?: string;
 };
 
 const RANSOM_EXTENSIONS = new Set([

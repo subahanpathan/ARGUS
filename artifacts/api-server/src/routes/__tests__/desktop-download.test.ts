@@ -85,8 +85,9 @@ describe("Desktop Installer Download Endpoints", () => {
   });
 
   it("GET /api/downloads/argus-windows aliases the installer download with auth", async () => {
-    const res = await fetch(`${base}/api/downloads/argus-windows?token=${validDownloadToken}`, {
+    const res = await fetch(`${base}/api/downloads/argus-windows`, {
       method: "HEAD",
+      headers: { Cookie: validCookie },
     });
     assert.equal(res.status, 200);
     assert.match(res.headers.get("content-disposition") || "", /attachment;\s*filename="ARGUS-Setup\.exe"/i);
@@ -95,7 +96,9 @@ describe("Desktop Installer Download Endpoints", () => {
   it("returns 404 when installer is unavailable even if authorized", async () => {
     process.env.ARGUS_INSTALLER_PATH = "nonexistent-installer-file.exe";
     try {
-      const res = await fetch(`${base}/api/desktop/download?token=${validDownloadToken}`);
+      const res = await fetch(`${base}/api/desktop/download`, {
+        headers: { Cookie: validCookie },
+      });
       assert.equal(res.status, 404);
       const json = (await res.json()) as { code: string };
       assert.equal(json.code, "INSTALLER_NOT_FOUND");

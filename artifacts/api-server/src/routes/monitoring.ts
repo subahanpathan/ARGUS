@@ -257,7 +257,7 @@ router.post("/monitoring/filesystem", ingest, (req: Request, res: Response) => {
     events,
     watcher: body.watcher,
   });
-  res.status(202).json({ accepted: result.accepted, backend: result.watcher.backend });
+  res.status(202).json({ accepted: result.accepted, backend: (result.watcher as any)?.backend ?? "filesystem" });
 });
 
 /**

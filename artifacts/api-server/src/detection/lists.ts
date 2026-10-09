@@ -100,7 +100,11 @@ const PRODUCTIVITY_APP_NAMES = new Set([
 
 /** User-writable directory markers that make execution from them suspicious. */
 const USER_WRITABLE_RE =
-  /\\(temp|tmp|downloads?)\\|\\appdata\\|\\desktop\\|\\documents\\|\\onedrive\\|\\music\\|\\pictures\\|\\videos\\|\/tmp\/|\/home\/|\/var\/tmp\//i;
+  /\\(temp|tmp|downloads?)\\|\\appdata\\local\\temp\\|\\desktop\\|\\documents\\|\\onedrive\\|\\music\\|\\pictures\\|\\videos\\|\/tmp\/|\/home\/|\/var\/tmp\//i;
+
+/** Installed program paths under AppData or Program Files that are legitimate application paths. */
+const INSTALLED_PROGRAM_PATH_RE =
+  /\\appdata\\local\\(programs|microsoft\\onedrive|google\\chrome|mozilla firefox|githubdesktop|slack|discord|jetbrains)\\|\\program files|\\windows\\/i;
 
 /** Script file extensions commonly used for dropped payloads. */
 export const SCRIPT_EXTENSION_RE = /\.(ps1|psm1|vbs|vbe|js|jse|hta|bat|cmd|scr|jar|lnk)$/i;
@@ -124,22 +128,31 @@ export function isProductivityApp(name: string | null | undefined): boolean {
 
 /**
  * True when the given text contains a user-writable directory marker
- * (Temp, Downloads, AppData, Desktop, Documents, OneDrive, ...).
+ * (Temp, Downloads, AppData/Temp, Desktop, Documents, OneDrive, ...).
  */
 export function containsUserWritableDir(text: string | null | undefined): boolean {
   if (!text) return false;
-  return USER_WRITABLE_RE.test(text);
+  const norm = text.trim().toLowerCase();
+  // Standard installed applications should not be treated as suspicious dropped binaries
+  if (INSTALLED_PROGRAM_PATH_RE.test(norm) && !norm.includes("\\temp\\") && !norm.includes("/tmp/")) {
+    return false;
+  }
+  return USER_WRITABLE_RE.test(norm);
 }
 
 /**
  * True when the given text is a path that lives inside a user-writable
- * directory. Falls back to `containsUserWritableDir` which is enough for
- * the values produced by the process monitor.
+ * directory.
  */
 export function isUserWritableExecutionPath(
   path: string | null | undefined,
 ): boolean {
-  return containsUserWritableDir(path);
+  if (!path) return false;
+  const norm = path.trim().toLowerCase();
+  if (INSTALLED_PROGRAM_PATH_RE.test(norm) && !norm.includes("\\temp\\") && !norm.includes("/tmp/")) {
+    return false;
+  }
+  return containsUserWritableDir(norm);
 }
 
 /** Extract a truncated command-line snippet for evidence (bounded length). */

@@ -88,9 +88,11 @@ export type Detection = {
   event_timestamp: string;
   /** Display name of the affected process. */
   entity: string;
+  process_name?: string;
   pid: number;
   executable_path?: string | null;
   command_line?: string | null;
+  commandLine?: string | null;
   parent_pid?: number | null;
   parent_process_name?: string | null;
   username?: string | null;
@@ -102,6 +104,10 @@ export type Detection = {
   correlated_rules?: string[];
   ancestry: DetectionAncestryNode[];
   related_event_id?: string | null;
+  is_simulation?: boolean;
+  simulation_id?: string;
+  scenario_id?: string;
+  source?: string;
 };
 
 /**
@@ -127,6 +133,9 @@ export type SecurityEvent = {
   parent_pid?: number | null;
   parent_process_name?: string | null;
   username?: string | null;
+  is_simulation?: boolean;
+  simulation_id?: string;
+  scenario_id?: string;
   metadata?: Record<string, unknown>;
 };
 
@@ -159,6 +168,7 @@ export type NetworkViewEvent = {
   pid: number;
   process_name: string;
   executable_path?: string | null;
+  command_line?: string | null;
   protocol?: string;
   address_family?: string;
   local_addr?: string;

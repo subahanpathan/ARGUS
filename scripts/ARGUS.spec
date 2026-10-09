@@ -1,16 +1,28 @@
 # -*- mode: python ; coding: utf-8 -*-
+import os
+from pathlib import Path
 from PyInstaller.utils.hooks import collect_all
 
-datas = [('D:/New folder (7)/ARGUS/scripts/_launcher_payload/runtime', 'runtime'), ('D:/New folder (7)/ARGUS/scripts/_launcher_payload/api-server', 'api-server'), ('D:/New folder (7)/ARGUS/scripts/_launcher_payload/engine', 'engine')]
+SPECDIR = Path(os.path.abspath(SPECPATH))
+ROOT = SPECDIR.parent
+PAYLOAD = SPECDIR / "_launcher_payload"
+
+datas = [
+    (str(PAYLOAD / "runtime"), "runtime"),
+    (str(PAYLOAD / "api-server"), "api-server"),
+    (str(PAYLOAD / "engine"), "engine"),
+]
 binaries = []
 hiddenimports = ['webview.platforms.winforms', 'webview.platforms.edgechromium']
 tmp_ret = collect_all('webview')
 datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
 
+icon_file = SPECDIR / "icon" / "argus.ico"
+icon_path = [str(icon_file)] if icon_file.exists() else []
 
 a = Analysis(
-    ['argus-launcher.py'],
-    pathex=[],
+    [str(SPECDIR / "argus-launcher.py")],
+    pathex=[str(SPECDIR)],
     binaries=binaries,
     datas=datas,
     hiddenimports=hiddenimports,
@@ -29,7 +41,7 @@ exe = EXE(
     a.binaries,
     a.datas,
     [],
-    name='ARGUS',
+    name='ARGUS-Setup',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -42,5 +54,5 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon=['icon/argus.ico'],
+    icon=icon_path,
 )

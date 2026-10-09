@@ -315,9 +315,13 @@ export function useRemediationLedger(options?: {
 
     return {
       totalRemediated: remediations.length,
+      total: remediations.length,
       totalDeleted,
+      purged: totalDeleted,
       totalQuarantined,
+      quarantined: totalQuarantined,
       totalSensitiveDirectedToCyberCell: totalSensitive,
+      sensitive: totalSensitive,
       avgIntervalMs,
       avgIntervalFormatted: avgIntervalMs < 1000 ? `${avgIntervalMs} ms` : `${(avgIntervalMs / 1000).toFixed(2)} s`,
     };

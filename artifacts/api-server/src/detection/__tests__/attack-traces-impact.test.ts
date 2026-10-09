@@ -83,7 +83,7 @@ describe("Phase 3 & Phase 4: File Activity Correlation & Impact Analysis", () =>
   test("AttackCorrelationEngine links file activity to correlated incident", () => {
     const mockDetection: Detection = {
       id: "det-file-test-1",
-      rule_id: "PROC-001-SUSPICIOUS-SPAWN",
+      rule_id: "PROC-001-SUSPICIOUS-PARENT-CHILD",
       rule_name: "Suspicious Process Spawn",
       title: "Suspicious PowerShell Execution",
       severity: "high",

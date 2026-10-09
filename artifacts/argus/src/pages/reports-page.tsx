@@ -34,15 +34,8 @@ interface ReportsPageProps {
   phase: number;
   incidentStatus: string;
   quarantineItems: QuarantineItem[];
-  processMonitor: {
-    processes: Array<{ pid: number; name: string; cpu_percent?: number; memory_mb?: number; username?: string; cmdline?: string }>;
-    hasData: boolean;
-    connected: boolean;
-  };
-  networkMonitor: {
-    connections: Array<{ pid: number; process_name: string; laddr: string; raddr: string; status: string }>;
-    hasData: boolean;
-  };
+  processMonitor?: any;
+  networkMonitor?: any;
   threatAnalysis: {
     threats: Array<{ id: string; name: string; severity: string; status: string; reason?: string }>;
     criticalCount: number;

@@ -8,7 +8,7 @@ describe("Phase 5 & Phase 6: Automated Incident Response Orchestration & Verifie
   test("Orchestrator generates response levels and explainable recommendations", () => {
     const mockDetection: Detection = {
       id: "det-orch-1",
-      rule_id: "PROC-001-SUSPICIOUS-SPAWN",
+      rule_id: "PROC-001-SUSPICIOUS-PARENT-CHILD",
       rule_name: "Suspicious Process Spawn",
       title: "Suspicious Cmd Execution",
       severity: "critical",

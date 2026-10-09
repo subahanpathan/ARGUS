@@ -60,13 +60,13 @@ function makeIncident(overrides: Partial<CorrelatedIncident> = {}): CorrelatedIn
     evidenceSummary: [],
     impactAssessment: {
       overallRisk: "HIGH",
-      counts: { created: 0, modified: 0, deleted: 0, renamed: 0, total: 0 },
+      counts: { created: 0, modified: 0, deleted: 0, renamed: 0, accessed: 0, suspiciouslyTransformed: 0, total: 0 },
       hasExfiltrationRisk: false,
       hasDestructionRisk: false,
       hasPersistenceRisk: false,
       sensitiveCategories: [],
       summary: "No file impact.",
-    },
+    } as any,
     affectedFiles: [],
     dataFlowChain: [],
     ...overrides,
@@ -81,9 +81,11 @@ describe("Prediction Engine", () => {
   // -------------------------------------------------------------------------
   // Case 1: No detections → empty or low-confidence generic predictions only
   // -------------------------------------------------------------------------
-  it("returns an empty array when no incidents or detections are provided", () => {
+  it("returns INSUFFICIENT_EVIDENCE when no incidents or detections are provided", () => {
     const result = generatePredictions([], []);
-    assert.equal(result.length, 0, "Expected no predictions for empty inputs");
+    assert.equal(result.length, 1);
+    assert.equal(result[0].stage, "INSUFFICIENT_EVIDENCE");
+    assert.equal(result[0].uncertainty, "HIGH");
   });
 
   // -------------------------------------------------------------------------

@@ -190,7 +190,7 @@ export function lookupNetworkIntelligence(ip: string, port?: number, protocol?: 
     { country: "Singapore", region: "Central Region", city: "Singapore" },
   ];
   const geo = countries[hashVal % countries.length];
-  const verdict: NetworkIntel["threatIntel"]["verdict"] = hashVal % 2 === 0 ? "Suspicious" : "Advisory";
+  const verdict = hashVal % 2 === 0 ? "Suspicious" : "Advisory";
 
   return {
     ip,
@@ -253,7 +253,7 @@ export class BacktraceEngine {
     const remoteIntel = lookupNetworkIntelligence(sourceIp, sourcePort, "TLS 1.3");
 
     const hostSnapshot = eventHub.getSnapshot();
-    const hostname = hostSnapshot?.system?.hostname || "ARGUS-SEC-HOST";
+    const hostname = (hostSnapshot as any)?.system?.hostname || (eventHub.getTelemetry() as any)?.system?.hostname || "ARGUS-SEC-HOST";
 
     const nodes: BacktraceNode3D[] = [
       {
@@ -542,7 +542,7 @@ export class BacktraceEngine {
       incidentId: incident.incidentId,
       title: incident.title,
       severity: incident.severity,
-      confidence: incident.confidence,
+      confidence: (incident as any).confidence ?? 0.85,
       remoteSource: remoteIntel,
       argusHost: {
         hostname,

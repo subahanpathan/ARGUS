@@ -156,7 +156,10 @@ const encodedCommandLine: RuleFunction = (event) => {
     ["hidden_window", "execution_bypass"].includes(i.key),
   ).length;
 
-  const baseConfidence = Math.min(0.8, 0.7 + (serious - 1) * 0.05 + flags * 0.02);
+  // A single bypass/hidden flag without an obfuscated payload or multiple flags is routine for installer scripts
+  if (serious === 0 && flags < 2) return null;
+
+  const baseConfidence = serious >= 2 ? 0.85 : 0.70;
   const severity = serious >= 2 ? "high" : serious === 1 ? "high" : "medium";
 
   return {
@@ -183,11 +186,11 @@ const encodedCommandLine: RuleFunction = (event) => {
 };
 
 const SCRIPT_ARG_RE =
-  /(?:"|'|\/)((?:[a-z]:)?[^"']*?(?:\\temp\\|\\downloads?\\|\\appdata\\|\\desktop\\|\\documents\\|\\onedrive\\|\/tmp\/|\/home\/)[^"']*?\.(?:ps1|psm1|vbs|vbe|js|jse|hta|bat|cmd|scr|jar|lnk))/i;
+  /(?:"|'|\/)((?:[a-z]:)?[^"']*?(?:\\temp\\|\\downloads?\\|\\appdata\\local\\temp\\|\\desktop\\|\\documents\\|\\onedrive\\|\/tmp\/|\/home\/)[^"']*?\.(?:ps1|psm1|vbs|vbe|js|jse|hta|bat|cmd|scr|jar|lnk))/i;
 
 /**
  * PROC-003: A script interpreter was pointed at a script file that lives in a
- * user-writable directory (Temp, Downloads, AppData, Desktop, ...). Dropped
+ * user-writable directory (Temp, Downloads, AppData/Temp, Desktop, ...). Dropped
  * payload scripts nearly always land in user-writable locations.
  */
 const interpreterUnusualScript: RuleFunction = (event) => {
@@ -299,17 +302,10 @@ const DOWNLOAD_MARKERS = [
   "bitsadmin",
   "/transfer",
   "urlcache",
+  "-urlcache",
+  "-split",
   "invoke-webrequest",
-  "-outfile",
-  "-o http",
-  "cerutil",
-  "certutil -urlcache",
-  "certutil -f",
-  "certutil -split",
-  "-decode",
-  "wget",
-  "curl",
-  "invoke-request",
+  "invoke-restmethod",
 ];
 
 /**
@@ -319,25 +315,30 @@ const DOWNLOAD_MARKERS = [
  */
 const downloadExecute: RuleFunction = (event) => {
   if (!hasCommandLine(event)) return null;
-  if (!isLolBin(event.process_name) && !isScriptInterpreter(event.process_name)) return null;
 
   const line = cmd(event);
-  const hits = DOWNLOAD_MARKERS.filter((m) => line.includes(m.toLowerCase()));
-  if (hits.length === 0) return null;
+  const isInterpreterOrLolbin = isScriptInterpreter(event.process_name) || isLolBin(event.process_name);
 
-  const confidence = Math.min(0.85, 0.75 + (hits.length - 1) * 0.05);
+  const hits = DOWNLOAD_MARKERS.filter((m) => line.includes(m.toLowerCase()));
+  const containsPipeExecution = /(curl|wget)\s+.*(\|\s*(iex|powershell|cmd|sh|bash)|-out(file)?\s+)/i.test(line);
+
+  if (hits.length === 0 && !containsPipeExecution) return null;
+  if (!isInterpreterOrLolbin && !containsPipeExecution) return null;
+
+  const matchedItems = hits.length > 0 ? hits : ["curl/wget download pipe"];
+  const confidence = Math.min(0.85, 0.75 + (matchedItems.length - 1) * 0.05);
 
   return {
     rule_id: "PROC-006-DOWNLOAD-EXECUTE",
     rule_name: "Download-and-execute behaviour",
     title: `${event.process_name} shows download-and-execute behaviour`,
-    explanation: `${event.process_name} (pid ${event.pid}) invoked a command line that can fetch remote content and/or execute it in place (matched markers: ${hits.join(", ")}). Staging malware routinely downloads a secondary payload right before execution.`,
+    explanation: `${event.process_name} (pid ${event.pid}) invoked a command line that can fetch remote content and/or execute it in place (matched markers: ${matchedItems.join(", ")}). Staging malware routinely downloads a secondary payload right before execution.`,
     recommended_action:
       "Identify the download URL/source from the command line and check it against blocklists. If the destination is not an approved repository/CDN, block the source and inspect for a dropped payload.",
     evidence: [
       evidence(
         "download_marker",
-        `Command line contains download/execution markers: ${hits.join(", ")}`,
+        `Command line contains download/execution markers: ${matchedItems.join(", ")}`,
         "command_line",
         snippet(event.command_line),
       ),

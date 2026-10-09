@@ -120,6 +120,21 @@ export type IncidentRecord = {
     remoteEndpoint?: string;
     protocol?: string;
     socketState?: string;
+    primaryProcess?: {
+      name?: string;
+      pid?: number;
+      parentPid?: number | null;
+      executablePath?: string | null;
+      commandLine?: string | null;
+      username?: string | null;
+      executableHash?: string | null;
+    };
+    network?: {
+      localEndpoint?: string;
+      remoteEndpoint?: string;
+      protocol?: string;
+      socketState?: string;
+    };
     mitreTechniques: string[];
     relevantFileEvents: Array<any>;
     monitoredFileHashes: Array<{ filePath: string; hash: string }>;

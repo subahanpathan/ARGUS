@@ -66,6 +66,9 @@ export type Threat = {
   source?: 'live' | 'demo';
   pid?: number;
   parentPid?: number;
+  title?: string;
+  rule_name?: string;
+  rule_id?: string;
 };
 
 export type ThreatsPageProps = {

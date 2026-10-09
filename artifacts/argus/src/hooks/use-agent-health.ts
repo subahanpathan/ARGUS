@@ -8,6 +8,7 @@ export type SubsystemState = {
   providerCount?: number;
   rulesLoaded?: number;
   available?: boolean;
+  live?: boolean;
 };
 
 export type AgentHealthData = {

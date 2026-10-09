@@ -74,4 +74,8 @@ artifacts/api-server/artifacts/
 # Build caches & test installations
 test-install/
 build/
+scripts/build/
+scripts/_launcher_payload/
+extracted/
+.pytest_tmp/
 artifacts/security-engine/build/

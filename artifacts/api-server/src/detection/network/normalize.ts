@@ -86,6 +86,9 @@ export function normalizeNetworkConnections(snapshot: NetworkSnapshot): NetworkV
       state: (conn.status || (conn as any).state || "").toUpperCase() || undefined,
       connection_id: key,
       metadata: { stableKey: `net:${key}`, direction: conn.direction },
+      is_simulation: (conn as any).is_simulation ?? (snapshot as any).is_simulation ?? false,
+      simulation_id: (conn as any).simulation_id ?? (snapshot as any).simulation_id,
+      scenario_id: (conn as any).scenario_id ?? (snapshot as any).scenario_id,
     };
   });
 }

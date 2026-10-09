@@ -25,7 +25,7 @@ export type ProcessGraphNode = {
   files: string;
   verdict: ProcessVerdict;
   /** When true the parent→this edge animates a directional data flow. */
-  flow?: boolean; 3
+  flow?: boolean;
   
   /** When true the card renders in a "contained / quarantined" state. */
   contained?: boolean;

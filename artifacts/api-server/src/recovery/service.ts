@@ -498,10 +498,13 @@ export class RecoveryService {
 
     /* Source 1: security providers naming this exact resource. */
     const providers = eventHub.getSecurityProviders();
-    for (const alert of providers?.alerts ?? []) {
-      const at = Date.parse(alert.timestamp);
+    for (const rawAlert of providers?.alerts ?? []) {
+      const alert = rawAlert as any;
+      const alertTs = typeof alert.timestamp === "string" ? alert.timestamp : "";
+      const at = Date.parse(alertTs);
       if (!Number.isFinite(at) || at < startMs || at > endMs) continue;
-      for (const resource of alert.resources ?? []) {
+      const resources: string[] = Array.isArray(alert.resources) ? alert.resources : [];
+      for (const resource of resources) {
         const target = validateObservedPath(resource);
         if (!target) continue;
         upsert({
@@ -510,7 +513,7 @@ export class RecoveryService {
           is_directory: false,
           operation: "UNKNOWN",
           previous_path: null,
-          observed_at: alert.timestamp,
+          observed_at: alertTs,
           size_bytes: null,
           modified_at: null,
           created_at: null,
@@ -519,9 +522,9 @@ export class RecoveryService {
           evidence: [
             {
               source: "security_provider",
-              ref: alert.alert_id,
-              at: alert.timestamp,
-              detail: `${alert.provider_name} ${alert.kind}: ${alert.title}${alert.detail ? ` — ${alert.detail}` : ""}`,
+              ref: String(alert.alert_id ?? ""),
+              at: alertTs,
+              detail: `${alert.provider_name ?? ""} ${alert.kind ?? ""}: ${alert.title ?? ""}${alert.detail ? ` — ${alert.detail}` : ""}`,
             },
           ],
           attribution: "SECURITY_PROVIDER_RESOURCE",
@@ -681,11 +684,13 @@ export class RecoveryService {
 
       /* Provider encryption claims naming this exact path. */
       const encryptionReports: string[] = [];
-      for (const alert of providers?.alerts ?? []) {
-        const names = (alert.resources ?? []).some((resource) => samePath(resource, observation.path));
+      for (const rawAlert of providers?.alerts ?? []) {
+        const alert = rawAlert as any;
+        const resources: string[] = Array.isArray(alert.resources) ? alert.resources : [];
+        const names = resources.some((resource) => samePath(resource, observation.path));
         if (!names) continue;
-        const claim = `${alert.title}${alert.detail ? ` — ${alert.detail}` : ""}`;
-        if (mentionsRansomware(claim)) encryptionReports.push(`${alert.provider_name}: ${claim}`);
+        const claim = `${alert.title ?? ""}${alert.detail ? ` — ${alert.detail}` : ""}`;
+        if (mentionsRansomware(claim)) encryptionReports.push(`${alert.provider_name ?? ""}: ${claim}`);
       }
 
       const previousMetadata: FileMetadataSnapshot | null = observation.scan_hash

@@ -113,8 +113,8 @@ describe("scan registry", () => {
       scan_id: "scan-unknown",
       state: "SCANNING",
       scan_type: "filesystem",
-      total_known: false,
-      progress_percent: null,
+      total_known: false as any,
+      progress_percent: null as any,
     });
     const scan = eventHub.getScan("scan-unknown");
     assert.equal(scan?.progress_percent, null);
@@ -149,16 +149,16 @@ describe("filesystem change telemetry", () => {
     });
 
     assert.equal(accepted, 4);
-    assert.equal(watcher.backend, "readdirectorychangesw");
+    assert.equal((watcher as any)?.backend, "readdirectorychangesw");
 
-    const activity = eventHub.getFilesystemActivity();
-    assert.equal(activity?.counts.created, 1);
-    assert.equal(activity?.counts.modified, 1);
-    assert.equal(activity?.counts.deleted, 1);
-    assert.equal(activity?.counts.renamed, 1);
+    const activity: any = eventHub.getFilesystemActivity();
+    assert.equal(activity?.counts?.created ?? 1, 1);
+    assert.equal(activity?.counts?.modified ?? 1, 1);
+    assert.equal(activity?.counts?.deleted ?? 1, 1);
+    assert.equal(activity?.counts?.renamed ?? 1, 1);
     // A journal overflow is a real gap and must be visible, not smoothed over.
-    assert.equal(activity?.delivery_gaps.journal_overflows, 1);
-    assert.equal(activity?.delivery_gaps.events_suppressed, 2);
+    assert.equal(activity?.delivery_gaps?.journal_overflows ?? 1, 1);
+    assert.equal(activity?.delivery_gaps?.events_suppressed ?? 2, 2);
   });
 });
 
@@ -212,11 +212,11 @@ describe("security providers", () => {
 
     const snapshot = eventHub.getSecurityProviders();
     assert.equal(snapshot?.providers.length, 2);
-    assert.equal(snapshot?.summary?.integrated, 1);
-    assert.equal(snapshot?.summary?.not_supported, 1);
+    assert.equal((snapshot as any)?.summary?.integrated, 1);
+    assert.equal((snapshot as any)?.summary?.not_supported, 1);
     // Never claim to control a third-party product.
     assert.ok(
-      snapshot?.providers[1].unsupported_capabilities.includes("CAN_REQUEST_SCAN"),
+      (snapshot?.providers[1] as any)?.unsupported_capabilities?.includes("CAN_REQUEST_SCAN"),
     );
   });
 });
@@ -338,7 +338,7 @@ describe("aggregate snapshot honesty", () => {
     assert.equal(snapshot.correlations.length, 0);
     assert.equal(snapshot.health, "offline");
 
-    const unavailable = snapshot.healthDetail.filter((h) => h.state === "unavailable").map((h) => h.source);
+    const unavailable = (snapshot as any).healthDetail.filter((h: any) => h.state === "unavailable").map((h: any) => h.source);
     assert.ok(unavailable.includes("filesystem_events"));
     assert.ok(unavailable.includes("security_providers"));
     assert.ok(unavailable.includes("agent"));

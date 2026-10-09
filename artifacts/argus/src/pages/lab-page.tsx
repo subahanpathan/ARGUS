@@ -242,10 +242,13 @@ function buildGroundTruth(
 function useLabSimulator() {
   const [selectedScenario, setSelectedScenario] = useState(SCENARIOS[0].id);
   const [running, setRunning] = useState(false);
+  const [activeSimId, setActiveSimId] = useState<string | null>(null);
   const [result, setResult] = useState<ScenarioResult | null>(null);
   const [currentPhase, setCurrentPhase] = useState<ScenarioPhase | 'IDLE' | 'COMPLETED'>('IDLE');
   const [regressionHistory, setRegressionHistory] = useState<RegressionEntry[]>([]);
   const [phaseLog, setPhaseLog] = useState<string[]>([]);
+  const [simEvents, setSimEvents] = useState<any[]>([]);
+  const [backendRun, setBackendRun] = useState<any | null>(null);
   const abortRef = useRef(false);
 
   const run = useCallback(async () => {
@@ -256,70 +259,183 @@ function useLabSimulator() {
     setRunning(true);
     setPhaseLog([]);
     setResult(null);
+    setBackendRun(null);
+    setSimEvents([]);
 
-    const startedAt = new Date().toISOString();
-    const groundTruth = buildGroundTruth(scenario.id, scenario.phases, scenario.expectedRules);
+    let simId: string | null = null;
+    try {
+      const resp = await fetch('/api/simulations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ scenarioId: selectedScenario }),
+      });
 
-    for (const phase of scenario.phases) {
-      if (abortRef.current) break;
-      setCurrentPhase(phase.phase);
-      setPhaseLog(prev => [...prev, `[${fmtTime(new Date().toISOString())}] ${phase.phase}: ${phase.label}`]);
-      await new Promise(r => setTimeout(r, phase.durationMs));
+      if (resp.ok) {
+        const data = await resp.json();
+        simId = data.simulation?.simulationId || null;
+        setActiveSimId(simId);
+      }
+    } catch {
+      // Fallback if backend API is offline during dry test
     }
 
-    if (!abortRef.current) {
-      const detections = buildSyntheticDetections(scenario.id, scenario.expectedRules);
-      const firedRules = detections.map(d => d.ruleId);
-      const matched = scenario.expectedRules.filter(r => firedRules.includes(r));
-      const missed = scenario.expectedRules.filter(r => !firedRules.includes(r));
-      const extra = firedRules.filter(r => !scenario.expectedRules.includes(r));
-      const detectionRate = scenario.expectedRules.length === 0
-        ? (extra.length === 0 ? 1.0 : 0.0)
-        : matched.length / scenario.expectedRules.length;
-      const passed = detectionRate >= 1.0 && extra.length === 0;
+    if (!simId) {
+      // Offline fallback simulation
+      const startedAt = new Date().toISOString();
+      const groundTruth = buildGroundTruth(scenario.id, scenario.phases, scenario.expectedRules);
 
-      const completedAt = new Date().toISOString();
-      const newResult: ScenarioResult = {
-        scenarioId: scenario.id,
-        scenarioName: scenario.name,
-        startedAt,
-        completedAt,
-        phase: 'COMPLETED',
-        groundTruthEvents: groundTruth,
-        detectionMatches: detections,
-        expectedRules: scenario.expectedRules,
-        firedRules,
-        matched,
-        missed,
-        extra,
-        detectionRate,
-        passed,
-      };
-      setResult(newResult);
-      setCurrentPhase('COMPLETED');
+      for (const phase of scenario.phases) {
+        if (abortRef.current) break;
+        setCurrentPhase(phase.phase);
+        setPhaseLog(prev => [...prev, `[${fmtTime(new Date().toISOString())}] ${phase.phase}: ${phase.label}`]);
+        await new Promise(r => setTimeout(r, phase.durationMs));
+      }
 
-      const entry: RegressionEntry = {
-        runAt: completedAt,
-        scenarioName: scenario.name,
-        detectionRate,
-        passed,
-        matched: matched.length,
-        missed: missed.length,
-        extra: extra.length,
-      };
-      setRegressionHistory(prev => [entry, ...prev].slice(0, 20));
+      if (!abortRef.current) {
+        const detections = buildSyntheticDetections(scenario.id, scenario.expectedRules);
+        const firedRules = detections.map(d => d.ruleId);
+        const matched = scenario.expectedRules.filter(r => firedRules.includes(r));
+        const missed = scenario.expectedRules.filter(r => !firedRules.includes(r));
+        const extra = firedRules.filter(r => !scenario.expectedRules.includes(r));
+        const detectionRate = scenario.expectedRules.length === 0
+          ? (extra.length === 0 ? 1.0 : 0.0)
+          : matched.length / scenario.expectedRules.length;
+        const passed = detectionRate >= 1.0 && extra.length === 0;
+
+        const completedAt = new Date().toISOString();
+        const newResult: ScenarioResult = {
+          scenarioId: scenario.id,
+          scenarioName: scenario.name,
+          startedAt,
+          completedAt,
+          phase: 'COMPLETED',
+          groundTruthEvents: groundTruth,
+          detectionMatches: detections,
+          expectedRules: scenario.expectedRules,
+          firedRules,
+          matched,
+          missed,
+          extra,
+          detectionRate,
+          passed,
+        };
+        setResult(newResult);
+        setCurrentPhase('COMPLETED');
+      }
+      setRunning(false);
+      return;
     }
 
-    setRunning(false);
+    // Real Backend Polling Loop
+    const pollInterval = setInterval(async () => {
+      if (abortRef.current) {
+        clearInterval(pollInterval);
+        return;
+      }
+
+      try {
+        const [resRun, resEvts] = await Promise.all([
+          fetch(`/api/simulations/${simId}`),
+          fetch(`/api/simulations/${simId}/events`),
+        ]);
+
+        if (resRun.ok) {
+          const runData = await resRun.json();
+          const runState = runData.simulation;
+          setBackendRun(runState);
+          setCurrentPhase(runState.currentPhase || 'IDLE');
+          setPhaseLog(runState.phaseLogs || []);
+
+          if (resEvts.ok) {
+            const evtsData = await resEvts.json();
+            setSimEvents(evtsData.events || []);
+          }
+
+          if (runState.status === 'completed' || runState.status === 'failed' || runState.status === 'cancelled') {
+            clearInterval(pollInterval);
+            setRunning(false);
+
+            const groundTruth: GroundTruthEvent[] = (runState.groundTruth || []).map((g: any, i: number) => ({
+              id: g.id || `gt-${i}`,
+              phase: g.phase,
+              eventType: g.phase,
+              timestamp: g.timestamp,
+              detail: g.detail,
+              expectedRule: g.expectedRule,
+            }));
+
+            const detections: DetectionMatch[] = (runState.firedRules || []).map((r: string) => ({
+              ruleId: r,
+              ruleName: r,
+              severity: 'high' as const,
+              confidence: 0.9,
+              timestamp: new Date().toISOString(),
+              matched: (runState.matchedRules || []).includes(r),
+              isFalsePositive: (runState.extraRules || []).includes(r),
+            }));
+
+            const newResult: ScenarioResult = {
+              scenarioId: runState.scenarioId,
+              scenarioName: runState.scenarioName,
+              startedAt: runState.startedAt,
+              completedAt: runState.completedAt,
+              phase: runState.status === 'completed' ? 'COMPLETED' : 'IDLE',
+              groundTruthEvents: groundTruth,
+              detectionMatches: detections,
+              expectedRules: scenario.expectedRules,
+              firedRules: runState.firedRules || [],
+              matched: runState.matchedRules || [],
+              missed: runState.missedRules || [],
+              extra: runState.extraRules || [],
+              detectionRate: runState.detectionRate || 0,
+              passed: !!runState.passed,
+            };
+
+            setResult(newResult);
+            setCurrentPhase(runState.status === 'completed' ? 'COMPLETED' : 'IDLE');
+
+            setRegressionHistory(prev => [
+              {
+                runAt: runState.completedAt || new Date().toISOString(),
+                scenarioName: scenario.name,
+                detectionRate: runState.detectionRate || 0,
+                passed: !!runState.passed,
+                matched: (runState.matchedRules || []).length,
+                missed: (runState.missedRules || []).length,
+                extra: (runState.extraRules || []).length,
+              },
+              ...prev,
+            ].slice(0, 20));
+          }
+        }
+      } catch {}
+    }, 400);
+
   }, [selectedScenario, running]);
 
-  const stop = useCallback(() => {
+  const stop = useCallback(async () => {
     abortRef.current = true;
+    if (activeSimId) {
+      try {
+        await fetch(`/api/simulations/${activeSimId}/stop`, { method: 'POST' });
+      } catch {}
+    }
     setRunning(false);
     setCurrentPhase('IDLE');
-  }, []);
+  }, [activeSimId]);
 
-  return { selectedScenario, setSelectedScenario, running, result, currentPhase, phaseLog, regressionHistory, run, stop };
+  const recoverFiles = useCallback(async () => {
+    if (!activeSimId) return;
+    try {
+      const resp = await fetch(`/api/simulations/${activeSimId}/recover`, { method: 'POST' });
+      if (resp.ok) {
+        const data = await resp.json();
+        setBackendRun(data.simulation);
+      }
+    } catch {}
+  }, [activeSimId]);
+
+  return { selectedScenario, setSelectedScenario, running, activeSimId, result, currentPhase, phaseLog, simEvents, backendRun, regressionHistory, run, stop, recoverFiles };
 }
 
 // ---------------------------------------------------------------------------
@@ -382,12 +498,50 @@ interface LabPageProps {
 export default function LabPage({ toast, onNavigate }: LabPageProps) {
   const {
     selectedScenario, setSelectedScenario,
-    running, result, currentPhase, phaseLog,
+    running, activeSimId, result, currentPhase, phaseLog,
+    backendRun, recoverFiles,
     regressionHistory, run, stop,
   } = useLabSimulator();
 
   const [showGroundTruth, setShowGroundTruth] = useState(true);
   const [showHistory, setShowHistory] = useState(false);
+  const [activeTab, setActiveTab] = useState<'SIMULATOR' | 'BENCHMARK'>('SIMULATOR');
+  const [benchmark, setBenchmark] = useState<any | null>(null);
+  const [loadingBenchmark, setLoadingBenchmark] = useState(false);
+
+  const fetchBenchmark = useCallback(async () => {
+    setLoadingBenchmark(true);
+    try {
+      const res = await fetch('/api/benchmark/results');
+      if (res.ok) {
+        const data = await res.json();
+        setBenchmark(data);
+      }
+    } catch {
+      // Offline fallback
+    } finally {
+      setLoadingBenchmark(false);
+    }
+  }, []);
+
+  const runBenchmark = useCallback(async () => {
+    setLoadingBenchmark(true);
+    try {
+      const res = await fetch('/api/benchmark/run', { method: 'POST' });
+      if (res.ok) {
+        const data = await res.json();
+        setBenchmark(data);
+      }
+    } catch {
+      // Offline fallback
+    } finally {
+      setLoadingBenchmark(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchBenchmark();
+  }, [fetchBenchmark]);
 
   const scenario = SCENARIOS.find(s => s.id === selectedScenario) ?? SCENARIOS[0];
 
@@ -435,18 +589,213 @@ export default function LabPage({ toast, onNavigate }: LabPageProps) {
         </p>
       </div>
 
-      {/* Safety banner */}
-      <div style={{ background: 'hsl(var(--muted))', border: '1px solid hsl(var(--border))', borderRadius: 8, padding: '10px 14px', marginBottom: 20, display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-        <Shield size={14} style={{ color: 'hsl(140 60% 45%)', marginTop: 2, flexShrink: 0 }} />
-        <div style={{ fontSize: 12 }}>
-          <strong style={{ color: 'hsl(140 60% 45%)' }}>Lab safety controls active.</strong>{' '}
-          <span style={{ color: 'hsl(var(--muted-foreground))' }}>
-            No real credentials accessed. No real data exfiltrated. All outbound connections target 127.0.0.1 only.
-            Synthetic files bear ARGUS_LAB_SYNTHETIC markers. No persistence mechanisms are created.
-          </span>
-        </div>
+      {/* Navigation Tabs: Scenario Runner vs Accuracy Benchmark */}
+      <div style={{ display: 'flex', gap: 8, marginBottom: 20, borderBottom: '1px solid hsl(var(--border))', paddingBottom: 10 }}>
+        <button
+          onClick={() => setActiveTab('SIMULATOR')}
+          style={{
+            padding: '8px 16px', borderRadius: 6, fontWeight: 600, fontSize: 13, border: 'none', cursor: 'pointer',
+            background: activeTab === 'SIMULATOR' ? 'hsl(var(--primary))' : 'hsl(var(--muted))',
+            color: activeTab === 'SIMULATOR' ? 'hsl(var(--primary-foreground))' : 'hsl(var(--muted-foreground))',
+          }}
+        >
+          <Play size={13} style={{ verticalAlign: 'middle', marginRight: 6 }} /> Scenario Simulator
+        </button>
+        <button
+          onClick={() => setActiveTab('BENCHMARK')}
+          style={{
+            padding: '8px 16px', borderRadius: 6, fontWeight: 600, fontSize: 13, border: 'none', cursor: 'pointer',
+            background: activeTab === 'BENCHMARK' ? 'hsl(var(--primary))' : 'hsl(var(--muted))',
+            color: activeTab === 'BENCHMARK' ? 'hsl(var(--primary-foreground))' : 'hsl(var(--muted-foreground))',
+          }}
+        >
+          <BarChart3 size={13} style={{ verticalAlign: 'middle', marginRight: 6 }} /> Deterministic Benchmark Evaluation
+        </button>
       </div>
 
+      {activeTab === 'BENCHMARK' ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+          {/* Disclaimer & Run Header */}
+          <div className="card" style={{ padding: 16, background: 'hsl(var(--muted) / 0.5)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
+              <div>
+                <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 8px', borderRadius: 4, background: 'hsl(38 90% 15%)', color: 'hsl(38 90% 70%)', border: '1px solid hsl(38 90% 30%)' }}>
+                  SYNTHETIC / LAB EVALUATION DATASET
+                </span>
+                <h3 style={{ margin: '8px 0 4px 0', fontSize: 16, fontWeight: 700 }}>Deterministic Detection &amp; Prediction Benchmark</h3>
+                <p style={{ margin: 0, fontSize: 12, color: 'hsl(var(--muted-foreground))' }}>
+                  Evaluates exact Precision, Recall, F1, Latency, FP Rate, Prediction Top-K Hit Rate, and Evidence Coverage against independent ground truth.
+                </p>
+              </div>
+              <button
+                className="btn btn-primary"
+                onClick={runBenchmark}
+                disabled={loadingBenchmark}
+                style={{ fontSize: 12, display: 'flex', alignItems: 'center', gap: 6 }}
+              >
+                <RefreshCw size={13} className={loadingBenchmark ? 'animate-spin' : ''} />
+                {loadingBenchmark ? 'Evaluating...' : 'Run Benchmark Suite'}
+              </button>
+            </div>
+          </div>
+
+          {benchmark && benchmark.aggregateMetrics && (
+            <>
+              {/* Quantitative Metrics Cards */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
+                <div className="card" style={{ padding: 14, textAlign: 'center' }}>
+                  <div style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))', marginBottom: 4 }}>Precision = TP / (TP+FP)</div>
+                  <div style={{ fontSize: 24, fontWeight: 800, color: 'hsl(140 60% 45%)' }}>
+                    {(benchmark.aggregateMetrics.precision * 100).toFixed(1)}%
+                  </div>
+                  <div style={{ fontSize: 10, color: 'hsl(var(--muted-foreground))', marginTop: 2 }}>
+                    TP: {benchmark.aggregateMetrics.truePositives} | FP: {benchmark.aggregateMetrics.falsePositives}
+                  </div>
+                </div>
+
+                <div className="card" style={{ padding: 14, textAlign: 'center' }}>
+                  <div style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))', marginBottom: 4 }}>Recall = TP / (TP+FN)</div>
+                  <div style={{ fontSize: 24, fontWeight: 800, color: 'hsl(210 80% 55%)' }}>
+                    {(benchmark.aggregateMetrics.recall * 100).toFixed(1)}%
+                  </div>
+                  <div style={{ fontSize: 10, color: 'hsl(var(--muted-foreground))', marginTop: 2 }}>
+                    TP: {benchmark.aggregateMetrics.truePositives} | FN: {benchmark.aggregateMetrics.falseNegatives}
+                  </div>
+                </div>
+
+                <div className="card" style={{ padding: 14, textAlign: 'center' }}>
+                  <div style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))', marginBottom: 4 }}>F1 Score</div>
+                  <div style={{ fontSize: 24, fontWeight: 800, color: 'hsl(270 70% 65%)' }}>
+                    {(benchmark.aggregateMetrics.f1Score * 100).toFixed(1)}%
+                  </div>
+                  <div style={{ fontSize: 10, color: 'hsl(var(--muted-foreground))', marginTop: 2 }}>
+                    Harmonic mean of P &amp; R
+                  </div>
+                </div>
+
+                <div className="card" style={{ padding: 14, textAlign: 'center' }}>
+                  <div style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))', marginBottom: 4 }}>False Positives / Hr</div>
+                  <div style={{ fontSize: 24, fontWeight: 800, color: benchmark.aggregateMetrics.falsePositivesPerHour === 0 ? 'hsl(140 60% 45%)' : 'hsl(38 90% 50%)' }}>
+                    {benchmark.aggregateMetrics.falsePositivesPerHour.toFixed(2)}
+                  </div>
+                  <div style={{ fontSize: 10, color: 'hsl(var(--muted-foreground))', marginTop: 2 }}>
+                    Across {benchmark.totalSimulatedHours} simulated hours
+                  </div>
+                </div>
+
+                <div className="card" style={{ padding: 14, textAlign: 'center' }}>
+                  <div style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))', marginBottom: 4 }}>Attack Stage Top-1 Hit</div>
+                  <div style={{ fontSize: 24, fontWeight: 800, color: 'hsl(140 60% 45%)' }}>
+                    {(benchmark.aggregateMetrics.predictionTop1Accuracy * 100).toFixed(1)}%
+                  </div>
+                  <div style={{ fontSize: 10, color: 'hsl(var(--muted-foreground))', marginTop: 2 }}>
+                    Top predicted stage match
+                  </div>
+                </div>
+
+                <div className="card" style={{ padding: 14, textAlign: 'center' }}>
+                  <div style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))', marginBottom: 4 }}>Attack Stage Top-3 Hit</div>
+                  <div style={{ fontSize: 24, fontWeight: 800, color: 'hsl(140 60% 45%)' }}>
+                    {(benchmark.aggregateMetrics.predictionTop3Accuracy * 100).toFixed(1)}%
+                  </div>
+                  <div style={{ fontSize: 10, color: 'hsl(var(--muted-foreground))', marginTop: 2 }}>
+                    Top 3 candidate stages match
+                  </div>
+                </div>
+
+                <div className="card" style={{ padding: 14, textAlign: 'center' }}>
+                  <div style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))', marginBottom: 4 }}>Evidence Coverage</div>
+                  <div style={{ fontSize: 24, fontWeight: 800, color: 'hsl(140 60% 45%)' }}>
+                    {(benchmark.aggregateMetrics.evidenceCoverage * 100).toFixed(1)}%
+                  </div>
+                  <div style={{ fontSize: 10, color: 'hsl(var(--muted-foreground))', marginTop: 2 }}>
+                    Detections with valid observed evidence
+                  </div>
+                </div>
+
+                <div className="card" style={{ padding: 14, textAlign: 'center' }}>
+                  <div style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))', marginBottom: 4 }}>Detection Latency</div>
+                  <div style={{ fontSize: 24, fontWeight: 800, color: 'hsl(210 80% 55%)' }}>
+                    {benchmark.aggregateMetrics.avgLatencyMs.toFixed(1)} ms
+                  </div>
+                  <div style={{ fontSize: 10, color: 'hsl(var(--muted-foreground))', marginTop: 2 }}>
+                    Avg evaluation latency per event
+                  </div>
+                </div>
+              </div>
+
+              {/* Per-Rule Results Table */}
+              <div className="card" style={{ padding: 16 }}>
+                <h4 style={{ margin: '0 0 12px 0', fontSize: 14, fontWeight: 700 }}>Per-Rule Performance Breakdown</h4>
+                <table style={{ width: '100%', fontSize: 12, borderCollapse: 'collapse' }}>
+                  <thead>
+                    <tr style={{ borderBottom: '1px solid hsl(var(--border))', textAlign: 'left' }}>
+                      <th style={{ padding: '6px 8px', color: 'hsl(var(--muted-foreground))' }}>Rule ID</th>
+                      <th style={{ padding: '6px 8px', color: 'hsl(var(--muted-foreground))' }}>True Pos (TP)</th>
+                      <th style={{ padding: '6px 8px', color: 'hsl(var(--muted-foreground))' }}>False Pos (FP)</th>
+                      <th style={{ padding: '6px 8px', color: 'hsl(var(--muted-foreground))' }}>False Neg (FN)</th>
+                      <th style={{ padding: '6px 8px', color: 'hsl(var(--muted-foreground))' }}>Precision</th>
+                      <th style={{ padding: '6px 8px', color: 'hsl(var(--muted-foreground))' }}>Recall</th>
+                      <th style={{ padding: '6px 8px', color: 'hsl(var(--muted-foreground))' }}>F1 Score</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {benchmark.ruleResults.map((r: any) => (
+                      <tr key={r.ruleId} style={{ borderBottom: '1px solid hsl(var(--border) / 0.5)' }}>
+                        <td style={{ padding: '6px 8px', fontWeight: 600 }} className="mono">{r.ruleId}</td>
+                        <td style={{ padding: '6px 8px', color: 'hsl(140 60% 45%)', fontWeight: 700 }}>{r.truePositives}</td>
+                        <td style={{ padding: '6px 8px', color: r.falsePositives > 0 ? 'hsl(38 90% 50%)' : 'hsl(var(--muted-foreground))', fontWeight: 700 }}>{r.falsePositives}</td>
+                        <td style={{ padding: '6px 8px', color: r.falseNegatives > 0 ? 'hsl(0 84% 60%)' : 'hsl(var(--muted-foreground))', fontWeight: 700 }}>{r.falseNegatives}</td>
+                        <td style={{ padding: '6px 8px' }}>{(r.precision * 100).toFixed(1)}%</td>
+                        <td style={{ padding: '6px 8px' }}>{(r.recall * 100).toFixed(1)}%</td>
+                        <td style={{ padding: '6px 8px', fontWeight: 700 }}>{(r.f1Score * 100).toFixed(1)}%</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Per-Scenario Results Table */}
+              <div className="card" style={{ padding: 16 }}>
+                <h4 style={{ margin: '0 0 12px 0', fontSize: 14, fontWeight: 700 }}>Per-Scenario Performance Breakdown</h4>
+                <table style={{ width: '100%', fontSize: 12, borderCollapse: 'collapse' }}>
+                  <thead>
+                    <tr style={{ borderBottom: '1px solid hsl(var(--border))', textAlign: 'left' }}>
+                      <th style={{ padding: '6px 8px', color: 'hsl(var(--muted-foreground))' }}>Scenario Name</th>
+                      <th style={{ padding: '6px 8px', color: 'hsl(var(--muted-foreground))' }}>Category</th>
+                      <th style={{ padding: '6px 8px', color: 'hsl(var(--muted-foreground))' }}>Events</th>
+                      <th style={{ padding: '6px 8px', color: 'hsl(var(--muted-foreground))' }}>Precision</th>
+                      <th style={{ padding: '6px 8px', color: 'hsl(var(--muted-foreground))' }}>Recall</th>
+                      <th style={{ padding: '6px 8px', color: 'hsl(var(--muted-foreground))' }}>Prediction Top-1</th>
+                      <th style={{ padding: '6px 8px', color: 'hsl(var(--muted-foreground))' }}>Evidence Coverage</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {benchmark.scenarioResults.map((s: any) => (
+                      <tr key={s.scenarioId} style={{ borderBottom: '1px solid hsl(var(--border) / 0.5)' }}>
+                        <td style={{ padding: '6px 8px', fontWeight: 600 }}>{s.scenarioName}</td>
+                        <td style={{ padding: '6px 8px', fontSize: 10 }} className="mono">{s.category}</td>
+                        <td style={{ padding: '6px 8px' }}>{s.totalEvents}</td>
+                        <td style={{ padding: '6px 8px' }}>{(s.precision * 100).toFixed(1)}%</td>
+                        <td style={{ padding: '6px 8px' }}>{(s.recall * 100).toFixed(1)}%</td>
+                        <td style={{ padding: '6px 8px', color: s.predictionTop1Hit ? 'hsl(140 60% 45%)' : 'hsl(0 84% 60%)', fontWeight: 700 }}>
+                          {s.predictionTop1Hit ? '✓ MATCH' : '✗ MISMATCH'}
+                        </td>
+                        <td style={{ padding: '6px 8px' }}>{(s.evidenceCoverage * 100).toFixed(1)}%</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Benchmark Disclaimer */}
+              <div style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))', padding: '10px 14px', background: 'hsl(var(--muted))', borderRadius: 6, border: '1px solid hsl(var(--border))' }}>
+                {benchmark.disclaimer}
+              </div>
+            </>
+          )}
+        </div>
+      ) : (
       <div style={{ display: 'grid', gridTemplateColumns: '320px 1fr', gap: 20 }}>
         {/* Left: scenario picker + controls */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -531,6 +880,106 @@ export default function LabPage({ toast, onNavigate }: LabPageProps) {
               )}
             </div>
           </div>
+
+          {/* Phase 2: Attack Time Interval Card */}
+          {backendRun?.attackInterval && (
+            <div className="card" style={{ padding: 16, borderLeft: '4px solid hsl(210 60% 55%)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                <div style={{ fontWeight: 700, fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <Clock size={14} style={{ color: 'hsl(210 60% 55%)' }} />
+                  Reconstructed Attack Time Interval
+                </div>
+                <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 4, background: 'hsl(210 60% 15%)', color: 'hsl(210 60% 80%)', border: '1px solid hsl(210 60% 35%)' }}>
+                  {backendRun.attackInterval.intervalStatus}
+                </span>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, fontSize: 12 }}>
+                <div>
+                  <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 10, textTransform: 'uppercase' }}>Earliest Observed Event</div>
+                  <div style={{ fontWeight: 600, marginTop: 2 }} className="mono">{fmtTime(backendRun.attackInterval.earliestTimestamp)}</div>
+                </div>
+                <div>
+                  <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 10, textTransform: 'uppercase' }}>Latest Observed Event</div>
+                  <div style={{ fontWeight: 600, marginTop: 2 }} className="mono">{fmtTime(backendRun.attackInterval.latestTimestamp)}</div>
+                </div>
+                <div>
+                  <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 10, textTransform: 'uppercase' }}>Total Observed Duration</div>
+                  <div style={{ fontWeight: 600, marginTop: 2 }} className="mono">{backendRun.attackInterval.durationSeconds}s</div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Phase 2: Affected Files & Data Exposure Table */}
+          {backendRun?.affectedFiles && backendRun.affectedFiles.length > 0 && (
+            <div className="card" style={{ padding: 16 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                <div style={{ fontWeight: 700, fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <HardDrive size={14} style={{ color: 'hsl(38 92% 50%)' }} />
+                  Affected Lab Files &amp; Exposure Analysis
+                </div>
+                {backendRun.affectedFiles.some((f: any) => f.recoveryStatus === 'CORRUPTED_PENDING_RECOVERY') && (
+                  <button
+                    className="btn btn-primary"
+                    style={{ fontSize: 11, padding: '4px 10px', background: 'hsl(140 60% 35%)', borderColor: 'hsl(140 60% 45%)' }}
+                    onClick={recoverFiles}
+                  >
+                    <RefreshCw size={12} /> Restore &amp; Verify (Synthetic Backup)
+                  </button>
+                )}
+              </div>
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', fontSize: 11, borderCollapse: 'collapse', textAlign: 'left' }}>
+                  <thead>
+                    <tr style={{ borderBottom: '1px solid hsl(var(--border))', color: 'hsl(var(--muted-foreground))' }}>
+                      <th style={{ padding: '6px 8px' }}>File Name</th>
+                      <th style={{ padding: '6px 8px' }}>Category</th>
+                      <th style={{ padding: '6px 8px' }}>Baseline / Current Hash</th>
+                      <th style={{ padding: '6px 8px' }}>Exposure Status</th>
+                      <th style={{ padding: '6px 8px' }}>Recovery Status</th>
+                      <th style={{ padding: '6px 8px' }}>Evidence</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {backendRun.affectedFiles.map((file: any, idx: number) => (
+                      <tr key={idx} style={{ borderBottom: '1px solid hsl(var(--border))' }}>
+                        <td style={{ padding: '8px 8px', fontWeight: 600 }}>{file.fileName}</td>
+                        <td style={{ padding: '8px 8px', color: 'hsl(var(--muted-foreground))' }}>{file.classification}</td>
+                        <td style={{ padding: '8px 8px' }} className="mono">
+                          <span style={{ color: 'hsl(var(--muted-foreground))' }}>{file.baselineHash.substring(0, 8)}...</span>
+                          <span style={{ margin: '0 4px' }}>→</span>
+                          <span style={{ color: file.hashStatus === 'HASH_MATCH' ? 'hsl(140 60% 45%)' : 'hsl(0 84% 60%)' }}>
+                            {file.currentHash.substring(0, 8)}...
+                          </span>
+                        </td>
+                        <td style={{ padding: '8px 8px' }}>
+                          <span style={{
+                            padding: '2px 6px', borderRadius: 4, fontWeight: 700, fontSize: 10,
+                            background: file.exposureStatus === 'OBSERVED_TRANSFER' ? 'hsl(0 84% 15%)' : 'hsl(210 60% 15%)',
+                            color: file.exposureStatus === 'OBSERVED_TRANSFER' ? 'hsl(0 84% 75%)' : 'hsl(210 60% 75%)',
+                            border: `1px solid ${file.exposureStatus === 'OBSERVED_TRANSFER' ? 'hsl(0 84% 35%)' : 'hsl(210 60% 35%)'}`
+                          }}>
+                            {file.exposureStatus}
+                          </span>
+                        </td>
+                        <td style={{ padding: '8px 8px' }}>
+                          <span style={{
+                            padding: '2px 6px', borderRadius: 4, fontWeight: 700, fontSize: 10,
+                            background: file.recoveryStatus === 'RECOVERED_VERIFIED' ? 'hsl(140 60% 15%)' : file.recoveryStatus === 'CORRUPTED_PENDING_RECOVERY' ? 'hsl(38 92% 15%)' : 'hsl(210 60% 15%)',
+                            color: file.recoveryStatus === 'RECOVERED_VERIFIED' ? 'hsl(140 60% 75%)' : file.recoveryStatus === 'CORRUPTED_PENDING_RECOVERY' ? 'hsl(38 92% 75%)' : 'hsl(210 60% 75%)',
+                            border: `1px solid ${file.recoveryStatus === 'RECOVERED_VERIFIED' ? 'hsl(140 60% 35%)' : file.recoveryStatus === 'CORRUPTED_PENDING_RECOVERY' ? 'hsl(38 92% 35%)' : 'hsl(210 60% 35%)'}`
+                          }}>
+                            {file.recoveryStatus}
+                          </span>
+                        </td>
+                        <td style={{ padding: '8px 8px', color: 'hsl(var(--muted-foreground))', fontSize: 10 }}>{file.evidence}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
 
           {/* Detection comparison */}
           {result && (
@@ -663,6 +1112,7 @@ export default function LabPage({ toast, onNavigate }: LabPageProps) {
           )}
         </div>
       </div>
+      )}
 
       {/* Regression history */}
       {regressionHistory.length > 0 && (

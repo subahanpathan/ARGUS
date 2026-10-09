@@ -62,6 +62,8 @@ export type QuarantineItem = {
   hash: string;
   status: string;
   threatId?: string;
+  quarantineReason?: string;
+  severity?: Severity;
 };
 
 export type FilesPageProps = {

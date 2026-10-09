@@ -31,13 +31,17 @@ if (-not $running) {
     $nodeExe = "D:\node.exe"
     if (-not (Test-Path $nodeExe)) { $nodeExe = (Get-Command node -ErrorAction SilentlyContinue).Source }
     
-    python -c "import subprocess, os; env = os.environ.copy(); env['PORT']='5000'; env['NODE_ENV']='production'; env['ARGUS_DEV_ACCESS_KEY']='ARGUS-DEV-2026'; subprocess.Popen(['$nodeExe'.replace('\\','/'), '--enable-source-maps', 'artifacts/api-server/dist/index.mjs'], env=env, cwd='$WorkspaceRoot'.replace('\\','/'), creationflags=subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP)"
+    $nodeExeEsc = $nodeExe.Replace('\', '/')
+    $wsEsc = $WorkspaceRoot.Replace('\', '/')
+    
+    python -c "import subprocess, os; env = os.environ.copy(); env['PORT']='5000'; env['NODE_ENV']='production'; env['ARGUS_DEV_ACCESS_KEY']='ARGUS-DEV-2026'; subprocess.Popen(['$nodeExeEsc', '--enable-source-maps', 'artifacts/api-server/dist/index.mjs'], env=env, cwd=r'$wsEsc', creationflags=subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP)"
     Start-Sleep -Seconds 2
 }
 
 # 3. Check and start Security Engine
 Write-Host "[*] Launching Python Security Engine..." -ForegroundColor Gray
-python -c "import subprocess, os; env = os.environ.copy(); env['ARGUS_API_BASE_URL']='http://127.0.0.1:5000'; subprocess.Popen(['python', 'artifacts/security-engine/main.py', '--api', '--snapshot'], env=env, cwd='$WorkspaceRoot'.replace('\\','/'), creationflags=subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP)"
+$wsEsc = $WorkspaceRoot.Replace('\', '/')
+python -c "import subprocess, os; env = os.environ.copy(); env['ARGUS_API_BASE_URL']='http://127.0.0.1:5000'; subprocess.Popen(['python', 'artifacts/security-engine/main.py', '--api', '--snapshot'], env=env, cwd=r'$wsEsc', creationflags=subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP)"
 
 # 4. Open browser
 Write-Host "[+] ARGUS is live! Opening dashboard..." -ForegroundColor Green

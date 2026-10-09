@@ -193,7 +193,7 @@ describe("ARGUS Controlled Lab Detection & Containment Workflow (Req 1-15)", () 
     // Call orchestrateContainment
     const result = await responseOrchestrator.orchestrateContainment(incident.incidentId, {
       force: true,
-      actor: "AUTOMATED_ORCHESTRATOR",
+      actor: "AUTOMATED_ORCHESTRATOR" as any,
     });
 
     // Since PID 7714 does not exist on disk, terminateProcessTree safely verifies it is stopped, resulting in success
@@ -209,7 +209,7 @@ describe("ARGUS Controlled Lab Detection & Containment Workflow (Req 1-15)", () 
     const testPid = 1; // System idle / protected init
     const mockDetection: Detection = {
       id: `det-fail-${Date.now()}`,
-      rule_id: "PROC-CRIT-FAIL",
+      rule_id: "PROC-002-ENCODED-COMMAND-LINE",
       rule_name: "Critical System Mock",
       title: "Mock System Process",
       severity: "high",
@@ -279,10 +279,10 @@ describe("ARGUS Controlled Lab Detection & Containment Workflow (Req 1-15)", () 
       filePath: "C:\\Users\\User\\Documents\\Financial_Q4.xlsx",
       operation: "MODIFY",
       timestamp: new Date().toISOString(),
-      classification: "FINANCIAL",
+      classification: "Financial" as any,
       impactState: "MODIFIED",
       hash: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-    });
+    } as any);
 
     // Re-capture evidence
     responseOrchestrator.captureIncidentEvidence(incident.correlatedTrace);
@@ -323,10 +323,10 @@ describe("ARGUS Controlled Lab Detection & Containment Workflow (Req 1-15)", () 
       filePath: "C:\\Users\\User\\Documents\\Strategy.docx",
       operation: "MODIFY",
       timestamp: new Date().toISOString(),
-      classification: "DOCUMENT",
+      classification: "Documents" as any,
       impactState: "MODIFIED",
       hash: "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
-    });
+    } as any);
 
     responseOrchestrator.captureIncidentEvidence(incident.correlatedTrace);
     const updated = responseOrchestrator.getIncidentById(incident.incidentId);

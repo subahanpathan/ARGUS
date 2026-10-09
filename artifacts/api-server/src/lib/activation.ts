@@ -405,6 +405,9 @@ export function issueDownloadToken(): string {
   return `dl.v1.${issuedAt}.${expiresAt}.${sig}`;
 }
 
+/** Backward-compatible alias for issueDownloadToken. */
+export const generateDownloadToken = issueDownloadToken;
+
 /**
  * Validate a submitted access key against the server-side license store.
  */

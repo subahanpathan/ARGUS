@@ -6,18 +6,78 @@
 import type { Detection, DetectionStatus } from "../detection/types";
 import os from "os";
 
+export type AgentHeartbeat = {
+  agent_id?: string;
+  timestamp?: string;
+  hostname?: string;
+  version?: string;
+  status?: string;
+  component_failures?: Array<Record<string, unknown>> | string[];
+  uptimeSeconds?: number;
+  watchers?: Record<string, unknown>;
+  endpointId?: string;
+  agentVersion?: string;
+  metadata?: Record<string, unknown>;
+};
+
+export type AgentCommandAck = {
+  type?: string;
+  command_id?: string;
+  commandId?: string;
+  scanId?: string;
+  scan?: any;
+  agent_id?: string;
+  agentId?: string;
+  timestamp?: string;
+  status?: string;
+  result?: Record<string, unknown>;
+  respondedAt?: string;
+};
+
+export type MonitoringEvent = {
+  id?: string;
+  correlationId?: string | null;
+  timestamp: string;
+  event_type?: string;
+  source?: string;
+  data?: Record<string, unknown>;
+  entity?: any;
+  evidence?: any;
+  eventType?: any;
+  eventId?: any;
+  severity?: string;
+  metadata?: Record<string, unknown>;
+};
+
+export type ScanState = {
+  id?: string;
+  scan_id?: string;
+  scan_type?: string;
+  state?: string;
+  timestamp?: string;
+  updated_at?: string;
+  status?: string;
+  total_files?: number | boolean | null;
+  scanned_files?: number | boolean | null;
+  files_scanned?: number;
+  threats_found?: number;
+  progress_percent?: number;
+  total_known?: number;
+};
+
 export type ProcessEvent = {
   id: string;
-  event_type: string;
+  event_type?: string;
   timestamp: string;
   pid: number;
   process_name: string;
-  executable_path?: string;
-  command_line?: string;
-  parent_pid?: number;
-  parent_process_name?: string;
+  executable_path?: string | null;
+  command_line?: string | null;
+  parent_pid?: number | null;
+  parent_process_name?: string | null;
   source: string;
-  observed: boolean;
+  observed?: boolean;
+  is_simulation?: boolean;
   metadata?: Record<string, unknown>;
 };
 
@@ -25,6 +85,7 @@ export type ProcessSnapshot = {
   timestamp: string;
   total_count: number;
   access_denied_count: number;
+  system?: any;
   processes: Array<{
     pid: number;
     name: string;
@@ -51,6 +112,8 @@ export type NetworkConnection = {
   local_port?: number;
   remote_addr?: string;
   remote_port?: number;
+  protocol?: string;
+  direction?: string;
   family?: string;
   address_family?: string;
   type?: string;
@@ -63,9 +126,9 @@ export type NetworkConnection = {
 
 export type NetworkSnapshot = {
   timestamp: string;
-  total_count: number;
-  established_count: number;
-  listen_count: number;
+  total_count?: number;
+  established_count?: number;
+  listen_count?: number;
   listening_count?: number;
   tcp_count?: number;
   udp_count?: number;
@@ -395,13 +458,18 @@ export type SecurityProvidersSnapshot = {
   providers: Array<Record<string, unknown>>;
   alerts: Array<Record<string, unknown>>;
   errors: Array<Record<string, unknown>>;
+  summary?: Record<string, unknown>;
 };
 
 export type ServicesSnapshot = {
   timestamp: string;
   source: string;
   observed: boolean;
-  service_count: number;
+  service_count?: number;
+  total_count?: number;
+  running_count?: number;
+  stopped_count?: number;
+  access_denied_count?: number;
   services: Array<Record<string, unknown>>;
 };
 
@@ -423,6 +491,10 @@ class EventHub {
   private servicesSnapshot: ServicesSnapshot | null = null;
   private sseClients: Map<string, SSEClient> = new Map();
   private clientCounter = 0;
+  private monitoringEvents: MonitoringEvent[] = [];
+  private scans: Map<string, ScanState> = new Map();
+  private commandAcks: AgentCommandAck[] = [];
+  private pendingCommands: any[] = [];
 
   addFileActivity(event: FileActivityEvent): void {
     // Deduplicate identical events within 500ms
@@ -955,6 +1027,109 @@ class EventHub {
   /** Get connected client count. */
   getClientCount(): number {
     return this.sseClients.size;
+  }
+
+  /** Monitoring, scan, command, and pubsub compatibility methods */
+  addMonitoringEvents(events: MonitoringEvent[]): { accepted: number; duplicates: number } {
+    let accepted = 0;
+    for (const evt of events) {
+      this.monitoringEvents.push(evt);
+      accepted++;
+    }
+    if (this.monitoringEvents.length > MAX_BUFFERED_EVENTS) {
+      this.monitoringEvents = this.monitoringEvents.slice(-MAX_BUFFERED_EVENTS);
+    }
+    return { accepted, duplicates: 0 };
+  }
+
+  getMonitoringEvents(limit = 100, eventType?: string, _filter?: any): MonitoringEvent[] {
+    let list = this.monitoringEvents;
+    if (eventType) {
+      list = list.filter((e) => e.event_type === eventType || e.eventType === eventType);
+    }
+    return list.slice(-limit);
+  }
+
+  publish(topic: string, data: any): void {
+    this.broadcast(data, [topic as BroadcastTopic]);
+  }
+
+  upsertScan(scan: ScanState): ScanState {
+    const key = scan.scan_id || scan.id || `scan-${Date.now()}`;
+    this.scans.set(key, scan);
+    return scan;
+  }
+
+  getMonitoringScan(): ScanState | null {
+    const list = Array.from(this.scans.values());
+    return list.length > 0 ? list[list.length - 1] : null;
+  }
+
+  getScans(_filter?: any): ScanState[] {
+    return Array.from(this.scans.values());
+  }
+
+  getActiveScan(): ScanState | null {
+    return Array.from(this.scans.values()).find((s) => s.status === "running" || s.status === "scanning") ?? null;
+  }
+
+  getScan(id: string): ScanState | null {
+    return this.scans.get(id) ?? null;
+  }
+
+  getMonitoringSnapshot(): any {
+    return {
+      timestamp: new Date().toISOString(),
+      agent: this.agentHeartbeat,
+      events_count: this.monitoringEvents.length,
+      scans_count: this.scans.size,
+    };
+  }
+
+  getAggregatedEvents(_filter?: any): any {
+    return this.getEvents();
+  }
+
+  ingestFilesystemActivity(events: FileActivityEvent[] | any): { accepted: number; watcher: boolean } {
+    const arr = Array.isArray(events) ? events : [events];
+    for (const evt of arr) {
+      this.addFileActivity(evt);
+    }
+    return { accepted: arr.length, watcher: true };
+  }
+
+  getFilesystemActivity(limit = 200): FileActivityEvent[] {
+    return this.getFileActivity(limit);
+  }
+
+  setAgentHeartbeat(heartbeat: AgentHeartbeat): void {
+    this.recordAgentHeartbeat(heartbeat);
+  }
+
+  getPendingCommands(_filter?: any): any[] {
+    return this.pendingCommands;
+  }
+
+  getCommandAcks(_filter?: any): AgentCommandAck[] {
+    return this.commandAcks;
+  }
+
+  ackCommand(ack: AgentCommandAck): void {
+    this.commandAcks.push(ack);
+    const targetId = ack.command_id || ack.commandId;
+    this.pendingCommands = this.pendingCommands.filter((c) => c.id !== targetId);
+  }
+
+  enqueueCommand(cmd: any): void {
+    this.pendingCommands.push(cmd);
+  }
+
+  getCorrelations(_filter?: any): any[] {
+    return [];
+  }
+
+  broadcastMonitoring(data: any): void {
+    this.broadcast(data, ["telemetry"]);
   }
 
   /** Clear all in-memory state (used by tests and admin reset). */

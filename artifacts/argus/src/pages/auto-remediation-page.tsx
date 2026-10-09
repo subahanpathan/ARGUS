@@ -79,7 +79,7 @@ export default function AutoRemediationPage({
         rec.name.toLowerCase().includes(q) ||
         rec.path.toLowerCase().includes(q) ||
         rec.process.toLowerCase().includes(q) ||
-        rec.ruleName.toLowerCase().includes(q) ||
+        (rec.ruleName || '').toLowerCase().includes(q) ||
         (rec.cyberCellCaseId && rec.cyberCellCaseId.toLowerCase().includes(q));
 
       if (!matchSearch) return false;
@@ -161,6 +161,8 @@ export default function AutoRemediationPage({
         reason: isSensitive ? 'Automated detection: Unauthorized credential extraction from security subsystem memory' : 'Malicious binary signature match against heuristic database',
         rule_name: isSensitive ? 'MITRE T1003.001 - OS Credential Dumping' : 'MITRE T1059 - Command and Scripting Interpreter',
         rule_id: isSensitive ? 'CRED-001' : 'EXEC-009',
+        className: isSensitive ? 'Credential Access' : 'Command & Control',
+        status: 'detected',
       };
 
       remediateThreat(mockThreat);

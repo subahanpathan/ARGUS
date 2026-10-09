@@ -30,7 +30,8 @@ export function normalizeProcessEvent(event: ProcessEvent): SecurityEvent | null
   if (typeof event.pid !== "number" || typeof event.process_name !== "string") {
     return null;
   }
-  if (event.event_type !== "PROCESS_STARTED" && event.event_type !== "PROCESS_TERMINATED") {
+  const rawType = (event as any).event_type || (event as any).type;
+  if (rawType !== "PROCESS_STARTED" && rawType !== "PROCESS_CREATED" && rawType !== "PROCESS_TERMINATED") {
     return null;
   }
 
@@ -39,7 +40,7 @@ export function normalizeProcessEvent(event: ProcessEvent): SecurityEvent | null
 
   return {
     id: event.id,
-    type: eventType(event.event_type),
+    type: eventType(rawType),
     origin: "created" as SecurityEventOrigin,
     timestamp: event.timestamp || new Date().toISOString(),
     source: event.source || "unknown",
@@ -52,6 +53,9 @@ export function normalizeProcessEvent(event: ProcessEvent): SecurityEvent | null
     parent_process_name: event.parent_process_name ?? null,
     username,
     metadata,
+    is_simulation: (event as any).is_simulation ?? false,
+    simulation_id: (event as any).simulation_id,
+    scenario_id: (event as any).scenario_id,
   };
 }
 

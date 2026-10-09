@@ -230,16 +230,16 @@ export class AttackCorrelationEngine {
         processesByPid.set(pe.pid, {
           pid: pe.pid,
           name: pe.process_name,
-          parentPid: pe.parent_pid,
-          path: pe.executable_path,
-          cmd: pe.command_line,
+          parentPid: pe.parent_pid ?? undefined,
+          path: pe.executable_path ?? undefined,
+          cmd: pe.command_line ?? undefined,
         });
       }
     }
 
     const targetProc = processesByPid.get(pid) || {
       pid,
-      name: mainDet.entity || mainDet.process_name || `PID-${pid}`,
+      name: mainDet.entity || (mainDet as any).process_name || `PID-${pid}`,
       parentPid: mainDet.parent_pid ?? undefined,
       path: mainDet.executable_path ?? undefined,
       cmd: mainDet.command_line ?? undefined,

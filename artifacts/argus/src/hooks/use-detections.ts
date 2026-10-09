@@ -62,6 +62,9 @@ export type Detection = {
   correlated_rules?: string[];
   ancestry: DetectionAncestryNode[];
   related_event_id?: string | null;
+  is_simulation?: boolean;
+  simulation_id?: string;
+  source?: string;
 };
 
 /** Lightweight view of the current process context returned by the detail endpoint. */
@@ -113,6 +116,8 @@ export type DetectionState = {
   updateStatus: (id: string, status: DetectionStatus) => Promise<boolean>;
   /** Merge additional filters into the live list query. */
   setFilter: (filters: DetectionFilters) => void;
+  /** Manually refetch the latest detections buffer from the API. */
+  refresh: () => Promise<void>;
 };
 
 const MAX_ITEMS = 300;
@@ -291,5 +296,5 @@ export function useDetections(): DetectionState {
     };
   }, [fetchList]);
 
-  return { connected, hasData, detections, rules, selected, filters, lastUpdateTime, loadDetail, updateStatus, setFilter };
+  return { connected, hasData, detections, rules, selected, filters, lastUpdateTime, loadDetail, updateStatus, setFilter, refresh: fetchList };
 }

@@ -15,7 +15,7 @@ export type ReportRecord = {
   author: string;
   createdAt: string;
   status: 'Ready' | 'Shared' | 'Archived';
-  format: 'PDF' | 'JSON' | 'TXT';
+  format: 'PDF' | 'JSON' | 'TXT' | 'HTML';
   audience: string;
   riskScore: number;
   endpoint: string;

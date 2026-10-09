@@ -37,7 +37,7 @@ async function main() {
     }
   });
 
-  await page.goto(`${BASE}/login`, { waitUntil: 'networkidle' });
+  await page.goto(`${BASE}/login`, { waitUntil: 'domcontentloaded' });
   log(await page.getByTestId('button-demo-mode').isVisible(), 'Login page renders');
 
   await page.getByTestId('button-demo-mode').click();

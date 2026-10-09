@@ -218,7 +218,7 @@ export function correlate(
       kind: event.entity?.kind ?? "entity",
       id: subjectId,
       name: event.entity?.name ?? "",
-      source: event.source,
+      source: event.source ?? "unknown",
     },
     severity: event.severity ?? null,
     evidence: evidence.sort((a, b) => b.score - a.score).slice(0, 12),

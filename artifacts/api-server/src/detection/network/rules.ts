@@ -21,6 +21,7 @@ import {
   isLolBin,
   isScriptInterpreter,
   isUserWritableExecutionPath,
+  isProductivityApp,
 } from "../lists";
 import type {
   DetectionEvidence,
@@ -223,6 +224,7 @@ const interpreterRemoteConnection: (event: NetworkViewEvent) => RuleMatch | null
  * but useful when it correlates with other per-process rules.
  */
 const remoteFanOut = (event: NetworkViewEvent): RuleMatch | null => {
+  if (isProductivityApp(event.process_name)) return null;
   const fanOut = Number(event.metadata?.fanOut ?? 0);
   const MIN_FAN_OUT = 10;
   if (!Number.isFinite(fanOut) || fanOut < MIN_FAN_OUT) return null;
@@ -280,7 +282,7 @@ const interactiveReverseShell: (event: NetworkViewEvent) => RuleMatch | null = (
         "Execute automated host containment immediately: terminate process tree, block remote endpoint in Windows Firewall, and quarantine the payload.",
       evidence: [
         ev("reverse_socket", `Established reverse socket: ${endpoint(event.local_addr, event.local_port)} -> ${endpoint(event.remote_addr, event.remote_port)}`, "network"),
-        ev("shell_process", `Process ${event.process_name} (PID ${event.pid}) running shell/interpreter`, "process", event.executable_path),
+        ev("shell_process", `Process ${event.process_name} (PID ${event.pid}) running shell/interpreter`, "process", event.executable_path ?? undefined),
         ...(event.remote_port ? [ev("remote_port", `Target port ${event.remote_port}`, "network")] : []),
       ],
       baseSeverity: "critical",
