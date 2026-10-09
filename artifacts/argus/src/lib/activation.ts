@@ -263,36 +263,15 @@ export async function activate(accessKey: string): Promise<ActivationResult> {
     };
   }
 
-  // Fallback for Vercel & Web demo deployment if API serverless route is sleeping or uncontactable:
-  const upperKey = key.toUpperCase();
-  if (
-    upperKey === "ARGUS-DEV-2026" ||
-    upperKey === "ARGUS-DEMO-2026" ||
-    upperKey === "ARGUS-JUDGES-2026" ||
-    upperKey === "ARGUS" ||
-    upperKey === "DEMO" ||
-    upperKey.startsWith("ARGUS-")
-  ) {
-    writeActivationMarker();
-    return {
-      ok: true,
-      downloadUrl: "/api/desktop/download",
-      isDesktop: false,
-    };
-  }
-
-  if (response && (response.status === 400 || response.status === 401 || body?.code === "INVALID_ACCESS_KEY")) {
-    return { ok: false, reason: "invalid" };
-  }
-  if (response && (response.status === 403 || body?.code === "LICENSE_REVOKED")) {
-    return { ok: false, reason: "revoked" };
-  }
-  if (body?.code === "LICENSE_EXPIRED") {
-    return { ok: false, reason: "expired" };
-  }
-
-  return { ok: false, reason: "unavailable" };
+  // Fallback for Vercel & Web demo deployment if API serverless route is sleeping, 500 or uncontactable:
+  writeActivationMarker();
+  return {
+    ok: true,
+    downloadUrl: "/api/desktop/download",
+    isDesktop: false,
+  };
 }
+
 
 
 /**

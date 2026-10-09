@@ -17,25 +17,34 @@ const allowedOrigins = (process.env.ARGUS_ALLOWED_ORIGINS || "")
   .map((o) => o.trim())
   .filter(Boolean);
 
-app.use(
-  pinoHttp({
-    logger,
-    serializers: {
-      req(req: Request) {
-        return {
-          id: req.id,
-          method: req.method,
-          url: req.url?.split("?")[0],
-        };
-      },
-      res(res: Response) {
-        return {
-          statusCode: res.statusCode,
-        };
-      },
-    },
-  }),
-);
+if (process.env.VERCEL) {
+  app.use((req: Request, _res: Response, next) => {
+    next();
+  });
+} else {
+  try {
+    app.use(
+      pinoHttp({
+        logger,
+        serializers: {
+          req(req: Request) {
+            return {
+              id: req.id,
+              method: req.method,
+              url: req.url?.split("?")[0],
+            };
+          },
+          res(res: Response) {
+            return {
+              statusCode: res.statusCode,
+            };
+          },
+        },
+      }),
+    );
+  } catch {}
+}
+
 app.use(
   cors(
     allowedOrigins.length > 0
@@ -54,5 +63,13 @@ app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true }));
 
 app.use("/api", router);
+app.use(router);
+
+// Express global error handler to prevent unhandled 500 HTML crashes
+app.use((err: any, _req: Request, res: Response, _next: any) => {
+  const message = err?.message || "Internal server error";
+  res.status(500).json({ success: false, error: "SERVER_ERROR", message });
+});
 
 export default app;
+
