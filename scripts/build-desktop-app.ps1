@@ -1,67 +1,155 @@
-# Build ARGUS.exe - standalone launcher bundling Node runtime + API server + dashboard + engine agent
+# ARGUS Desktop Application & Windows Installer Build Pipeline
+param(
+    [switch]$SkipFrontend = $false,
+    [switch]$SkipBackend = $false,
+    [switch]$SkipAgent = $false
+)
+
 $ErrorActionPreference = "Stop"
-$Root = Split-Path -Parent $PSScriptRoot   # workspace root
-$Scripts = $PSScriptRoot
-$ApiDist = Join-Path $Root "artifacts\api-server\dist"
-$WebDist = Join-Path $Root "artifacts\argus\dist\public"
-$AgentExe = Join-Path $Root "artifacts\security-engine\dist\argus-agent.exe"
-$Stage = Join-Path $Scripts "_launcher_payload"
-$OutDir = Join-Path $Root "dist\app"
+$WorkspaceRoot = Split-Path -Parent $PSScriptRoot
 
-Write-Host "[1/6] Checking prerequisites..." -ForegroundColor Cyan
-if (!(Test-Path $ApiDist)) { Write-Error "api-server not built. Run: pnpm --filter @workspace/api-server run build" }
-if (!(Test-Path $WebDist)) { Write-Error "frontend not built. Run: pnpm --filter @workspace/argus run build" }
-if (!(Test-Path $AgentExe)) { Write-Error "agent exe missing. Build argus-agent first." }
-$nodeSrc = (Get-Command node).Source
-if (!$nodeSrc) { Write-Error "Node.js not found on PATH" }
+Write-Host "============================================================" -ForegroundColor Cyan
+Write-Host "  ARGUS Desktop Application & Windows Installer Build       " -ForegroundColor Cyan
+Write-Host "============================================================" -ForegroundColor Cyan
 
-Write-Host "[2/6] Staging runtime payload..." -ForegroundColor Cyan
-if (Test-Path $Stage) { Remove-Item $Stage -Recurse -Force }
-New-Item -ItemType Directory -Path "$Stage\runtime" -Force | Out-Null
-New-Item -ItemType Directory -Path "$Stage\api-server" -Force | Out-Null
-New-Item -ItemType Directory -Path "$Stage\engine" -Force | Out-Null
+# 0. Locate Tools
+$nodeExe = (Get-Command node -ErrorAction SilentlyContinue).Source
+if (-not $nodeExe -and (Test-Path "D:\node.exe")) { $nodeExe = "D:\node.exe" }
+if (-not $nodeExe -and (Test-Path "C:\Program Files\nodejs\node.exe")) { $nodeExe = "C:\Program Files\nodejs\node.exe" }
+if (-not $nodeExe) { Write-Error "Node.js not found on system PATH." }
 
-# Portable Node runtime (just node.exe is enough for the bundled ESM server)
-Copy-Item $nodeSrc "$Stage\runtime\node.exe" -Force
-# Compiled API server bundle
-Copy-Item "$ApiDist\*" "$Stage\api-server\" -Recurse -Force
-# React dashboard is served by the API server from ./public next to index.mjs
-Copy-Item $WebDist "$Stage\api-server\public" -Recurse -Force
-# Standalone Python agent
-Copy-Item $AgentExe "$Stage\engine\argus-agent.exe" -Force
-# Desktop installer offered via /api/desktop/download after activation
-$SetupExe = Join-Path $Root "dist\installer\ARGUS-Setup.exe"
-if (Test-Path $SetupExe) {
-  New-Item -ItemType Directory -Path "$Stage\api-server\downloads" -Force | Out-Null
-  Copy-Item $SetupExe "$Stage\api-server\downloads\ARGUS-Setup.exe" -Force
-  Write-Host "  Bundling desktop installer for the download endpoint." -ForegroundColor DarkCyan
+$isccCandidates = @(
+    (Get-Command iscc.exe -ErrorAction SilentlyContinue).Source,
+    "C:\Users\HP\AppData\Local\Programs\Inno Setup 6\ISCC.exe",
+    "${env:LOCALAPPDATA}\Programs\Inno Setup 6\ISCC.exe",
+    "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe",
+    "${env:ProgramFiles}\Inno Setup 6\ISCC.exe",
+    "C:\Program Files (x86)\Inno Setup 6\ISCC.exe",
+    "C:\Program Files\Inno Setup 6\ISCC.exe"
+)
+$isccExe = $isccCandidates | Where-Object { $_ -and (Test-Path $_) } | Select-Object -First 1
+
+if (-not $isccExe) {
+    Write-Warning "Inno Setup compiler (ISCC.exe) was not found. Installer step will be skipped."
 }
 
-Write-Host "[3/6] Building ARGUS.exe with PyInstaller (one-file, windowed)..." -ForegroundColor Cyan
-Set-Location $Scripts
-# PyInstaller onefile unpacks to _MEIPASS at runtime; base_dir() falls back
-# to it when runtime\ is not next to the exe. --windowed hides the console.
-python -m PyInstaller --noconfirm --onefile --name ARGUS --windowed --icon icon\argus.ico `
-  --add-data "$Stage\runtime;runtime" `
-  --add-data "$Stage\api-server;api-server" `
-  --add-data "$Stage\engine;engine" `
-  --hidden-import webview.platforms.winforms `
-  --hidden-import webview.platforms.edgechromium `
-  --collect-all webview `
-  argus-launcher.py
-if ($LASTEXITCODE -ne 0) { Write-Error "PyInstaller failed" }
+Write-Host "[*] Node runtime:      $nodeExe" -ForegroundColor Gray
+Write-Host "[*] Inno compiler:     $isccExe" -ForegroundColor Gray
 
-Write-Host "[4/6] Verifying exe..." -ForegroundColor Cyan
-$exe = Join-Path $Scripts "dist\ARGUS.exe"
-if (!(Test-Path $exe)) { Write-Error "ARGUS.exe not produced" }
+# 1. Build Backend API Server
+if (-not $SkipBackend) {
+    Write-Host "`n[1/6] Building Express API Server..." -ForegroundColor Yellow
+    Push-Location (Join-Path $WorkspaceRoot "artifacts\api-server")
+    pnpm run build
+    Pop-Location
+}
 
-Write-Host "[5/6] Finalizing single-file package..." -ForegroundColor Cyan
-if (Test-Path $OutDir) { Remove-Item $OutDir -Recurse -Force }
-New-Item -ItemType Directory -Path $OutDir -Force | Out-Null
-Copy-Item (Join-Path $Scripts "dist\ARGUS.exe") "$OutDir\ARGUS.exe" -Force
-Copy-Item (Join-Path $Scripts "icon\argus.ico") "$OutDir\argus.ico" -Force
+# 2. Build Frontend Dashboard
+if (-not $SkipFrontend) {
+    Write-Host "`n[2/6] Building React Frontend Dashboard..." -ForegroundColor Yellow
+    Push-Location (Join-Path $WorkspaceRoot "artifacts\argus")
+    pnpm run build
+    Pop-Location
+}
 
-$size = [math]::Round((Get-Item (Join-Path $Scripts "dist\ARGUS.exe")).Length / 1MB, 1)
-Write-Host "[6/6] Done." -ForegroundColor Green
-Write-Host "Single-file app: $OutDir\ARGUS.exe  ($size MB)"
-Write-Host "Distribute the whole 'ARGUS' folder - or build the installer with Inno Setup."
+# 3. Build Security Engine Executable
+if (-not $SkipAgent) {
+    Write-Host "`n[3/6] Building Python Security Engine (argus-agent.exe)..." -ForegroundColor Yellow
+    Push-Location (Join-Path $WorkspaceRoot "artifacts\security-engine")
+    python -m PyInstaller --distpath dist --workpath build -y argus-agent.spec
+    Pop-Location
+}
+
+$AgentExe = Join-Path $WorkspaceRoot "artifacts\security-engine\dist\argus-agent.exe"
+if (-not (Test-Path $AgentExe)) {
+    Write-Error "Security Engine executable not found at $AgentExe"
+}
+
+# 4. Assemble Application Directory (dist\app)
+Write-Host "`n[4/6] Assembling application directory (dist\app)..." -ForegroundColor Yellow
+$DistApp = Join-Path $WorkspaceRoot "dist\app"
+$RuntimeDir = Join-Path $DistApp "runtime"
+$ApiServerDir = Join-Path $DistApp "api-server"
+$PublicDir = Join-Path $ApiServerDir "public"
+$EngineDir = Join-Path $DistApp "engine"
+
+# Clean previous app staging
+if (Test-Path $DistApp) {
+    Remove-Item -Path $DistApp -Recurse -Force -ErrorAction SilentlyContinue
+}
+
+New-Item -ItemType Directory -Path $RuntimeDir -Force | Out-Null
+New-Item -ItemType Directory -Path $PublicDir -Force | Out-Null
+New-Item -ItemType Directory -Path $EngineDir -Force | Out-Null
+
+# Copy Node runtime
+Copy-Item -Path $nodeExe -Destination (Join-Path $RuntimeDir "node.exe") -Force
+
+# Copy API server compiled bundle
+Copy-Item -Path (Join-Path $WorkspaceRoot "artifacts\api-server\dist\*") -Destination $ApiServerDir -Recurse -Force
+
+# Copy React dashboard assets to api-server\public
+$WebDistDir = Join-Path $WorkspaceRoot "artifacts\argus\dist\public"
+if (Test-Path $WebDistDir) {
+    Get-ChildItem -Path $WebDistDir | ForEach-Object {
+        if ($_.Name -ne "ARGUS-Setup.exe") {
+            Copy-Item -Path $_.FullName -Destination (Join-Path $PublicDir $_.Name) -Recurse -Force
+        }
+    }
+}
+
+# Copy Security Engine executable
+Copy-Item -Path $AgentExe -Destination (Join-Path $EngineDir "argus-agent.exe") -Force
+
+# Copy application icon
+Copy-Item -Path (Join-Path $WorkspaceRoot "scripts\icon\argus.ico") -Destination (Join-Path $DistApp "argus.ico") -Force
+
+# 5. Build Desktop Launcher (dist\app\ARGUS.exe)
+Write-Host "`n[5/6] Compiling Native Desktop Shell (ARGUS.exe)..." -ForegroundColor Yellow
+Push-Location (Join-Path $WorkspaceRoot "scripts")
+# NOTE: We DO NOT embed node, server, or agent in the EXE anymore! They are copied alongside it.
+python -m PyInstaller --noconfirm --onefile --windowed `
+    --name ARGUS `
+    --icon "icon\argus.ico" `
+    --hidden-import webview.platforms.winforms `
+    --hidden-import webview.platforms.edgechromium `
+    --collect-all webview `
+    --distpath $DistApp `
+    --workpath "build" `
+    argus-launcher.py
+Pop-Location
+
+$TargetAppExe = Join-Path $DistApp "ARGUS.exe"
+if (-not (Test-Path $TargetAppExe)) {
+    Write-Error "Failed to build ARGUS.exe"
+}
+
+# 6. Compile Inno Setup Installer
+Write-Host "`n[6/6] Compiling Windows Installer (ARGUS-Setup.exe)..." -ForegroundColor Yellow
+$DistInstaller = Join-Path $WorkspaceRoot "dist\installer"
+New-Item -ItemType Directory -Path $DistInstaller -Force | Out-Null
+
+if ($isccExe) {
+    Push-Location (Join-Path $WorkspaceRoot "installer")
+    & $isccExe "argus-installer.iss"
+    Pop-Location
+
+    $TargetInstaller = Join-Path $DistInstaller "ARGUS-Setup.exe"
+    if (Test-Path $TargetInstaller) {
+        # Synchronize installer to web distribution points
+        $ArgusPublicDir = Join-Path $WorkspaceRoot "artifacts\argus\dist\public"
+        $ArgusPublicDevDir = Join-Path $WorkspaceRoot "artifacts\argus\public"
+        New-Item -ItemType Directory -Path $ArgusPublicDir -Force | Out-Null
+        New-Item -ItemType Directory -Path $ArgusPublicDevDir -Force | Out-Null
+
+        Copy-Item -Path $TargetInstaller -Destination (Join-Path $ArgusPublicDir "ARGUS-Setup.exe") -Force
+        Copy-Item -Path $TargetInstaller -Destination (Join-Path $ArgusPublicDevDir "ARGUS-Setup.exe") -Force
+
+        $mb = [math]::Round((Get-Item $TargetInstaller).Length / 1MB, 2)
+        Write-Host "`nARGUS Windows Installer created successfully ($mb MB)" -ForegroundColor Green
+    } else {
+        Write-Error "Inno Setup failed to produce $TargetInstaller"
+    }
+} else {
+    Write-Host "`nSkipped Inno Setup installer compilation (ISCC.exe not found)." -ForegroundColor Yellow
+}

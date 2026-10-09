@@ -1,37 +1,53 @@
-import { Router, type IRouter } from "express";
-import { existsSync } from "node:fs";
+import { Router, type IRouter, type Request, type Response } from "express";
+import { existsSync, statSync } from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 import { logger } from "../lib/logger";
 
 const router: IRouter = Router();
 
 /**
- * Serves the ARGUS desktop installer when it is bundled next to the server.
+ * Resolves the actual ARGUS Windows installer output path.
  *
- * Resolution order:
- *   1. downloads/ARGUS-Setup.exe bundled next to the server (local install)
- *   2. /ARGUS-Setup.exe static asset in the web app's public output (serverless)
- *   3. Latest GitHub Release asset (repo is clean of binaries - CI uploads there)
- *
- * If none exist the endpoint reports 404 so the UI can fall back gracefully.
+ * It looks for the output from the Inno Setup build or PyInstaller bundle
+ * in the workspace root.
  */
-
-const RELEASE_FALLBACK =
-  process.env.ARGUS_INSTALLER_URL ||
-  "https://github.com/subahanpathan/ARGUS/releases/latest/download/ARGUS-Setup.exe";
-
-const here = path.dirname(fileURLToPath(import.meta.url));
-const CANDIDATES = [
-  path.resolve(here, "downloads", "ARGUS-Setup.exe"),
-  path.resolve(here, "..", "downloads", "ARGUS-Setup.exe"),
-  path.resolve(here, "ARGUS-Setup.exe"),
-];
-
 function findInstaller(): string | null {
+  if (process.env.ARGUS_INSTALLER_PATH !== undefined) {
+    const custom = process.env.ARGUS_INSTALLER_PATH;
+    if (!custom) return null;
+    try {
+      if (existsSync(custom) && statSync(custom).isFile() && statSync(custom).size > 0) {
+        return custom;
+      }
+    } catch {}
+    return null;
+  }
+
+  // Try to find the workspace root regardless of whether we run from
+  // artifacts/api-server or from the built dist/ bundle.
+  const cwd = process.cwd();
+  const rootDir = cwd.includes("artifacts")
+    ? path.resolve(cwd, "..", "..")
+    : cwd;
+
+  const CANDIDATES = [
+    path.resolve(rootDir, "dist", "installer", "ARGUS-Setup.exe"),
+    path.resolve(rootDir, "artifacts", "argus", "dist", "public", "ARGUS-Setup.exe"),
+    path.resolve(rootDir, "artifacts", "argus", "public", "ARGUS-Setup.exe"),
+    path.resolve(rootDir, "scripts", "dist", "ARGUS.exe"),
+    path.resolve(rootDir, "dist", "app", "ARGUS.exe"),
+    path.resolve(rootDir, "artifacts", "api-server", "downloads", "ARGUS-Setup.exe"),
+    path.resolve(rootDir, "artifacts", "api-server", "dist", "downloads", "ARGUS-Setup.exe"),
+  ];
+
   for (const p of CANDIDATES) {
     try {
-      if (existsSync(p)) return p;
+      if (existsSync(p)) {
+        const stat = statSync(p);
+        if (stat.isFile() && stat.size > 0) {
+          return p;
+        }
+      }
     } catch {
       // ignore
     }
@@ -39,16 +55,7 @@ function findInstaller(): string | null {
   return null;
 }
 
-/**
- * Fallback for serverless hosts (Vercel et al.), where the function bundle
- * contains only code - a 73MB exe is served as a STATIC ASSET from the
- * frontend's public/ directory instead (globally cached, zero function
- * bandwidth). Drop the installer in the web app's public folder as
- * ARGUS-Setup.exe and this route redirects to it.
- */
-const STATIC_FALLBACK = "/ARGUS-Setup.exe";
-
-router.get("/desktop/download", (_req, res) => {
+router.get(["/desktop/download", "/downloads/argus-windows"], (_req: Request, res: Response) => {
   const installer = findInstaller();
   if (installer) {
     logger.info({ installer }, "Serving desktop installer from bundle");
@@ -57,22 +64,20 @@ router.get("/desktop/download", (_req, res) => {
     res.sendFile(installer);
     return;
   }
-  // Serverless / static-hosting fallback, then the GitHub Release asset.
-  res.redirect(302, STATIC_FALLBACK);
+
+  // Return a clear 404 error instead of redirecting when not found
+  res.status(404).json({ error: "ARGUS Windows installer is not available" });
 });
 
-router.head("/desktop/download", (_req, res) => {
+router.head(["/desktop/download", "/downloads/argus-windows"], (_req: Request, res: Response) => {
   if (findInstaller()) {
     res.setHeader("Content-Type", "application/octet-stream");
     res.setHeader("Content-Disposition", 'attachment; filename="ARGUS-Setup.exe"');
     res.end();
     return;
   }
-  // Probe the static asset path so the UI can tell "available" vs "missing".
-  // Follows the redirect to /ARGUS-Setup.exe; static host answers 200/404.
-  res.redirect(302, STATIC_FALLBACK);
-});
 
-export { RELEASE_FALLBACK };
+  res.status(404).end();
+});
 
 export default router;
