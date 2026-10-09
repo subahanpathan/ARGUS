@@ -141,12 +141,22 @@ def find_free_port(preferred: int) -> int:
     import socket
 
     for port in range(preferred, preferred + 25):
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            try:
+        # 1. Reject if anything is actively answering connections on 127.0.0.1:port
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                s.settimeout(0.2)
+                if s.connect_ex(("127.0.0.1", port)) == 0:
+                    continue
+        except Exception:
+            pass
+
+        # 2. Verify port can be bound
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                 s.bind(("127.0.0.1", port))
                 return port
-            except OSError:
-                continue
+        except OSError:
+            continue
     return preferred
 
 
@@ -163,6 +173,8 @@ def wait_until_healthy(timeout: float = 30.0) -> bool:
                 req = urllib.request.Request(url, headers={"User-Agent": "ARGUS-Launcher"})
                 with urllib.request.urlopen(req, timeout=1.5) as resp:
                     if resp.status == 200:
+                        if _server_proc and _server_proc.poll() is not None:
+                            return False
                         return True
             except Exception:
                 pass
@@ -359,30 +371,107 @@ def get_screen_size() -> tuple[int, int]:
     return 1366, 768
 
 
-def run_window() -> None:
-    """Open the native WebView2 desktop window with adaptive laptop sizing."""
-    import webview
+def find_browser_app_shell() -> tuple[Path | None, str]:
+    """Locate a native browser supporting standalone application mode (--app)."""
+    # 1. Microsoft Edge (standard on all Windows 10/11 laptops)
+    for prefix in (os.environ.get("PROGRAMFILES(X86)"), os.environ.get("PROGRAMFILES"), os.environ.get("LOCALAPPDATA")):
+        if prefix:
+            cand = Path(prefix) / "Microsoft" / "Edge" / "Application" / "msedge.exe"
+            if cand.exists():
+                return cand, "Edge"
+    import shutil
+    cand = shutil.which("msedge")
+    if cand:
+        return Path(cand), "Edge"
 
+    # 2. Google Chrome
+    for prefix in (os.environ.get("PROGRAMFILES"), os.environ.get("PROGRAMFILES(X86)"), os.environ.get("LOCALAPPDATA")):
+        if prefix:
+            cand = Path(prefix) / "Google" / "Chrome" / "Application" / "chrome.exe"
+            if cand.exists():
+                return cand, "Chrome"
+    cand = shutil.which("chrome")
+    if cand:
+        return Path(cand), "Chrome"
+
+    return None, ""
+
+
+def run_window() -> None:
+    """Open the native desktop window with adaptive laptop sizing."""
     url = f"http://127.0.0.1:{PORT}"
     ico = icon_path()
+    log_path = data_dir() / "argus-launcher.log"
 
-    screen_w, screen_h = get_screen_size()
-    # Choose dimensions that fit within standard laptop displays (1366x768 up to 4K)
-    win_w = min(1366, max(960, int(screen_w * 0.88)))
-    win_h = min(840, max(560, int(screen_h * 0.85)))
-    min_w = min(960, int(screen_w * 0.70))
-    min_h = min(540, int(screen_h * 0.70))
+    # Primary: Standalone desktop app window via native Edge / Chrome shell
+    browser_exe, browser_name = find_browser_app_shell()
+    if browser_exe:
+        screen_w, screen_h = get_screen_size()
+        win_w = min(1440, max(960, int(screen_w * 0.88)))
+        win_h = min(880, max(560, int(screen_h * 0.85)))
+        profile_dir = data_dir() / "app_shell_profile"
+        profile_dir.mkdir(parents=True, exist_ok=True)
 
-    window = webview.create_window(
-        APP_NAME,
-        url,
-        width=win_w,
-        height=win_h,
-        min_size=(min_w, min_h),
-        background_color="#05080e",
-    )
-    window.events.closed += on_closed
-    webview.start(icon=str(ico) if ico else None)
+        cmd = [
+            str(browser_exe),
+            f"--app={url}",
+            f"--user-data-dir={profile_dir}",
+            f"--window-size={win_w},{win_h}",
+            "--window-position=center",
+            "--no-first-run",
+            "--no-default-browser-check",
+            "--disable-features=Translate,OptimizationHints,MediaRouter",
+            "--disable-background-networking",
+            "--enable-features=OverlayScrollbar",
+        ]
+        with open(log_path, "a", encoding="utf-8") as f:
+            f.write(f"[ARGUS] Launching native {browser_name} desktop app shell: {browser_exe}\n")
+
+        try:
+            proc = subprocess.Popen(cmd)
+            time.sleep(1.0)
+            if proc.poll() is None:
+                # App window is active; wait until user closes the window
+                proc.wait()
+                return
+            with open(log_path, "a", encoding="utf-8") as f:
+                f.write(f"[ARGUS] {browser_name} shell exited early (code {proc.returncode}). Trying fallback.\n")
+        except Exception as exc:
+            with open(log_path, "a", encoding="utf-8") as f:
+                f.write(f"[ARGUS] Failed to launch {browser_name} shell: {exc}\n")
+
+    # Secondary: pywebview fallback
+    try:
+        import webview
+        screen_w, screen_h = get_screen_size()
+        win_w = min(1366, max(960, int(screen_w * 0.88)))
+        win_h = min(840, max(560, int(screen_h * 0.85)))
+        min_w = min(960, int(screen_w * 0.70))
+        min_h = min(540, int(screen_h * 0.70))
+
+        window = webview.create_window(
+            APP_NAME,
+            url,
+            width=win_w,
+            height=win_h,
+            min_size=(min_w, min_h),
+            background_color="#05080e",
+        )
+        window.events.closed += on_closed
+        webview.start(icon=str(ico) if ico else None)
+        return
+    except Exception as exc:
+        with open(log_path, "a", encoding="utf-8") as f:
+            f.write(f"[ARGUS] pywebview fallback failed: {exc}\n")
+
+    # Tertiary: default system browser fallback
+    try:
+        import webbrowser
+        webbrowser.open(url)
+        while _server_proc and _server_proc.poll() is None:
+            time.sleep(1)
+    except Exception:
+        pass
 
 
 def main() -> int:
@@ -400,22 +489,6 @@ def main() -> int:
 
     try:
         run_window()
-    except Exception as exc:
-        log_path = data_dir() / "argus-launcher.log"
-        with open(log_path, "a", encoding="utf-8") as f:
-            f.write(f"[ARGUS] Window error: {exc}\n")
-        # Fallback to default browser if WebView2 window fails
-        try:
-            import webbrowser
-            webbrowser.open(API_URL)
-            # Keep process alive so background services keep running
-            while _server_proc and _server_proc.poll() is None:
-                time.sleep(1)
-        except Exception:
-            pass
-        finally:
-            stop_services()
-        return 1
     finally:
         stop_services()
 
