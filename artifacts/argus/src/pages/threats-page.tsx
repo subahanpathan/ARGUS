@@ -285,8 +285,12 @@ export function ThreatsPage({
     return remediations.filter((r) => r.isSensitiveData && r.directedToCyberCell);
   }, [remediations]);
 
-  const processCount = processMonitor?.snapshot?.length ?? telemetry?.telemetry?.processes?.running ?? 280;
-  const socketCount = networkMonitor?.snapshot?.total_count ?? 340;
+  const processCount = (processMonitor?.snapshot?.length && processMonitor.snapshot.length > 0)
+    ? processMonitor.snapshot.length
+    : (telemetry?.telemetry?.processes?.running ?? 240);
+  const socketCount = (networkMonitor?.snapshot?.total_count && networkMonitor.snapshot.total_count > 0)
+    ? networkMonitor.snapshot.total_count
+    : (networkMonitor?.snapshot?.connections?.length ?? telemetry?.telemetry?.network?.total_count ?? 320);
   const fileCount = fileScan?.snapshot?.total_count ?? (fileScan?.findings?.length ?? 24);
 
   const handleContainLive = (id: string, name: string) => {

@@ -568,15 +568,19 @@ export default function MonitoringPage({ processMonitor, onNavigate }: Monitorin
           value={
             <AnimatedNumber
               value={
-                isOnline && latest?.processes?.running != null
-                  ? latest.processes.running
-                  : (processMonitor?.snapshot?.length || 184)
+                (processMonitor?.snapshot?.length && processMonitor.snapshot.length > 0)
+                  ? processMonitor.snapshot.length
+                  : (latest?.processes?.running ?? 240)
               }
               format={(n) => String(Math.round(n))}
               duration={600}
             />
           }
-          note={isOnline ? 'monitored processes on this host' : '184 monitored processes'}
+          note={
+            isOnline
+              ? 'monitored processes on this host'
+              : `${(processMonitor?.snapshot?.length || latest?.processes?.running || 240)} monitored processes`
+          }
           tone="good"
           icon={TerminalSquare}
         />

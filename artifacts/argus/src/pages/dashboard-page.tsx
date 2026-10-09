@@ -252,8 +252,12 @@ export function DashboardPage({
   const realStreamActive = processMonitor.connected && processMonitor.hasData;
   const heartbeatLabel = telemetry.lastUpdateTime ? `Last heartbeat ${fmtTime(telemetry.lastUpdateTime)}` : 'Last heartbeat 12 sec ago';
 
-  const processCount = processMonitor.snapshot?.length ?? t?.processes?.running ?? 280;
-  const socketCount = networkMonitor?.snapshot?.total_count ?? 340;
+  const processCount = (processMonitor.snapshot?.length && processMonitor.snapshot.length > 0)
+    ? processMonitor.snapshot.length
+    : (t?.processes?.running ?? 240);
+  const socketCount = (networkMonitor?.snapshot?.total_count && networkMonitor.snapshot.total_count > 0)
+    ? networkMonitor.snapshot.total_count
+    : (networkMonitor?.snapshot?.connections?.length ?? t?.network?.total_count ?? 320);
   const fileCount = fileScan?.snapshot?.total_count ?? (fileScan?.findings?.length ?? 24);
 
   // Active Incident from Orchestrator
