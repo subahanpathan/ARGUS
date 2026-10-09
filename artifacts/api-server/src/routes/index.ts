@@ -15,6 +15,8 @@ import reportsRouter from "./reports";
 import attackTracesRouter from "./attack-traces";
 import incidentsRouter from "./incidents";
 import desktopDownloadRouter from "./desktop-download";
+import predictionsRouter from "./predictions";
+import adaptiveDefenseRouter from "./adaptive-defense";
 
 const router: IRouter = Router();
 
@@ -34,5 +36,8 @@ router.use(reportsRouter);
 router.use(attackTracesRouter);
 router.use(incidentsRouter);
 router.use(desktopDownloadRouter);
+router.use(predictionsRouter);
+router.use(adaptiveDefenseRouter);
 
 export default router;
+

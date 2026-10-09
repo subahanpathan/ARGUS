@@ -9,7 +9,7 @@ import {
   ArrowRight, Bell, BrainCircuit, Check, CheckCircle2,
   CircleHelp, ClipboardCheck, Clock3, Cloud,
   Cpu, Database, Download, Eye, FileKey2,
-  FileSearch, FileText, Fingerprint, FolderOpen, Globe2,
+  FileSearch, FileText, Fingerprint, FlaskConical, FolderOpen, Globe2,
   History, Info, Laptop, LayoutDashboard, LockKeyhole, LogOut, Menu, Network,
   Pause, Play, Plus, RefreshCw, Radar, Search, Send, Settings2, Shield,
   ShieldAlert, ShieldCheck, SlidersHorizontal, Sparkles, TerminalSquare,
@@ -53,6 +53,7 @@ import BacktraceInvestigationPage from '@/pages/backtrace-investigation-page';
 import AutoRemediationPage from '@/pages/auto-remediation-page';
 import { ThreatsPage } from '@/pages/threats-page';
 import { DashboardPage } from '@/pages/dashboard-page';
+import LabPage from '@/pages/lab-page';
 import { useQuarantine } from '@/hooks/use-quarantine';
 import { useReports } from '@/hooks/use-reports';
 
@@ -123,6 +124,7 @@ const navGroups: Array<{ label: string; items: Array<[string, string, typeof Act
   { label: 'Investigate', items: [
     ['/exposure', 'Exposure assessment', Eye], ['/attack-trace', 'Live Attack Trace', GitBranch], ['/backtrace', '3D Backtrace', Compass], ['/exposure-window', 'Exposure window', Clock3], ['/timeline', 'Forensic timeline', History],
     ['/quarantine', 'Quarantine', Archive], ['/intelligence', 'Intelligence', BrainCircuit],
+    ['/lab', 'Lab Simulation', FlaskConical],
   ]},
   { label: 'Decide', items: [
     ['/reports', 'Reports', FileText], ['/history', 'Report history', ClipboardCheck], ['/cyber-cell', 'Cyber Cell', Send],
@@ -1100,6 +1102,7 @@ function AppContent() {
     if (location === '/reports') return <ReportsPage phase={phase} incidentStatus={incidentStatus} quarantineItems={quarantineManager.items} processMonitor={processMonitor} networkMonitor={networkMonitor} threatAnalysis={threatAnalysis} telemetry={telemetryStream} toast={toast} onSaveToHistory={reportsManager.createReport} onNavigate={setLocation} vaultPath={reportsManager.vaultPath} />;
     if (location === '/history') return <HistoryPage reports={reportsManager.reports} onDeleteReport={reportsManager.deleteReport} toast={toast} onNavigate={setLocation} vaultPath={reportsManager.vaultPath} />;
     if (location === '/cyber-cell') return <CyberCellPage toast={toast} incidentStatus={incidentStatus} phase={phase} quarantineCount={quarantine.length} submitted={cyberCellSubmitted} onSubmitted={() => setCyberCellSubmitted(true)} onResetSubmission={() => setCyberCellSubmitted(false)} telemetry={telemetryStream} processMonitor={processMonitor} networkMonitor={networkMonitor} fileScan={fileScan} threatAnalysis={threatAnalysis} />;
+    if (location === '/lab') return <LabPage toast={toast} onNavigate={setLocation} />;
     if (location === '/settings') return <SettingsPage toast={toast} />;
     if (location === '/about') return <AboutPage />;
     return <NotFound />;

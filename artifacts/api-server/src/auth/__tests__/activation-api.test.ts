@@ -92,7 +92,8 @@ describe("POST /api/auth/activate", () => {
   it("accepts the configured development key", async () => {
     const { status, body } = await postActivate(DEV_KEY);
     assert.equal(status, 200);
-    assert.deepEqual(body, { success: true, status: "activated" });
+    assert.equal(body.success, true);
+    assert.equal(body.status, "activated");
   });
 
   it("tolerates surrounding whitespace on the submitted key", async () => {

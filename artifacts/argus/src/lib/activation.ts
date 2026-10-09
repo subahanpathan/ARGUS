@@ -1,18 +1,12 @@
 /**
- * ARGUS activation — frontend client.
+ * ARGUS activation — frontend client library.
  *
- * Phase A replaces the public registration flow with an Access Key gate. The
- * key is validated on the server (`POST /api/auth/activate`) and by nothing
- * else: there is deliberately no comparison in this bundle, so the key cannot
- * be recovered by reading the shipped JavaScript.
- *
- * What *is* stored locally is a non-secret activation marker plus the server's
- * HttpOnly activation cookie. The marker only exists so a refresh does not flash
- * the activation screen; `GET /api/auth/status` remains the authority, and a
- * server that says "not activated" wins over the marker.
- *
- * The raw access key is never written to localStorage, sessionStorage, a cookie,
- * or the console.
+ * Implements:
+ * - Server-authoritative access key submission (`POST /api/auth/activate`).
+ * - Error classification (invalid, expired, revoked, unavailable).
+ * - Secure download URL handoff.
+ * - Desktop mode environment detection (never trusts bare localhost alone).
+ * - Safe non-secret localStorage marker caching.
  */
 
 /** Route that requires an activated installation. */
@@ -24,17 +18,34 @@ export const ACTIVATION_MARKER_KEY = "argus.activation.v1";
 export const ACTIVATION_MESSAGES = {
   empty: "Enter your ARGUS Access Key to activate this installation.",
   invalid: "Invalid ARGUS Access Key.",
+  expired: "This ARGUS Access Key has expired.",
+  revoked: "This ARGUS Access Key has been revoked.",
   unavailable: "Unable to contact the ARGUS activation service. Please try again.",
 } as const;
 
-export type ActivationFailure = "empty" | "invalid" | "unavailable";
+export type ActivationFailure = "empty" | "invalid" | "expired" | "revoked" | "unavailable";
 
 export type ActivationResult =
-  | { ok: true }
+  | {
+      ok: true;
+      downloadUrl?: string;
+      downloadToken?: string;
+      isDesktop?: boolean;
+      token?: string;
+    }
   | { ok: false; reason: ActivationFailure };
 
 /** Server response shape for `POST /api/auth/activate`. */
-type ActivateResponseBody = { success?: boolean; status?: string; code?: string };
+type ActivateResponseBody = {
+  success?: boolean;
+  status?: string;
+  code?: string;
+  message?: string;
+  downloadUrl?: string;
+  downloadToken?: string;
+  isDesktop?: boolean;
+  token?: string;
+};
 
 /**
  * The stored marker. Contains no secret — only a status and a timestamp, so it
@@ -52,7 +63,6 @@ function readStorage(key: string): string | null {
   try {
     return window.localStorage.getItem(key);
   } catch {
-    // Private-mode / storage-disabled browsers still activate normally.
     return null;
   }
 }
@@ -60,17 +70,13 @@ function readStorage(key: string): string | null {
 function writeStorage(key: string, value: string): void {
   try {
     window.localStorage.setItem(key, value);
-  } catch {
-    // Non-fatal: the server cookie still carries the activation.
-  }
+  } catch {}
 }
 
 function removeStorage(key: string): void {
   try {
     window.localStorage.removeItem(key);
-  } catch {
-    // Non-fatal.
-  }
+  } catch {}
 }
 
 /** True when this browser holds a local activation marker. */
@@ -80,7 +86,6 @@ export function hasActivationMarker(): boolean {
   try {
     return isMarker(JSON.parse(raw));
   } catch {
-    // A malformed marker is treated as absent and cleaned up.
     removeStorage(ACTIVATION_MARKER_KEY);
     return false;
   }
@@ -100,34 +105,34 @@ export function clearActivationMarker(): void {
 /** Key holding whether the desktop app / setup has been installed. */
 export const DESKTOP_INSTALLED_KEY = "argus_installed";
 
+declare global {
+  interface Window {
+    __ARGUS_DESKTOP__?: boolean;
+  }
+}
+
 /**
- * Returns true if the ARGUS desktop application/setup is installed or running locally.
+ * Returns true when ARGUS is running inside the installed desktop shell.
+ * Hosted websites (including local Vite on localhost) must NOT match — they
+ * need the activate → download installer flow.
  */
-export function isSetupInstalled(): boolean {
+export function isDesktopMode(): boolean {
   if (typeof window === "undefined") return false;
+
+  if (window.__ARGUS_DESKTOP__ === true) return true;
 
   try {
     if (
       window.localStorage.getItem(DESKTOP_INSTALLED_KEY) === "true" ||
       window.localStorage.getItem("argus_setup_installed") === "true" ||
-      window.localStorage.getItem("argus_desktop_installed") === "true"
+      window.localStorage.getItem("argus_desktop_mode") === "true"
     ) {
       return true;
     }
   } catch {}
 
-  const host = window.location.hostname;
-  if (
-    host === "localhost" ||
-    host === "127.0.0.1" ||
-    host === "0.0.0.0" ||
-    host === "[::1]" ||
-    host.endsWith(".local")
-  ) {
-    return true;
-  }
-
-  if (window.navigator?.userAgent?.includes("ARGUS")) {
+  const ua = window.navigator?.userAgent || "";
+  if (ua.includes("ARGUS/") || ua.includes("ARGUS Desktop")) {
     return true;
   }
   if ((window as any).pywebview || (window as any).chrome?.webview) {
@@ -137,19 +142,26 @@ export function isSetupInstalled(): boolean {
   return false;
 }
 
+export const isSetupInstalled = isDesktopMode;
+
 /** Record that the desktop app / setup has been installed. */
 export function markSetupInstalled(): void {
   try {
     window.localStorage.setItem(DESKTOP_INSTALLED_KEY, "true");
+    window.localStorage.setItem("argus_desktop_mode", "true");
   } catch {}
+}
+
+export interface ActivationStatusResult {
+  activated: boolean;
+  isDesktop?: boolean;
+  deviceId?: string;
+  source?: string;
 }
 
 /**
  * Ask the server whether this installation is activated.
- *
- * `null` means "could not tell" — the API is down or erroring. That is
- * deliberately distinct from `false`, so a transient backend outage does not
- * lock an activated operator out of the workspace.
+ * Also returns desktop mode when the API was started with ARGUS_DESKTOP=1.
  */
 export async function fetchActivationStatus(): Promise<boolean | null> {
   try {
@@ -158,19 +170,52 @@ export async function fetchActivationStatus(): Promise<boolean | null> {
       credentials: "same-origin",
     });
     if (!response.ok) return null;
-    const body = (await response.json()) as { activated?: unknown };
-    return typeof body.activated === "boolean" ? body.activated : null;
+    const body = (await response.json()) as ActivationStatusResult;
+    if (typeof body.activated === "boolean") {
+      if (body.activated) {
+        writeActivationMarker();
+      } else {
+        clearActivationMarker();
+      }
+      if (body.isDesktop) {
+        markSetupInstalled();
+        try {
+          window.__ARGUS_DESKTOP__ = true;
+        } catch {}
+      }
+      return body.activated;
+    }
+    return null;
   } catch {
     return null;
   }
 }
 
 /**
- * Submit an access key for validation.
- *
- * Maps every failure to one of three user-facing states. Network faults and
- * unexpected payloads both surface as `unavailable` rather than leaking backend
- * detail into the UI.
+ * Probe whether the backend is running in desktop mode (without requiring activation).
+ */
+export async function fetchIsDesktopEnvironment(): Promise<boolean> {
+  if (isDesktopMode()) return true;
+  try {
+    const response = await fetch("/api/auth/status", {
+      headers: { Accept: "application/json" },
+      credentials: "same-origin",
+    });
+    if (!response.ok) return false;
+    const body = (await response.json()) as ActivationStatusResult;
+    if (body.isDesktop) {
+      markSetupInstalled();
+      try {
+        window.__ARGUS_DESKTOP__ = true;
+      } catch {}
+      return true;
+    }
+  } catch {}
+  return false;
+}
+
+/**
+ * Submit an access key for validation to the backend.
  */
 export async function activate(accessKey: string): Promise<ActivationResult> {
   const key = accessKey.trim();
@@ -195,26 +240,45 @@ export async function activate(accessKey: string): Promise<ActivationResult> {
     body = null;
   }
 
-  if (response.ok && body?.success === true) return { ok: true };
+  if (response.ok && body?.success === true) {
+    writeActivationMarker();
+    if (body.isDesktop) {
+      markSetupInstalled();
+      try {
+        window.__ARGUS_DESKTOP__ = true;
+      } catch {}
+    }
+    return {
+      ok: true,
+      downloadUrl: body.downloadUrl,
+      downloadToken: body.downloadToken,
+      isDesktop: body.isDesktop,
+      token: body.token,
+    };
+  }
 
-  if (response.status === 503) return { ok: false, reason: "unavailable" };
-  if (response.status === 400 || response.status === 401 || response.status === 403) {
+  if (response.status === 503 || body?.code === "ACTIVATION_UNAVAILABLE") {
+    return { ok: false, reason: "unavailable" };
+  }
+  if (response.status === 403 || body?.code === "LICENSE_REVOKED") {
+    return { ok: false, reason: "revoked" };
+  }
+  if (body?.code === "LICENSE_EXPIRED") {
+    return { ok: false, reason: "expired" };
+  }
+  if (response.status === 400 || response.status === 401 || body?.code === "INVALID_ACCESS_KEY") {
     return { ok: false, reason: "invalid" };
   }
+
   return { ok: false, reason: "unavailable" };
 }
 
 /**
- * Deactivate this installation: clear the server cookie and the local marker.
- *
- * Best-effort — if the API is unreachable the local marker is still cleared, so
- * the UI returns to the activation screen either way.
+ * Deactivate this installation: clear the server cookie, license vault, and the local marker.
  */
 export async function deactivate(): Promise<void> {
   clearActivationMarker();
   try {
     await fetch("/api/auth/deactivate", { method: "POST", credentials: "same-origin" });
-  } catch {
-    // The cookie is cleared server-side on the next successful call.
-  }
+  } catch {}
 }

@@ -8,7 +8,7 @@
     "build": "node ./build.mjs",
     "start": "node --enable-source-maps ./dist/index.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "tsx --test src/auth/__tests__/activation-api.test.ts src/detection/__tests__/normalize.test.ts src/detection/__tests__/rules.test.ts src/detection/__tests__/engine.test.ts src/detection/__tests__/network.test.ts src/detection/__tests__/file.test.ts src/detection/__tests__/engine-domains.test.ts src/detection/__tests__/api.test.ts src/detection/__tests__/attack-traces-impact.test.ts src/detection/__tests__/incidents-orchestrator.test.ts src/detection/__tests__/lab-workflow.test.ts"
+    "test": "tsx --test src/auth/__tests__/activation-api.test.ts src/auth/__tests__/licensing-workflow.test.ts src/routes/__tests__/desktop-download.test.ts src/detection/__tests__/normalize.test.ts src/detection/__tests__/rules.test.ts src/detection/__tests__/engine.test.ts src/detection/__tests__/network.test.ts src/detection/__tests__/file.test.ts src/detection/__tests__/engine-domains.test.ts src/detection/__tests__/api.test.ts src/detection/__tests__/attack-traces-impact.test.ts src/detection/__tests__/incidents-orchestrator.test.ts src/detection/__tests__/lab-workflow.test.ts src/detection/__tests__/prediction-engine.test.ts src/detection/__tests__/adaptive-defense.test.ts"
   },
   "dependencies": {
     "@workspace/api-zod": "workspace:*",

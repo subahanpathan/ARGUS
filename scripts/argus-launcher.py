@@ -136,6 +136,34 @@ def resolve_components() -> tuple[Path | None, Path | None, Path | None]:
     return node_exe, server_js, agent_exe
 
 
+def payload_activation_env(api_server_dir: Path) -> dict[str, str]:
+    """Read server-only activation secrets from activation.env beside the API bundle."""
+    result: dict[str, str] = {}
+    candidates = [
+        api_server_dir / "activation.env",
+        base_dir() / "api-server" / "activation.env",
+        base_dir() / "activation.env",
+    ]
+    for path in candidates:
+        if not path.exists():
+            continue
+        try:
+            for line in path.read_text(encoding="utf-8").splitlines():
+                trimmed = line.strip()
+                if not trimmed or trimmed.startswith("#") or "=" not in trimmed:
+                    continue
+                key, _, value = trimmed.partition("=")
+                key = key.strip()
+                value = value.strip().strip('"').strip("'")
+                if key in ("ARGUS_DEV_ACCESS_KEY", "ARGUS_ACCESS_KEYS", "ARGUS_KEY_EXPIRES") and value:
+                    result[key] = value
+        except Exception:
+            continue
+        if result:
+            break
+    return result
+
+
 def find_free_port(preferred: int) -> int:
     """Find a free TCP port starting from the preferred port on 127.0.0.1."""
     import socket
@@ -314,7 +342,21 @@ def start_services() -> bool:
     env["PORT"] = str(PORT)
     env["NODE_ENV"] = "production"
     env["ARGUS_DATA_DIR"] = str(data_dir())
-    env["ARGUS_DEV_ACCESS_KEY"] = "ARGUS-DEV-2026"
+    env["ARGUS_DESKTOP"] = "1"
+    env["HOST"] = "127.0.0.1"
+
+    # Load server-side access keys from bundled activation.env (never from the web UI).
+    # Prefer an already-set process env (CI/ops override), then the payload file.
+    activation_env = payload_activation_env(server_js.parent if server_js else base_dir())
+    if activation_env.get("ARGUS_DEV_ACCESS_KEY") and not env.get("ARGUS_DEV_ACCESS_KEY"):
+        env["ARGUS_DEV_ACCESS_KEY"] = activation_env["ARGUS_DEV_ACCESS_KEY"]
+    if activation_env.get("ARGUS_ACCESS_KEYS") and not env.get("ARGUS_ACCESS_KEYS"):
+        env["ARGUS_ACCESS_KEYS"] = activation_env["ARGUS_ACCESS_KEYS"]
+    if activation_env.get("ARGUS_KEY_EXPIRES") and not env.get("ARGUS_KEY_EXPIRES"):
+        env["ARGUS_KEY_EXPIRES"] = activation_env["ARGUS_KEY_EXPIRES"]
+    # Dev fallback only when nothing is configured (matches api-server default).
+    if not env.get("ARGUS_DEV_ACCESS_KEY"):
+        env["ARGUS_DEV_ACCESS_KEY"] = "ARGUS-DEV-2026"
 
     log_file = open(log_path, "a", encoding="utf-8")
     _server_proc = subprocess.Popen(
@@ -524,6 +566,7 @@ def run_window() -> None:
                     "--disable-features=Translate,OptimizationHints,MediaRouter",
                     "--disable-background-networking",
                     "--enable-features=OverlayScrollbar",
+                    "--user-agent=ARGUS Desktop/1.0 (Windows; ARGUS Security Intelligence)",
                 ]
                 proc = subprocess.Popen(cmd_attempt)
                 assign_to_job(proc)
@@ -575,22 +618,44 @@ def run_window() -> None:
 def main() -> int:
     global PORT, API_URL
 
-    # Prevent duplicate instances
-    if not check_single_instance():
-        return 0
-
-    PORT = find_free_port(DEFAULT_PORT)
-    API_URL = f"http://127.0.0.1:{PORT}"
-
-    if not start_services():
-        return 1
+    log_path = data_dir() / "argus-launcher.log"
+    try:
+        with open(log_path, "a", encoding="utf-8") as f:
+            f.write(f"\n[ARGUS] main() started at {time.ctime()} (PID: {os.getpid()}, exe: {sys.executable})\n")
+    except Exception:
+        pass
 
     try:
-        run_window()
-    finally:
-        stop_services()
+        # Prevent duplicate instances
+        if not check_single_instance():
+            try:
+                with open(log_path, "a", encoding="utf-8") as f:
+                    f.write(f"[ARGUS] Existing instance detected, brought to front and exiting.\n")
+            except Exception:
+                pass
+            return 0
 
-    return 0
+        PORT = find_free_port(DEFAULT_PORT)
+        API_URL = f"http://127.0.0.1:{PORT}"
+
+        if not start_services():
+            return 1
+
+        try:
+            run_window()
+        finally:
+            stop_services()
+
+        return 0
+    except Exception as exc:
+        import traceback
+        try:
+            with open(log_path, "a", encoding="utf-8") as f:
+                f.write(f"[ARGUS] Fatal error in main: {exc}\n{traceback.format_exc()}\n")
+        except Exception:
+            pass
+        show_error("ARGUS Fatal Error", f"A fatal error occurred:\n{exc}")
+        return 1
 
 
 if __name__ == "__main__":
