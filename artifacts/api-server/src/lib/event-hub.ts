@@ -5,6 +5,7 @@
 
 import type { Detection, DetectionStatus } from "../detection/types";
 import os from "os";
+import { exec } from "child_process";
 
 export type AgentHeartbeat = {
   agent_id?: string;
@@ -578,8 +579,11 @@ class EventHub {
     this.snapshot = snapshot;
   }
 
-  /** Get the stored snapshot. */
+  /** Get the stored snapshot, or trigger live system discovery. */
   getSnapshot(): ProcessSnapshot | null {
+    if (!this.snapshot) {
+      this.triggerLiveSystemDiscovery();
+    }
     return this.snapshot;
   }
 
@@ -644,8 +648,101 @@ class EventHub {
     }
   }
 
-  /** Get the stored network snapshot. */
+  private isDiscovering = false;
+  private lastDiscoveryTime = 0;
+
+  /** Fast asynchronous real-time host Windows socket & process scanner fallback. */
+  public triggerLiveSystemDiscovery(): void {
+    if (this.isDiscovering || Date.now() - this.lastDiscoveryTime < 4000) return;
+    this.isDiscovering = true;
+    this.lastDiscoveryTime = Date.now();
+
+    exec("netstat -ano", { timeout: 3000 }, (err, stdout) => {
+      if (err || !stdout) {
+        this.isDiscovering = false;
+        return;
+      }
+
+      exec("tasklist /FO CSV /NH", { timeout: 3000 }, (errTask, stdoutTask) => {
+        this.isDiscovering = false;
+
+        const pidMap = new Map<number, string>();
+        if (stdoutTask) {
+          const lines = stdoutTask.split(/\r?\n/);
+          for (const line of lines) {
+            const parts = line.split('","');
+            if (parts.length >= 2) {
+              const name = parts[0].replace(/^"/, "");
+              const pid = parseInt(parts[1], 10);
+              if (!isNaN(pid) && name) {
+                pidMap.set(pid, name);
+              }
+            }
+          }
+        }
+
+        const lines = stdout.split(/\r?\n/);
+        const connections: any[] = [];
+        let establishedCount = 0;
+        let listenCount = 0;
+
+        for (const line of lines) {
+          const match = line.trim().split(/\s+/);
+          if (match.length >= 4 && (match[0] === "TCP" || match[0] === "UDP")) {
+            const proto = match[0];
+            const local = match[1];
+            const remote = match[2];
+            const state = match[0] === "UDP" ? "UDP_ENDPOINT" : match[3];
+            const pidStr = match[0] === "UDP" ? match[3] : match[4];
+            const pid = parseInt(pidStr, 10) || 0;
+
+            if (state === "ESTABLISHED") establishedCount++;
+            if (state === "LISTENING") listenCount++;
+
+            const procName = pidMap.get(pid) || (pid === 0 ? "System" : `PID-${pid}`);
+
+            const lastColonLocal = local.lastIndexOf(":");
+            const localAddr = lastColonLocal > 0 ? local.substring(0, lastColonLocal) : local;
+            const localPort = lastColonLocal > 0 ? parseInt(local.substring(lastColonLocal + 1), 10) || 0 : 0;
+
+            const lastColonRemote = remote ? remote.lastIndexOf(":") : -1;
+            const remoteAddr = lastColonRemote > 0 ? remote.substring(0, lastColonRemote) : remote || "0.0.0.0";
+            const remotePort = lastColonRemote > 0 ? parseInt(remote.substring(lastColonRemote + 1), 10) || 0 : 0;
+
+            connections.push({
+              process: procName,
+              pid,
+              local_addr: localAddr,
+              local_port: localPort,
+              remote_addr: remoteAddr,
+              remote_port: remotePort,
+              status: state,
+              state,
+              protocol: proto,
+              timestamp: new Date().toISOString(),
+            });
+          }
+        }
+
+        if (connections.length > 0) {
+          const liveNetSnapshot: NetworkSnapshot = {
+            timestamp: new Date().toISOString(),
+            total_count: connections.length,
+            established_count: establishedCount,
+            listen_count: listenCount,
+            connections,
+          };
+          this.setNetworkSnapshot(liveNetSnapshot);
+        }
+      });
+    });
+  }
+
+  /** Get the stored network snapshot, or trigger live system discovery. */
   getNetworkSnapshot(): NetworkSnapshot | null {
+    if (!this.networkSnapshot) {
+      this.triggerLiveSystemDiscovery();
+    }
     return this.networkSnapshot;
   }
 
