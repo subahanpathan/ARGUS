@@ -97,6 +97,53 @@ export function clearActivationMarker(): void {
   removeStorage(ACTIVATION_MARKER_KEY);
 }
 
+/** Key holding whether the desktop app / setup has been installed. */
+export const DESKTOP_INSTALLED_KEY = "argus_installed";
+
+/**
+ * Returns true if the ARGUS desktop application/setup is installed or running locally.
+ */
+export function isSetupInstalled(): boolean {
+  if (typeof window === "undefined") return false;
+
+  try {
+    if (
+      window.localStorage.getItem(DESKTOP_INSTALLED_KEY) === "true" ||
+      window.localStorage.getItem("argus_setup_installed") === "true" ||
+      window.localStorage.getItem("argus_desktop_installed") === "true"
+    ) {
+      return true;
+    }
+  } catch {}
+
+  const host = window.location.hostname;
+  if (
+    host === "localhost" ||
+    host === "127.0.0.1" ||
+    host === "0.0.0.0" ||
+    host === "[::1]" ||
+    host.endsWith(".local")
+  ) {
+    return true;
+  }
+
+  if (window.navigator?.userAgent?.includes("ARGUS")) {
+    return true;
+  }
+  if ((window as any).pywebview || (window as any).chrome?.webview) {
+    return true;
+  }
+
+  return false;
+}
+
+/** Record that the desktop app / setup has been installed. */
+export function markSetupInstalled(): void {
+  try {
+    window.localStorage.setItem(DESKTOP_INSTALLED_KEY, "true");
+  } catch {}
+}
+
 /**
  * Ask the server whether this installation is activated.
  *

@@ -4,7 +4,7 @@ import {
   MonitorDown, Radar, RefreshCw, Shield, ShieldCheck, ShieldAlert, TerminalSquare, X,
 } from 'lucide-react';
 
-import { ACTIVATION_MESSAGES, activate, writeActivationMarker, type ActivationFailure } from '@/lib/activation';
+import { ACTIVATION_MESSAGES, activate, writeActivationMarker, isSetupInstalled, markSetupInstalled, type ActivationFailure } from '@/lib/activation';
 
 /**
  * ARGUS activation screen.
@@ -68,25 +68,41 @@ export function ActivationScreen({ onActivated }: { onActivated: () => void }) {
     setDownloadError(null);
     try {
       // Ask the server whether the installer exists, then trigger the download.
-      // The endpoint serves the bundled installer, or redirects (302) to a
-      // static asset on serverless hosts, or to the GitHub Release asset.
       let status = 0;
       let url = '/api/desktop/download';
       for (let hop = 0; hop < 4; hop++) {
-        const probe = await fetch(url, { method: 'HEAD', redirect: 'manual' });
-        status = probe.status;
-        const loc = probe.headers.get('location');
-        if (status >= 300 && status < 400 && loc) {
-          url = loc.startsWith('http') ? loc : new URL(loc, window.location.origin).href;
-          continue;
+        try {
+          const probe = await fetch(url, { method: 'HEAD', redirect: 'manual' });
+          status = probe.status;
+          const loc = probe.headers.get('location');
+          if (status >= 300 && status < 400 && loc) {
+            url = loc.startsWith('http') ? loc : new URL(loc, window.location.origin).href;
+            continue;
+          }
+          break;
+        } catch {
+          break;
         }
-        break;
       }
+
       if (status !== 200) {
-        setDownloadError('The desktop installer is not available on this server yet.');
+        try {
+          const staticProbe = await fetch('/ARGUS-Setup.exe', { method: 'HEAD' });
+          if (staticProbe.status === 200) {
+            url = '/ARGUS-Setup.exe';
+            status = 200;
+          }
+        } catch {}
+      }
+
+      if (status !== 200) {
+        setDownloadError('Unable to download ARGUS for Windows.\nThe installer is currently unavailable on this server.\nPlease try again later.');
         setDownloading(false);
         return;
       }
+
+      markSetupInstalled();
+
       // Native anchor download (browser/desktop window handles Save As).
       const a = document.createElement('a');
       a.href = url;
@@ -96,22 +112,25 @@ export function ActivationScreen({ onActivated }: { onActivated: () => void }) {
       a.remove();
       setDownloading(false);
     } catch {
-      setDownloadError('Download failed. Please try again.');
+      setDownloadError('Unable to download ARGUS for Windows. Please try again.');
       setDownloading(false);
     }
   };
 
   const acceptPermission = () => {
+    markSetupInstalled();
     setPermission('accepted');
     void requestDownload();
   };
 
   const declinePermission = () => {
+    markSetupInstalled();
     setPermission('declined');
     onActivated();
   };
 
   const continueToWorkspace = () => {
+    markSetupInstalled();
     onActivated();
   };
 
@@ -154,10 +173,19 @@ export function ActivationScreen({ onActivated }: { onActivated: () => void }) {
       return;
     }
 
-    setSucceeded(true);
     writeActivationMarker();
-    // Per-product flow: after a valid key, ask permission to download the
-    // desktop software. The workspace opens once the prompt is answered.
+
+    // If ARGUS setup is installed (or running locally), do NOT show the popup window!
+    // Directly enter into the dashboard.
+    if (isSetupInstalled()) {
+      markSetupInstalled();
+      setBusy(false);
+      onActivated();
+      return;
+    }
+
+    // Only when setup is not installed (e.g. remote web access), show the install prompt
+    setSucceeded(true);
   };
 
   return (
@@ -165,34 +193,61 @@ export function ActivationScreen({ onActivated }: { onActivated: () => void }) {
       {/* PERMISSION PROMPT - download desktop software after a valid key */}
       {succeeded && permission === 'pending' && (
         <div className="perm-overlay" role="dialog" aria-modal="true" aria-labelledby="perm-title">
-          <div className="perm-card" data-testid="desktop-download-permission">
-            <div className="perm-icon"><MonitorDown size={22} /></div>
-            <h3 id="perm-title">Download ARGUS Desktop?</h3>
-            <p className="perm-body">
-              Your access key is valid. To finish setup, ARGUS needs permission to
-              download and install the desktop application on this laptop.
-            </p>
-            <ul className="perm-points">
-              <li><ShieldCheck size={12} /> Installs the ARGUS Security Intelligence app locally</li>
-              <li><Laptop size={12} /> Runs the endpoint protection agent on this device</li>
-              <li><Shield size={12} /> No data leaves your machine</li>
-            </ul>
-            {downloadError && <p className="perm-error" role="alert">{downloadError}</p>}
-            <div className="perm-actions">
-              <button type="button" className="btn btn-ghost btn-sm" onClick={declinePermission}>
-                <X size={12} /> No thanks
-              </button>
-              <button type="button" className="btn btn-primary btn-sm" onClick={acceptPermission}>
-                <Download size={12} /> Allow download
+          <div className="perm-card" data-testid="desktop-download-permission" style={{ maxWidth: 440 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
+              <div className="perm-icon" style={{ margin: 0 }}><ShieldCheck size={22} /></div>
+              <button
+                type="button"
+                className="btn btn-ghost"
+                style={{ padding: 4, height: 'auto' }}
+                onClick={declinePermission}
+                aria-label="Close"
+              >
+                <X size={16} />
               </button>
             </div>
+
+            <h3 id="perm-title" style={{ marginTop: 0, fontSize: 18 }}>ARGUS Security Engine Required</h3>
+            <p className="perm-body" style={{ marginTop: 12, marginBottom: 12 }}>
+              To enable real-time Windows security monitoring and protection,
+              ARGUS needs its local Security Engine running on this computer.
+            </p>
+            <p className="perm-body" style={{ marginTop: 0, marginBottom: 20 }}>
+              The Security Engine monitors Windows processes, network activity,
+              files, and security events locally.
+            </p>
+
+            {downloadError && <p className="perm-error" style={{ whiteSpace: 'pre-line' }} role="alert">{downloadError}</p>}
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={acceptPermission}
+                disabled={downloading}
+                style={{ width: '100%', justifyContent: 'center', height: 38 }}
+              >
+                <Download size={14} style={{ marginRight: 8 }} /> Download ARGUS for Windows
+              </button>
+              <button
+                type="button"
+                className="btn btn-ghost"
+                onClick={declinePermission}
+                style={{ width: '100%', justifyContent: 'center', height: 38 }}
+              >
+                Continue Without Installing
+              </button>
+            </div>
+            <p style={{ textAlign: 'center', fontSize: 11, color: 'hsl(var(--muted-foreground))', marginTop: 12 }}>
+              You can install the Security Engine later.
+            </p>
           </div>
         </div>
       )}
 
       {succeeded && permission === 'accepted' && (
         <div className="perm-overlay" role="dialog" aria-modal="true" aria-labelledby="perm-downloading">
-          <div className="perm-card" data-testid="desktop-downloading">
+          <div className="perm-card" data-testid="desktop-downloading" style={{ maxWidth: 440 }}>
             <div className="perm-icon is-live"><RefreshCw size={22} className="auth-cascade" /></div>
             <h3 id="perm-downloading">Preparing your download…</h3>
             <p className="perm-body">
@@ -208,6 +263,7 @@ export function ActivationScreen({ onActivated }: { onActivated: () => void }) {
           </div>
         </div>
       )}
+
 
       <div className={`login-visual${busy ? ' is-busy' : ''}`}>
         <div className="login-ambient">
