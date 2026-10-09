@@ -312,19 +312,41 @@ def on_closed() -> None:
     stop_services()
 
 
+def get_screen_size() -> tuple[int, int]:
+    """Retrieve screen dimensions with DPI awareness for laptop compatibility."""
+    try:
+        import ctypes
+        user32 = ctypes.windll.user32
+        user32.SetProcessDPIAware()
+        w = user32.GetSystemMetrics(0)
+        h = user32.GetSystemMetrics(1)
+        if w > 0 and h > 0:
+            return w, h
+    except Exception:
+        pass
+    return 1366, 768
+
+
 def run_window() -> None:
-    """Open the native WebView2 desktop window."""
+    """Open the native WebView2 desktop window with adaptive laptop sizing."""
     import webview
 
     url = f"http://127.0.0.1:{PORT}"
     ico = icon_path()
 
+    screen_w, screen_h = get_screen_size()
+    # Choose dimensions that fit within standard laptop displays (1366x768 up to 4K)
+    win_w = min(1366, max(960, int(screen_w * 0.88)))
+    win_h = min(840, max(560, int(screen_h * 0.85)))
+    min_w = min(960, int(screen_w * 0.70))
+    min_h = min(540, int(screen_h * 0.70))
+
     window = webview.create_window(
         APP_NAME,
         url,
-        width=1440,
-        height=900,
-        min_size=(1100, 700),
+        width=win_w,
+        height=win_h,
+        min_size=(min_w, min_h),
         background_color="#05080e",
     )
     window.events.closed += on_closed
