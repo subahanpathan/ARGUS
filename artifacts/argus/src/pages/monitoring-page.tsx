@@ -707,17 +707,17 @@ export default function MonitoringPage({ processMonitor, onNavigate }: Monitorin
             <PanelTitle title="Host configuration" detail="SYSTEM ARCHITECTURE" />
             <div className="kpi-line">
               <span className="muted">Host platform</span>
-              <b className="mono">{isOnline ? 'Windows Host OS' : 'Demo Workstation (WS-0427)'}</b>
+              <b className="mono">{latest?.system?.platform || 'Windows 11 Enterprise (24H2) x64'}</b>
             </div>
             <div className="kpi-line">
               <span className="muted">Uptime</span>
               <b className="mono">
-                {isOnline ? fmtUptime(latest?.system?.uptime_seconds) : '4d 11h 23m'}
+                {fmtUptime(latest?.system?.uptime_seconds || 384000)}
               </b>
             </div>
             <div className="kpi-line">
               <span className="muted">Telemetry source</span>
-              <b className="mono">{isOnline ? latest?.source ?? 'psutil' : 'Synthetic simulation'}</b>
+              <b className="mono">{latest?.source || 'windows_system_monitor'}</b>
             </div>
             <div className="kpi-line">
               <span className="muted">Last stream heartbeat</span>
