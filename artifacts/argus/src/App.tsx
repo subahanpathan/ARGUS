@@ -314,9 +314,9 @@ const simulatedDetectionsSeed: Detection[] = [
     ],
     correlated_rules: ['PROC-001-SUSPICIOUS-PARENT-CHILD', 'PROC-002-ENCODED-COMMAND-LINE', 'PROC-006-DOWNLOAD-EXECUTE'],
     ancestry: [
-      { pid: 4100, process_name: 'explorer.exe', executable_path: 'C:\\Windows\\explorer.exe', command_line: null, username: 'nikhil' },
-      { pid: 6230, process_name: 'cmd.exe', executable_path: 'C:\\Windows\\System32\\cmd.exe', command_line: 'cmd.exe /c start', username: 'nikhil' },
-      { pid: 8412, process_name: 'powershell.exe', executable_path: 'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe', command_line: 'powershell.exe -NoP -NonI -W Hidden -enc ...', username: 'nikhil' }
+      { pid: 4100, process_name: 'explorer.exe', executable_path: 'C:\\Windows\\explorer.exe', command_line: null, username: 'analyst' },
+      { pid: 6230, process_name: 'cmd.exe', executable_path: 'C:\\Windows\\System32\\cmd.exe', command_line: 'cmd.exe /c start', username: 'analyst' },
+      { pid: 8412, process_name: 'powershell.exe', executable_path: 'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe', command_line: 'powershell.exe -NoP -NonI -W Hidden -enc ...', username: 'analyst' }
     ]
   },
   {
@@ -335,7 +335,7 @@ const simulatedDetectionsSeed: Detection[] = [
     command_line: 'C:\\Users\\nikhi\\AppData\\Local\\Temp\\svchost_update.exe --connect',
     parent_pid: 8412,
     parent_process_name: 'powershell.exe',
-    username: 'nikhil',
+    username: 'analyst',
     hostname: 'WS-0427',
     timestamp: new Date(Date.now() - 10 * 60 * 1000).toISOString(),
     evidence: [
@@ -344,8 +344,8 @@ const simulatedDetectionsSeed: Detection[] = [
     ],
     correlated_rules: ['NET-001-USER-WRITABLE-OUTBOUND', 'NET-002-KNOWN-TOOL-PORT'],
     ancestry: [
-      { pid: 8412, process_name: 'powershell.exe', executable_path: 'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe', command_line: null, username: 'nikhil' },
-      { pid: 9344, process_name: 'svchost_update.exe', executable_path: 'C:\\Users\\nikhi\\AppData\\Local\\Temp\\svchost_update.exe', command_line: null, username: 'nikhil' }
+      { pid: 8412, process_name: 'powershell.exe', executable_path: 'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe', command_line: null, username: 'analyst' },
+      { pid: 9344, process_name: 'svchost_update.exe', executable_path: 'C:\\Users\\Public\\Downloads\\svchost_update.exe', command_line: null, username: 'analyst' }
     ]
   },
   {
@@ -364,7 +364,7 @@ const simulatedDetectionsSeed: Detection[] = [
     command_line: null,
     parent_pid: null,
     parent_process_name: null,
-    username: 'nikhil',
+    username: 'analyst',
     hostname: 'WS-0427',
     timestamp: new Date(Date.now() - 6 * 60 * 1000).toISOString(),
     evidence: [
@@ -390,7 +390,7 @@ const simulatedDetectionsSeed: Detection[] = [
     command_line: 'rundll32.exe C:\\Users\\nikhi\\AppData\\Local\\Temp\\update.dll,#1',
     parent_pid: 9344,
     parent_process_name: 'svchost_update.exe',
-    username: 'nikhil',
+    username: 'analyst',
     hostname: 'WS-0427',
     timestamp: new Date(Date.now() - 3 * 60 * 1000).toISOString(),
     evidence: [
@@ -398,8 +398,8 @@ const simulatedDetectionsSeed: Detection[] = [
     ],
     correlated_rules: ['PROC-007-LOLBIN-EXECUTION'],
     ancestry: [
-      { pid: 9344, process_name: 'svchost_update.exe', executable_path: 'C:\\Users\\nikhi\\AppData\\Local\\Temp\\svchost_update.exe', command_line: null, username: 'nikhil' },
-      { pid: 10420, process_name: 'rundll32.exe', executable_path: 'C:\\Windows\\System32\\rundll32.exe', command_line: null, username: 'nikhil' }
+      { pid: 9344, process_name: 'svchost_update.exe', executable_path: 'C:\\Users\\Public\\Downloads\\svchost_update.exe', command_line: null, username: 'analyst' },
+      { pid: 10420, process_name: 'rundll32.exe', executable_path: 'C:\\Windows\\System32\\rundll32.exe', command_line: null, username: 'analyst' }
     ]
   }
 ];
@@ -415,6 +415,7 @@ function DetectionsPage({ detections, toast, setLocation }: { detections: Return
   const [simDetections, setSimDetections] = useState<Detection[]>(simulatedDetectionsSeed);
 
   const live = detections.hasData;
+  const liveHostName = detections.detections[0]?.hostname || 'This Device';
 
   // Auto-switch mode based on live sensor engine data vs simulation
   useEffect(() => {
@@ -509,7 +510,7 @@ function DetectionsPage({ detections, toast, setLocation }: { detections: Return
 
   return <div className="animate-rise">
     <PageHeading
-      eyebrow={mode === 'live' ? `${detections.detections.length} live host detections · machine Nikhil` : `${simDetections.length} simulated attack kill-chain detections · scenario drill`}
+      eyebrow={mode === 'live' ? `${detections.detections.length} live host detections · machine ${liveHostName}` : `${simDetections.length} simulated attack kill-chain detections · scenario drill`}
       title="Detection engine"
       subtitle={mode === 'live'
         ? "Deterministic, explainable detections evaluated continuously across live Windows processes, network sockets, and filesystem scans. 21 rules armed."
@@ -542,7 +543,7 @@ function DetectionsPage({ detections, toast, setLocation }: { detections: Return
           <div>
             <b>LIVE DETECTION ENGINE ACTIVE</b>
             <small style={{ marginLeft: 8, color: 'hsl(142 70% 85%)' }}>
-              Host: <strong>Nikhil</strong> · <strong>21 Rules Armed</strong> (7 Process · 7 Network · 7 Filesystem) · <strong>{detections.detections.length}</strong> detections triggered · Evaluated against live Windows telemetry.
+              Host: <strong>{liveHostName}</strong> · <strong>21 Rules Armed</strong> (7 Process · 7 Network · 7 Filesystem) · <strong>{detections.detections.length}</strong> detections triggered · Evaluated against live Windows telemetry.
             </small>
           </div>
         </div>
@@ -558,14 +559,14 @@ function DetectionsPage({ detections, toast, setLocation }: { detections: Return
           <AlertTriangle size={15} />
           <div>
             <b>SIMULATED ATTACK SCENARIO ACTIVE</b>
-            <small> · Multi-stage kill-chain detections (PowerShell encoded cradle, C2 beacon, Startup persistence). Click "Live Host Detections" above to inspect real triggers on Nikhil.</small>
+            <small> · Multi-stage kill-chain detections (PowerShell encoded cradle, C2 beacon, Startup persistence). Click "Live Host Detections" above to inspect real triggers on {liveHostName}.</small>
           </div>
         </div>
       </div>
     )}
 
     <div className="filterbar"><div className="search-wrap"><Search size={14} /><input className="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search detections, rules, processes or PIDs" data-testid="input-search-detections" /></div><select className="select" value={domainFilter} onChange={(e) => setDomainFilter(e.target.value)} data-testid="select-detection-domain"><option value="all">All domains</option><option value="PROC">Process</option><option value="NET">Network</option><option value="FILE">File / persistence</option></select><select className="select" value={sevFilter} onChange={(e) => setSevFilter(e.target.value)} data-testid="select-detection-severity"><option value="all">All severities</option><option value="critical">Critical</option><option value="high">High</option><option value="medium">Medium</option><option value="low">Low</option></select><select className="select" value={ruleFilter} onChange={(e) => setRuleFilter(e.target.value)} data-testid="select-detection-rule"><option value="all">All rules</option>{detections.rules.map((r) => <option key={r.rule_id} value={r.rule_id}>{r.rule_id}</option>)}</select><span className="mono muted">{filtered.length} of {activeList.length} detections</span></div>
-    <Card><div className="table-wrap"><table className="data-table" style={{ minWidth: 1160 }}><thead><tr><th>Detection</th><th>Domain</th><th>Severity</th><th>Confidence</th><th>Process</th><th>Observed</th><th>Status</th><th /></tr></thead><tbody>{filtered.map((d) => <tr key={d.id}><td><b>{d.title}</b><div className="muted mono">{d.rule_id} · {d.rule_name}</div></td><td><Badge value={domainOf(d.rule_id)} /></td><td><Badge value={d.severity} /></td><td className="mono">{Math.round(d.confidence * 100)}%</td><td><div className="mono">{d.entity}</div><div className="muted mono" style={{ maxWidth: 240, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.executable_path ?? `PID ${d.pid}`}</div></td><td className="mono">{new Date(d.timestamp).toLocaleString()}</td><td><StateBadge value={d.status} /></td><td><div className="actions"><Button icon={Eye} kind="ghost" onClick={() => openDetail(d.id)} testId={`button-open-detection-${d.id}`}>View</Button></div></td></tr>)}</tbody></table>{filtered.length === 0 && <div className="empty"><Shield size={22} /><h3>{activeList.length === 0 ? 'No detections yet' : 'No matching detections'}</h3><p>{activeList.length === 0 ? (mode === 'live' ? 'The rule engine is actively evaluating all processes, network sockets, and filesystem scans on host Nikhil. Click "Trigger Live Benign Probe" above to test rule firing.' : 'The rule engine evaluates telemetry as it streams in.') : 'Adjust the filters or query to widen the view.'}</p></div>}</div></Card>
+    <Card><div className="table-wrap"><table className="data-table" style={{ minWidth: 1160 }}><thead><tr><th>Detection</th><th>Domain</th><th>Severity</th><th>Confidence</th><th>Process</th><th>Observed</th><th>Status</th><th /></tr></thead><tbody>{filtered.map((d) => <tr key={d.id}><td><b>{d.title}</b><div className="muted mono">{d.rule_id} · {d.rule_name}</div></td><td><Badge value={domainOf(d.rule_id)} /></td><td><Badge value={d.severity} /></td><td className="mono">{Math.round(d.confidence * 100)}%</td><td><div className="mono">{d.entity}</div><div className="muted mono" style={{ maxWidth: 240, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.executable_path ?? `PID ${d.pid}`}</div></td><td className="mono">{new Date(d.timestamp).toLocaleString()}</td><td><StateBadge value={d.status} /></td><td><div className="actions"><Button icon={Eye} kind="ghost" onClick={() => openDetail(d.id)} testId={`button-open-detection-${d.id}`}>View</Button></div></td></tr>)}</tbody></table>{filtered.length === 0 && <div className="empty"><Shield size={22} /><h3>{activeList.length === 0 ? 'No detections yet' : 'No matching detections'}</h3><p>{activeList.length === 0 ? (mode === 'live' ? `The rule engine is actively evaluating all processes, network sockets, and filesystem scans on host ${liveHostName}. Click "Trigger Live Benign Probe" above to test rule firing.` : 'The rule engine evaluates telemetry as it streams in.') : 'Adjust the filters or query to widen the view.'}</p></div>}</div></Card>
   </div>;
 }
 
@@ -677,7 +678,7 @@ function NetworkPage({ toast, contained }: { toast: (t: string, b: string) => vo
           <div>
             <b>LIVE HOST NETWORKING ACTIVE</b>
             <small style={{ marginLeft: 8, color: 'hsl(142 70% 85%)' }}>
-              Host: <strong>{topoData?.hostname || 'Nikhil'}</strong> · Interface: <strong>{topoData?.interfaces?.find(i => i.is_up)?.name || 'Wi-Fi'}</strong> · Gateway: <strong>{topoData?.default_gateway?.next_hop || '10.102.49.54'}</strong> · <strong>{realConns.length}</strong> active sockets · <strong>{((portSnapshot?.tcp_listening ?? []).length)}</strong> listening ports
+              Host: <strong>{topoData?.hostname || 'This Device'}</strong> · Interface: <strong>{topoData?.interfaces?.find(i => i.is_up)?.name || 'Wi-Fi'}</strong> · Gateway: <strong>{topoData?.default_gateway?.next_hop || '10.102.49.54'}</strong> · <strong>{realConns.length}</strong> active sockets · <strong>{((portSnapshot?.tcp_listening ?? []).length)}</strong> listening ports
             </small>
           </div>
         </div>

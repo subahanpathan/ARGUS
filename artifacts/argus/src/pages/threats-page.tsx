@@ -161,6 +161,10 @@ export function ThreatsPage({
   const [simThreats, setSimThreats] = useState<Threat[]>(initialThreats);
   const [liveContainedIds, setLiveContainedIds] = useState<Set<string>>(new Set());
 
+  const t = telemetry?.telemetry;
+  const hostName = (t?.system as any)?.hostname || (t as any)?.hostname || 'This Device';
+  const hostPlatform = (t?.system as any)?.platform || 'Windows';
+
   // Navigation tab for Automated Remediation Audit Ledger
   const [activeTab, setActiveTab] = useState<'threats' | 'ledger' | 'cybercell'>('threats');
   const [ledgerFilter, setLedgerFilter] = useState<'all' | 'deleted' | 'quarantined' | 'sensitive'>('all');
@@ -297,7 +301,7 @@ export function ThreatsPage({
   const exportLedger = () => {
     const payload = {
       exportedAt: new Date().toISOString(),
-      host: 'Host Nikhil (Windows 11)',
+      host: `Host ${hostName} (${hostPlatform})`,
       policy,
       stats,
       records: remediations,
@@ -356,7 +360,7 @@ export function ThreatsPage({
           <h1 className="page-title">Threat detections</h1>
           <p className="page-subtitle">
             {mode === 'live'
-              ? `Real-time threat detection watching ${processCount}+ host processes and ${socketCount}+ network connections on Nikhil.`
+              ? `Real-time threat detection watching ${processCount}+ host processes and ${socketCount}+ network connections on ${hostName}.`
               : 'Triage observed signals before they become a defensible incident narrative.'}
           </p>
         </div>

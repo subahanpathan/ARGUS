@@ -70,3 +70,8 @@ vercel-error.json
 **/quarantine_vault/
 **/reports_vault/
 artifacts/api-server/artifacts/
+
+# Build caches & test installations
+test-install/
+build/
+artifacts/security-engine/build/

@@ -205,15 +205,24 @@ export function DashboardPage({
   const isFresh = telemetry.lastUpdateTime
     ? Math.abs(Date.now() - new Date(telemetry.lastUpdateTime).getTime()) < 30000
     : false;
-  const hostOnline = (telemetry.connected || isFresh || Boolean(processMonitor.hasData)) && telemetry.telemetry != null;
   const t = telemetry.telemetry;
+  const hostOnline = Boolean(
+    telemetry.connected ||
+    telemetry.hasData ||
+    isFresh ||
+    processMonitor.hasData ||
+    networkMonitor?.hasData ||
+    t != null
+  );
+  const hostName = (t?.system as any)?.hostname || (t as any)?.hostname || 'This Device';
+  const hostPlatform = (t?.system as any)?.platform || 'Windows';
 
   // Auto-switch mode based on real host online status vs simulation
   useEffect(() => {
-    if (hostOnline && !autonomous && phase === 0) {
-      setMode('live');
-    } else if (!hostOnline || autonomous || phase > 0) {
+    if (autonomous || phase > 0) {
       setMode('simulated');
+    } else if (hostOnline) {
+      setMode('live');
     }
   }, [hostOnline, autonomous, phase]);
 
@@ -275,7 +284,7 @@ export function DashboardPage({
           <h1 className="page-title">{greeting}</h1>
           <p className="page-subtitle">
             {mode === 'live'
-              ? `Real-time physical endpoint telemetry watching host Nikhil (${processCount} processes · ${socketCount} sockets).`
+              ? `Real-time physical endpoint telemetry watching host ${hostName} (${processCount} processes · ${socketCount} sockets).`
               : 'The workspace is watching 24 endpoints across the Northstar environment.'}
           </p>
         </div>
@@ -399,7 +408,7 @@ export function DashboardPage({
             <div>
               <b>LIVE HOST MONITORING ACTIVE</b>
               <small style={{ marginLeft: 8, color: 'hsl(142 70% 85%)' }}>
-                Host: <strong>Nikhil (Windows 11)</strong> · Streaming real telemetry ·{' '}
+                Host: <strong>{hostName} ({hostPlatform})</strong> · Streaming real telemetry ·{' '}
                 <strong>{processCount}</strong> running processes · <strong>{socketCount}</strong> active sockets ·{' '}
                 <strong>{fileCount}</strong> scanned files · Sensor SSE latency &lt; 200ms.
               </small>
@@ -875,7 +884,7 @@ export function DashboardPage({
           </div>
           <div className="metric-note">
             {mode === 'live'
-              ? `${liveIncidents.filter((t) => t.severity === 'critical').length} critical · ${liveIncidents.filter((t) => t.severity === 'high').length} high › on Nikhil`
+              ? `${liveIncidents.filter((t) => t.severity === 'critical').length} critical · ${liveIncidents.filter((t) => t.severity === 'high').length} high › on ${hostName}`
               : phase >= 7
               ? '1 awaiting containment'
               : '1 critical · 1 medium'}
@@ -891,7 +900,7 @@ export function DashboardPage({
             {mode === 'live' ? (hostOnline ? '1 / 1' : '0 / 1') : hostOnline ? '1 / 1' : '24 / 24'}
           </div>
           <div className="metric-note">
-            {mode === 'live' ? `Host Nikhil · ${heartbeatLabel.toLowerCase()}` : hostOnline ? `This host · ${heartbeatLabel.toLowerCase()}` : heartbeatLabel}
+            {mode === 'live' ? `Host ${hostName} · ${heartbeatLabel.toLowerCase()}` : hostOnline ? `This host · ${heartbeatLabel.toLowerCase()}` : heartbeatLabel}
           </div>
         </section>
 
@@ -974,7 +983,7 @@ export function DashboardPage({
               <div className="metric-value signal-good">
                 {processCount}
               </div>
-              <div className="metric-note">running on Nikhil</div>
+              <div className="metric-note">running on {hostName}</div>
             </section>
 
             <section className="card metric animate-rise">
@@ -1016,7 +1025,7 @@ export function DashboardPage({
           <div className="panel-title">
             <h2>Protection signal</h2>
             <div>
-              <span>{mode === 'live' ? 'LIVE EVALUATION · HOST NIKHIL' : '24H · ALL ENDPOINTS'}</span>
+              <span>{mode === 'live' ? `LIVE EVALUATION · HOST ${hostName.toUpperCase()}` : '24H · ALL ENDPOINTS'}</span>
             </div>
           </div>
           <div style={{ height: 190, position: 'relative' }}>
@@ -1140,7 +1149,7 @@ export function DashboardPage({
                           <td>
                             <Badge value={t.severity} />
                           </td>
-                          <td className="mono">Host Nikhil</td>
+                          <td className="mono">Host {hostName}</td>
                           <td className="mono">
                             {t.timestamp.includes('T') ? new Date(t.timestamp).toLocaleTimeString() : t.timestamp}
                           </td>
@@ -1180,7 +1189,7 @@ export function DashboardPage({
                           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
                             <CheckCircle2 size={16} style={{ color: 'hsl(142 71% 55%)' }} />
                             <span style={{ fontWeight: 600, color: 'hsl(142 71% 80%)' }}>
-                              Host Nikhil · Zero Active Threat Detections
+                              Host {hostName} · Zero Active Threat Detections
                             </span>
                           </div>
                           <p style={{ margin: '4px 0 0', color: 'hsl(var(--muted-foreground))', fontSize: 11 }}>
@@ -1326,7 +1335,7 @@ export function DashboardPage({
               <div style={{ display: 'flex', alignItems: 'center', gap: 15, marginBottom: 14 }}>
                 <div style={{ fontSize: 31, fontWeight: 800, letterSpacing: '-.06em' }}>100%</div>
                 <div className="signal-good" style={{ fontSize: 11 }}>
-                  This host streaming · Nikhil
+                  This host streaming · {hostName}
                 </div>
               </div>
               <div className="progress">

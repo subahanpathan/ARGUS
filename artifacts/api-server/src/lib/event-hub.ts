@@ -363,6 +363,8 @@ export type SystemTelemetry = {
   system?: {
     uptime_seconds?: number;
     boot_time?: number;
+    hostname?: string;
+    platform?: string;
   } | null;
   network?: {
     interfaces?: Array<{
@@ -511,6 +513,10 @@ class EventHub {
 
   /** Store the current system telemetry snapshot and broadcast it. */
   setTelemetry(telemetry: SystemTelemetry): void {
+    if (telemetry.system && !telemetry.system.hostname) {
+      telemetry.system.hostname = os.hostname();
+      telemetry.system.platform = `${os.type()} ${os.release()}`;
+    }
     this.telemetry = telemetry;
     this.broadcast(telemetry, ["telemetry"]);
   }
@@ -541,6 +547,8 @@ class EventHub {
         system: {
           uptime_seconds: Math.round(os.uptime()),
           boot_time: Math.round(Date.now() / 1000 - os.uptime()),
+          hostname: os.hostname(),
+          platform: `${os.type()} ${os.release()}`,
         },
       };
     } catch {
@@ -602,7 +610,7 @@ class EventHub {
 
     const conns = this.networkSnapshot?.connections || [];
     const telem = this.telemetry;
-    const hostname = telem?.system?.hostname || (typeof os !== "undefined" && os.hostname ? os.hostname() : "Nikhil");
+    const hostname = telem?.system?.hostname || (typeof os !== "undefined" && os.hostname ? os.hostname() : "ARGUS-HOST");
 
     const rawIfaces = telem?.network?.interfaces || [];
     const interfaces: TopologyInterface[] = rawIfaces.map((i: any) => {

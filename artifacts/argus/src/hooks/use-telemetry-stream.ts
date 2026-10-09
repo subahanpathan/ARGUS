@@ -37,6 +37,8 @@ export type TelemetryProcesses = {
 export type TelemetrySystem = {
   uptime_seconds?: number;
   boot_time?: number;
+  hostname?: string;
+  platform?: string;
 } | null;
 
 export type TelemetryNetworkInterface = {

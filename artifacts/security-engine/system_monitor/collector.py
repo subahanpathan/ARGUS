@@ -11,6 +11,8 @@ browser data, personal content, or file contents are ever inspected.
 from __future__ import annotations
 
 import logging
+import platform
+import socket
 import time
 from typing import Any, Callable
 
@@ -125,9 +127,18 @@ def collect_system_uptime() -> dict[str, Any] | None:
         return None
 
     uptime_seconds = max(0.0, time.time() - boot_time)
+    host = "UNKNOWN"
+    plat = "Windows"
+    try:
+        host = socket.gethostname()
+        plat = f"{platform.system()} {platform.release()}"
+    except Exception:
+        pass
     return {
         "uptime_seconds": int(uptime_seconds),
         "boot_time": boot_time,
+        "hostname": host,
+        "platform": plat,
     }
 
 

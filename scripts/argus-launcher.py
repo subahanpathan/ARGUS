@@ -227,6 +227,7 @@ def start_services() -> bool:
     env["PORT"] = str(PORT)
     env["NODE_ENV"] = "production"
     env["ARGUS_DATA_DIR"] = str(data_dir())
+    env["ARGUS_DEV_ACCESS_KEY"] = "ARGUS-DEV-2026"
 
     log_file = open(log_path, "a", encoding="utf-8")
     _server_proc = subprocess.Popen(
@@ -257,6 +258,9 @@ def start_services() -> bool:
             agent_env["ARGUS_DATA_DIR"] = str(data_dir())
             agent_env["PROCESS_POLL_INTERVAL_MS"] = "2000"
             agent_env["TELEMETRY_INTERVAL_MS"] = "1000"
+            agent_env["CONNECTION_POLL_INTERVAL_MS"] = "3000"
+            agent_env["PORT_POLL_INTERVAL_MS"] = "3000"
+            agent_env["FILE_POLL_INTERVAL_MS"] = "10000"
             _agent_proc = subprocess.Popen(
                 [str(agent_exe), "--api", "--snapshot"],
                 stdout=log_file,
@@ -268,6 +272,34 @@ def start_services() -> bool:
             )
             with open(log_path, "a", encoding="utf-8") as f:
                 f.write(f"[ARGUS] Security Engine started successfully (PID: {_agent_proc.pid})\n")
+
+            # Supervisor thread to ensure Security Engine stays alive
+            import threading
+
+            def _supervise() -> None:
+                while not _shutting_down:
+                    time.sleep(3)
+                    if _shutting_down:
+                        break
+                    global _agent_proc
+                    if _agent_proc and _agent_proc.poll() is not None and not _shutting_down:
+                        try:
+                            _, _, cur_agent = resolve_components()
+                            if cur_agent and cur_agent.exists():
+                                log_f = open(log_path, "a", encoding="utf-8")
+                                _agent_proc = subprocess.Popen(
+                                    [str(cur_agent), "--api", "--snapshot"],
+                                    stdout=log_f,
+                                    stderr=log_f,
+                                    stdin=subprocess.DEVNULL,
+                                    cwd=str(cur_agent.parent),
+                                    env=agent_env,
+                                    creationflags=subprocess.CREATE_NO_WINDOW | subprocess.CREATE_NEW_PROCESS_GROUP,
+                                )
+                        except Exception:
+                            pass
+
+            threading.Thread(target=_supervise, daemon=True, name="argus-engine-supervisor").start()
         except Exception as exc:
             with open(log_path, "a", encoding="utf-8") as f:
                 f.write(f"[ARGUS] Security Engine failed to start: {exc}\n")

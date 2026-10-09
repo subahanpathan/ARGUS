@@ -38,7 +38,7 @@ router.post("/detections/probe", (_req: Request, res: Response) => {
     pid: probePid,
     process_name: "certutil.exe",
     executable_path: "C:\\Windows\\System32\\certutil.exe",
-    command_line: "certutil.exe -urlcache -split -f https://internal.argus.local/test-probe.bin C:\\Users\\nikhi\\AppData\\Local\\Temp\\test-probe.bin",
+    command_line: "certutil.exe -urlcache -split -f https://internal.argus.local/test-probe.bin C:\\Users\\Public\\Downloads\\test-probe.bin",
     parent_pid: 4120,
     parent_process_name: "cmd.exe",
     source: "argus_live_probe",
