@@ -199,6 +199,81 @@ def icon_path() -> Path | None:
     return None
 
 
+_job_handle = None
+
+
+def get_job_object():
+    """Create or retrieve a Windows Job Object configured to terminate children on exit."""
+    global _job_handle
+    if os.name != "nt":
+        return None
+    if _job_handle is not None:
+        return _job_handle
+    try:
+        import ctypes
+        from ctypes import wintypes
+
+        kernel32 = ctypes.windll.kernel32
+        job = kernel32.CreateJobObjectW(None, None)
+        if not job:
+            return None
+
+        class BASIC_LIMITS(ctypes.Structure):
+            _fields_ = [
+                ("p1", wintypes.LARGE_INTEGER),
+                ("p2", wintypes.LARGE_INTEGER),
+                ("LimitFlags", wintypes.DWORD),
+                ("m1", ctypes.c_size_t),
+                ("m2", ctypes.c_size_t),
+                ("a1", wintypes.DWORD),
+                ("a2", ctypes.c_size_t),
+                ("p3", wintypes.DWORD),
+                ("s1", wintypes.DWORD),
+            ]
+
+        class IO(ctypes.Structure):
+            _fields_ = [
+                ("r1", ctypes.c_ulonglong),
+                ("w1", ctypes.c_ulonglong),
+                ("o1", ctypes.c_ulonglong),
+                ("r2", ctypes.c_ulonglong),
+                ("w2", ctypes.c_ulonglong),
+                ("o2", ctypes.c_ulonglong),
+            ]
+
+        class EXT_LIMITS(ctypes.Structure):
+            _fields_ = [
+                ("Basic", BASIC_LIMITS),
+                ("Io", IO),
+                ("p1", ctypes.c_size_t),
+                ("p2", ctypes.c_size_t),
+                ("p3", ctypes.c_size_t),
+                ("p4", ctypes.c_size_t),
+            ]
+
+        info = EXT_LIMITS()
+        info.Basic.LimitFlags = 0x2000  # JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE
+        kernel32.SetInformationJobObject(job, 9, ctypes.byref(info), ctypes.sizeof(info))
+        _job_handle = job
+        return _job_handle
+    except Exception:
+        return None
+
+
+def assign_to_job(proc: subprocess.Popen | None) -> None:
+    """Attach process to the job object so it dies when launcher dies."""
+    if not proc or not hasattr(proc, "_handle"):
+        return
+    job = get_job_object()
+    if not job:
+        return
+    try:
+        import ctypes
+        ctypes.windll.kernel32.AssignProcessToJobObject(job, int(proc._handle))
+    except Exception:
+        pass
+
+
 def start_services() -> bool:
     """Validate files, start API server, wait for readiness, and launch Security Engine."""
     global _server_proc, _agent_proc
@@ -251,6 +326,7 @@ def start_services() -> bool:
         env=env,
         creationflags=subprocess.CREATE_NO_WINDOW,
     )
+    assign_to_job(_server_proc)
 
     # Step 3: Wait for backend readiness
     if not wait_until_healthy(timeout=25.0):
@@ -282,6 +358,7 @@ def start_services() -> bool:
                 env=agent_env,
                 creationflags=subprocess.CREATE_NO_WINDOW | subprocess.CREATE_NEW_PROCESS_GROUP,
             )
+            assign_to_job(_agent_proc)
             with open(log_path, "a", encoding="utf-8") as f:
                 f.write(f"[ARGUS] Security Engine started successfully (PID: {_agent_proc.pid})\n")
 
@@ -308,6 +385,7 @@ def start_services() -> bool:
                                     env=agent_env,
                                     creationflags=subprocess.CREATE_NO_WINDOW | subprocess.CREATE_NEW_PROCESS_GROUP,
                                 )
+                                assign_to_job(_agent_proc)
                         except Exception:
                             pass
 
@@ -427,18 +505,38 @@ def run_window() -> None:
         with open(log_path, "a", encoding="utf-8") as f:
             f.write(f"[ARGUS] Launching native {browser_name} desktop app shell: {browser_exe}\n")
 
-        try:
-            proc = subprocess.Popen(cmd)
-            time.sleep(1.0)
-            if proc.poll() is None:
-                # App window is active; wait until user closes the window
-                proc.wait()
-                return
-            with open(log_path, "a", encoding="utf-8") as f:
-                f.write(f"[ARGUS] {browser_name} shell exited early (code {proc.returncode}). Trying fallback.\n")
-        except Exception as exc:
-            with open(log_path, "a", encoding="utf-8") as f:
-                f.write(f"[ARGUS] Failed to launch {browser_name} shell: {exc}\n")
+        for attempt_profile in (profile_dir, profile_dir.parent / f"app_shell_profile_{os.getpid()}"):
+            try:
+                attempt_lock = attempt_profile / "lockfile"
+                if attempt_lock.exists():
+                    try:
+                        attempt_lock.unlink()
+                    except Exception:
+                        pass
+                cmd_attempt = [
+                    str(browser_exe),
+                    f"--app={url}",
+                    f"--user-data-dir={attempt_profile}",
+                    f"--window-size={win_w},{win_h}",
+                    "--window-position=center",
+                    "--no-first-run",
+                    "--no-default-browser-check",
+                    "--disable-features=Translate,OptimizationHints,MediaRouter",
+                    "--disable-background-networking",
+                    "--enable-features=OverlayScrollbar",
+                ]
+                proc = subprocess.Popen(cmd_attempt)
+                assign_to_job(proc)
+                time.sleep(1.0)
+                if proc.poll() is None:
+                    # App window is active; wait until user closes the window
+                    proc.wait()
+                    return
+                with open(log_path, "a", encoding="utf-8") as f:
+                    f.write(f"[ARGUS] {browser_name} shell exited early (code {proc.returncode}). Retrying or fallback.\n")
+            except Exception as exc:
+                with open(log_path, "a", encoding="utf-8") as f:
+                    f.write(f"[ARGUS] Failed to launch {browser_name} shell: {exc}\n")
 
     # Secondary: pywebview fallback
     try:

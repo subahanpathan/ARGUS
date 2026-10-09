@@ -43,11 +43,11 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 
 [Files]
-Source: "..\dist\app\ARGUS.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\dist\app\ARGUS.exe"; DestDir: "{app}"; Flags: ignoreversion restartreplace
 Source: "..\dist\app\argus.ico"; DestDir: "{app}"; Flags: ignoreversion
-Source: "..\dist\app\runtime\*"; DestDir: "{app}\runtime"; Flags: ignoreversion recursesubdirs createallsubdirs
-Source: "..\dist\app\api-server\*"; DestDir: "{app}\api-server"; Flags: ignoreversion recursesubdirs createallsubdirs; Excludes: "*.exe"
-Source: "..\dist\app\engine\*"; DestDir: "{app}\engine"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "..\dist\app\runtime\*"; DestDir: "{app}\runtime"; Flags: ignoreversion restartreplace recursesubdirs createallsubdirs
+Source: "..\dist\app\api-server\*"; DestDir: "{app}\api-server"; Flags: ignoreversion restartreplace recursesubdirs createallsubdirs; Excludes: "*.exe"
+Source: "..\dist\app\engine\*"; DestDir: "{app}\engine"; Flags: ignoreversion restartreplace recursesubdirs createallsubdirs
 
 [Dirs]
 Name: "{localappdata}\ARGUS"; Permissions: users-modify
