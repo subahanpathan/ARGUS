@@ -1,0 +1,372 @@
+# ARGUS Security Intelligence — Comprehensive Architecture & Feature Audit Report
+
+**Date:** October 8, 2026
+**Repository Location:** `D:\Mini`
+**Audit Purpose:** Establish an empirical, accurate baseline of the current ARGUS codebase before implementing next-phase features (Kernel-level interception, ML/AI heuristics, and autonomous containment).
+
+---
+
+## 1. PROJECT IDENTITY
+
+**Project name:** ARGUS Security Intelligence Workspace
+**Project purpose:** Real-time Windows Endpoint Detection and Response (EDR) and Security Operations Center (SOC) dashboard.
+**Current state:** Beta / Advanced Production Candidate
+**Workspace structure:** pnpm Monorepo Workspaces (`@workspace/*`)
+**Package manager:** pnpm (v10)
+**Programming languages:** TypeScript (Frontend/API), Python 3.10+ (Sensor)
+**Frameworks:** React 19, Vite, Tailwind CSS, Framer Motion, Three.js / React Three Fiber, Express 5.
+**Build tools:** esbuild (backend), Vite (frontend), PyInstaller (sensor), Inno Setup (installer).
+**Desktop technology:** Custom standalone executable bundler packaging Node.js, the React static assets, and the Python agent into `ARGUS-Setup.exe`.
+**Backend architecture:** Node.js Express REST API + Server-Sent Events (SSE) `EventHub`.
+**Frontend architecture:** Single Page Application (SPA) driven by real-time streams.
+**Security engine architecture:** Python 3 daemon leveraging `psutil`, native Win32 sockets, and polling loops. Supervisor-managed (`agent_supervisor.py`).
+**Database technology:** Drizzle ORM + PostgreSQL schema defined, but the application currently operates entirely in-memory (volatile EventHub).
+**External services:** None (Local-first architecture).
+
+**Architecture in Plain English:**
+ARGUS operates on a hub-and-spoke model running locally on a Windows host. A native Python security agent (`security-engine`) acts as the sensor, continuously polling the operating system for running processes, network sockets, active ports, and filesystem changes. The agent pushes this telemetry via HTTP POST to a local Node.js API server running on port 5000. The API server evaluates this data against a deterministic rule engine (48+ rules), stores it in an in-memory `EventHub`, and broadcasts it via Server-Sent Events (SSE). A React-based web dashboard (running on port 5173 or served statically via the API server) consumes the SSE stream to render an interactive, real-time SOC interface.
+
+---
+
+## 2. COMPLETE DIRECTORY TREE
+
+```text
+D:\Mini
+├── artifacts/
+│   ├── api-server/         # Express 5 Node.js backend. Hosts the EventHub, rules engine, and REST/SSE routes.
+│   ├── argus/              # React 19 Frontend. The EDR dashboard UI.
+│   ├── security-engine/    # Python 3 Windows sensor. Contains process, network, port, and filesystem watchers.
+│   └── mockup-sandbox/     # Standalone prototype UI component library.
+├── lib/
+│   ├── api-client-react/   # Generated React Query API hooks.
+│   ├── api-zod/            # Zod validation schemas shared between frontend and backend.
+│   └── db/                 # Drizzle ORM PostgreSQL schema (dormant).
+├── scripts/                # Build scripts, Windows installers (.iss), service wrappers (.ps1), and QA tools.
+├── installer/              # Inno Setup configurations for generating ARGUS-Setup.exe.
+└── ARGUS_*.md              # Comprehensive historical audit logs and project planning documents.
+```
+
+---
+
+## 3. CURRENT ARGUS ARCHITECTURE
+
+**Data Flow Trace:**
+`Windows OS (psutil/Win32 APIs)` → `Python Security Engine (Polling)` → `HTTP POST` → `Local API Server (Express)` → `In-Memory EventHub` → `Rule Engine Evaluation` → `Alert Generation` → `SSE Broadcast` → `React Frontend` → `User Action (API POST)` → `Local API Server (Remediation Route)` → `System Execution (taskkill)`
+
+**Component Details:**
+1. **Security Engine (Sensor):**
+   * *Technology:* Python 3 (`psutil`, `requests`).
+   * *Responsibility:* Gather raw telemetry (Process, Network, Topology, Ports, Files, Peripherals).
+   * *Communication:* Synchronous HTTP POST to API Server (`/api/events/*`).
+   * *Limitations:* Relies on user-mode polling (every 1-15 seconds). It can miss sub-second process execution (e.g., rapid script drops).
+2. **API Server (Event Broker & Engine):**
+   * *Technology:* Node.js, Express 5.
+   * *Responsibility:* Receive telemetry, evaluate rules, proxy data to UI.
+   * *Communication:* Synchronous REST (Ingest/Remediation), Asynchronous SSE (Broadcast).
+   * *Limitations:* In-memory EventHub limits historical retention. Node.js single thread could bottleneck under massive telemetry floods.
+3. **Frontend (SOC Dashboard):**
+   * *Technology:* React 19.
+   * *Responsibility:* Visualization, threat analysis, interactive graphs.
+   * *Communication:* Asynchronous SSE (`/api/telemetry/stream`), REST API (actions).
+   * *Limitations:* Browser memory limits the size of the renderable process tree.
+
+---
+
+## 4. FRONTEND AUDIT
+
+* **Framework:** React 19 + TypeScript + Vite.
+* **Routing:** `wouter`.
+* **State Management:** Native React state (`useState`, `useMemo`), coupled with custom React hooks (`useProcessMonitor`, `useTelemetryStream`) mapping to SSE streams.
+* **Authentication/Authorization:** Access Key based. State held in memory, verified via `useActivation` / `/api/auth/status`.
+
+**Major Screens:**
+* **SCREEN: Activation**
+  * *PURPOSE:* Gate access to the SOC dashboard.
+  * *IMPLEMENTATION:* UI accepts a key (`ARGUS-DEV-2026`).
+  * *DATA SOURCE:* Local API Server.
+  * *REAL OR MOCK:* REAL (Validates against server logic).
+* **SCREEN: Live Monitoring (System Health)**
+  * *PURPOSE:* Display system vitals and recent alerts.
+  * *IMPLEMENTATION:* CPU/RAM velocity charts, real-time threat feed.
+  * *DATA SOURCE:* `/api/system/telemetry` (SSE).
+  * *REAL OR MOCK:* REAL (with a seamless fallback to a mock "Autonomous Demo" scenario if the Python sensor is offline).
+* **SCREEN: Processes (Process Explorer)**
+  * *PURPOSE:* Inspect running processes and terminate threats.
+  * *IMPLEMENTATION:* Interactive Tree Graph (Framer Motion) + Sortable Data Table.
+  * *DATA SOURCE:* `/api/events/process` (SSE).
+  * *REAL OR MOCK:* REAL.
+  * *FUNCTIONALITY:* Search, PID copy, risk-scoring badges, termination action.
+* **SCREEN: Network (3D Universe & Table)**
+  * *PURPOSE:* Map active connections and listening ports.
+  * *IMPLEMENTATION:* WebGL / React Three Fiber graph + standard table.
+  * *DATA SOURCE:* `/api/network/connections` & `/api/network/topology`.
+  * *REAL OR MOCK:* REAL.
+* **SCREEN: Quarantine**
+  * *PURPOSE:* Manage isolated files.
+  * *FUNCTIONALITY:* Restore/Delete actions.
+  * *REAL OR MOCK:* PARTIAL (UI state is real, backend physical file movement is simulated/incomplete).
+
+---
+
+## 5. BACKEND/API AUDIT
+
+* **Server Entry Point:** `artifacts/api-server/src/index.ts` (Bootstrap) -> `app.ts` (Express stack).
+* **Event System / SSE:** `EventHub` class utilizing Node's `EventEmitter` to push JSON stringified payloads to long-polling HTTP connections.
+* **Authentication:** Validates an Access Key, sets an HMAC signed `argus_activation` HttpOnly cookie.
+
+**API Inventory (Key Endpoints):**
+* `POST /api/auth/activate` | Authenticate | NO AUTH | IMPLEMENTED
+* `GET /api/auth/status` | Check Session | YES | IMPLEMENTED
+* `GET /api/system/telemetry/stream` | Stream Vitals | YES | IMPLEMENTED
+* `POST /api/events/process` | Ingest Telemetry | NO AUTH (Sensor) | IMPLEMENTED
+* `GET /api/processes` | List Processes | YES | IMPLEMENTED
+* `POST /api/processes/:pid/terminate` | Kill Process | YES | IMPLEMENTED (Executes `taskkill /F /T`)
+* `POST /api/recovery/quarantine` | Isolate File | YES | PARTIAL
+
+**Security Concerns in API:**
+* `POST /api/processes/:pid/terminate` validates PID to prevent killing `0` and `4`, but executing shell commands (`taskkill`) based on user input carries inherent command injection risks if validation logic is ever loosened.
+* No internal authentication between the Python sensor and the API Server. Any local process can POST to `/api/events/*` and spoof telemetry.
+
+---
+
+## 6. SECURITY ENGINE / SENSOR AUDIT
+
+* **Language:** Python 3.
+* **Entry Point:** `main.py` -> `ArgusEngine` class.
+* **Methodology:** Polling via `psutil` (1-3s intervals).
+* **API Communication:** `requests.post` to `localhost:5000`.
+
+**Capability Table:**
+| CAPABILITY | IMPLEMENTED | METHOD | REAL TELEMETRY? | LIMITATIONS |
+| :--- | :--- | :--- | :--- | :--- |
+| Process Creation/Term | PARTIAL | `psutil.process_iter()` polling | YES | Polling misses sub-second execution |
+| Parent-Child Trees | YES | `psutil` PPID mapping | YES | None |
+| Executable Paths/CMD | YES | `psutil` `exe()` / `cmdline()` | YES | Requires Admin privileges for system PIDs |
+| Network Connections | YES | `psutil.net_connections()` | YES | None |
+| Listening Ports | YES | `psutil` filtering | YES | None |
+| Filesystem Creation | PARTIAL | Custom directory iteration (`_probe_scan.py`) | YES | Not real-time (polling specific dirs) |
+| File Hashes | YES | Python `hashlib` | YES | None |
+| ETW / Minifilter | NO | N/A | NO | Entirely absent |
+| Memory/Code Injection | NO | N/A | NO | Cannot detect fileless malware |
+| Registry Changes | NO | N/A | NO | Entirely absent |
+| Peripheral Watcher | YES | OS hooks | YES | Camera & Mic access detection |
+
+---
+
+## 7. DETECTION ENGINE AUDIT
+
+* **Location:** `artifacts/api-server/src/detection/`
+* **Count:** 48+ Deterministic Rules (`PROC-001..`, `NET-001..`, `FILE-001..`).
+* **Logic:** Synchronous evaluation pipeline. Incoming JSON events are parsed through Zod schemas, then passed through rule filters.
+* **Severity Calculation:** Hardcoded per rule (`CRITICAL`, `HIGH`, `MEDIUM`).
+* **Correlation:** Partial. Process ancestry is stitched together for the UI via `useThreatAnalysis`, but the backend rule engine evaluates events largely in isolation (stateless detection). No complex MITRE ATT&CK temporal chaining (e.g., Event A + Event B within 5 mins = Alert).
+
+---
+
+## 8. THREAT MODEL
+
+**Implemented Detects:**
+* PowerShell/CMD abuse (LOLBins).
+* Masquerading (e.g., `svchost.exe` running from `C:\Temp`).
+* Suspicious staging directories (`AppData`, `Downloads`).
+* High resource utilization anomalies (Cryptojacking).
+* Peripheral (Camera/Mic) snooping.
+* Wildcard port bindings (`0.0.0.0` listeners).
+
+**Missing / Blind Spots:**
+* Privilege Escalation / Token Manipulation.
+* Lateral Movement (Pass-the-Hash).
+* Memory Injection / Process Hollowing / DLL Hijacking.
+* Kernel Rootkits.
+
+---
+
+## 9. ACTIVE RESPONSE / CONTAINMENT
+
+* **ACTION:** Terminate Process Tree
+  * *IMPLEMENTATION:* `POST /api/processes/:pid/terminate` -> Node.js `child_process.exec("taskkill /F /T /PID...")`.
+  * *PRIVILEGES:* Node.js process inherits user privileges (Admin required to kill system processes).
+  * *REVERSIBLE:* NO.
+  * *SAFETY CONTROLS:* YES. Hardcoded blocks for PID `0` and `4`. UI prompts for user approval.
+  * *CURRENT STATUS:* FULLY IMPLEMENTED.
+* **ACTION:** Quarantine File
+  * *IMPLEMENTATION:* File isolation via `service.ts`.
+  * *CURRENT STATUS:* PARTIAL (UI state tracks it, physical isolation incomplete).
+* **ACTION:** Block Network Connection / Isolate Host
+  * *CURRENT STATUS:* MISSING / SIMULATED ONLY. Windows Firewall APIs are not yet hooked.
+
+---
+
+## 10. AUTHENTICATION / ACTIVATION / LICENSING
+
+* **Flow:** Enterprise "Access Key" model.
+* **Mechanics:** User enters `ARGUS-DEV-2026`. Frontend POSTs to `/api/auth/activate`. Server validates logic. If valid, server attaches a secure `argus_activation` HttpOnly cookie with an HMAC signature and TTL.
+* **Security:** Keys are NEVER stored in `localStorage` or `sessionStorage`. The UI asks the server (`/api/auth/status`) to verify identity. There are no user roles or multi-tenant abstractions; it is a single-tenant per-workstation architecture.
+
+---
+
+## 11. DATABASE / DATA MODEL
+
+* **Database:** PostgreSQL via Drizzle ORM.
+* **Schema:** Exists in `@workspace/db`. Includes `detections`, `process_events`, `recovery_snapshots`.
+* **Current Status:** DORMANT. The API server operates entirely in memory using the `EventHub` class array buffers. No data survives a server reboot.
+
+---
+
+## 12. REAL-TIME EVENT PIPELINE
+
+**Trace:**
+Windows OS → Python `psutil` → HTTP `POST` → Express `/api/events/process` → Node.js `EventHub.addEvent()` → Rule Engine Evaluation → Node.js `EventEmitter` → HTTP SSE `/api/system/telemetry/stream` → React `useTelemetryStream` → DOM Render.
+
+**Bottlenecks:**
+1. *HTTP Overhead:* Creating a new HTTP POST request for every single process event is extremely inefficient compared to IPC, Pipes, or WebSockets.
+2. *Memory Leaks:* Unbounded arrays in `EventHub` could crash the Node.js process after days of uptime if not strictly pruned.
+
+---
+
+## 13. DESKTOP READINESS AUDIT
+
+* **Current Tech:** PyInstaller (for Python), esbuild (Node), Vite (React). Bundled via Inno Setup (`ARGUS-Setup.exe`).
+* **Assessment:** PROTOTYPE-LEVEL.
+* **Gaps:** It is essentially bundling web servers. To be a real Windows desktop app, it needs:
+  * A true Windows Background Service implementation (so it runs before user login).
+  * Secure IPC (Named Pipes) between the Python sensor and Node (or rewritten in Rust/C++).
+  * Auto-update mechanics.
+  * Self-defense mechanisms against `taskkill`.
+
+---
+
+## 14. KERNEL-LEVEL READINESS
+
+* **CAN BE DONE IN USER MODE:** ETW (Event Tracing for Windows) consumption via Python/C#. This will instantly solve the "polling gap" and provide sub-second process execution telemetry without needing a kernel driver.
+* **WOULD REQUIRE KERNEL/DRIVER SUPPORT:**
+  * Proactive File/Process blocking (preventing execution *before* it happens).
+  * Real-time filesystem Minifilter.
+  * Self-defense (protecting ARGUS files/registry keys from Admin deletion).
+* **Recommendation:** Integrate ETW first. It provides 80% of the visibility benefits of a driver with 0% of the blue-screen risks.
+
+---
+
+## 15. ML / AI READINESS
+
+* **Current State:** Architecture is heavily primed for it (`ARGUS-OLLAMA-AGENT.md` exists). Telemetry JSON is perfectly structured for LLM ingestion.
+* **Missing:** The actual integration wiring.
+* **Future Features:**
+  * Piping the SSE alert stream into a local Ollama model to generate plain-English "Incident Briefings."
+  * ML-based behavioral anomaly scoring (e.g., isolation forest algorithms applied to the Process Tree data) rather than just static Zod rules.
+
+---
+
+## 16. PERFORMANCE AUDIT
+
+* **Bottlenecks:**
+  1. `psutil` polling across hundreds of processes every 1 second causes persistent background CPU overhead.
+  2. High-volume JSON serialization over HTTP loopback (Sensor -> API).
+  3. React DOM rendering of 300+ nodes in the Process Graph (Framer Motion) can cause browser lag on low-end hardware.
+
+---
+
+## 17. SECURITY AUDIT
+
+| SEVERITY | LOCATION | ISSUE | WHY IT MATTERS | RECOMMENDATION |
+| :--- | :--- | :--- | :--- | :--- |
+| HIGH | `api-server/process.ts` | Command Execution (`taskkill`) | Unsanitized PID inputs could lead to OS command injection. | Enforce strict integer casting and regex validation for PIDs. |
+| HIGH | `security-engine/main.py` | Missing Mutual TLS / Auth | Any local app can POST fake telemetry to Port 5000. | Implement token auth or Named Pipes with ACLs between Sensor and API. |
+| MEDIUM | `security-engine` | No Tamper Protection | Malware can run `taskkill /IM argus-agent.exe` to blind the system. | Move to a Windows Service running as `SYSTEM`. |
+
+---
+
+## 18. TESTING AUDIT
+
+* **Backend:** Jest framework present (`api-server/src/detection/__tests__`). Excellent coverage for the deterministic rule engine (`api.test.ts`, `engine.test.ts`).
+* **Frontend:** Limited/No component tests.
+* **Sensor:** Missing robust unit tests for OS edge cases (e.g., Access Denied errors in `psutil`).
+
+---
+
+## 19. BUILD / DEPLOYMENT AUDIT
+
+* **Packaging:** Heavily relies on PowerShell orchestrator scripts (`build-desktop-app.ps1`) to stitch the Node backend, React public files, and PyInstaller exe together.
+* **CI/CD:** Basic GitHub Workflows (`build-installer.yml`).
+* **Deployment:** Vercel configured for frontend presentation/demo logic (`vercel.json`), but actual operation requires local Windows installation.
+
+---
+
+## 20. FEATURE STATUS MATRIX
+
+| FEATURE | STATUS | IMPLEMENTATION | EVIDENCE | NEXT STEP |
+| :--- | :--- | :--- | :--- | :--- |
+| Activation | IMPLEMENTED | HttpOnly HMAC Cookie | `auth.ts`, `ActivationScreen` | None |
+| Process Monitoring | IMPLEMENTED | Python `psutil` -> SSE | `main.py`, `processes-page.tsx` | Upgrade to ETW |
+| Process Containment | IMPLEMENTED | Node `taskkill` | `process.ts` | Add OS Firewall block |
+| Detection Rules | IMPLEMENTED | 48+ Zod Rules | `detection/rules.ts` | Add behavioral correlation |
+| File Quarantine | PARTIAL | UI state only | `recovery.ts` | Implement physical Vault |
+| AI Integration | PLANNED | Markdown spec | `ARGUS-OLLAMA-AGENT.md` | Wire SSE to Ollama |
+| Kernel Driver | MISSING | None | Architecture review | Research Minifilter |
+
+---
+
+## 21. CURRENT MATURITY LEVEL
+
+**Overall Level: Beta / High-Fidelity Proof of Concept**
+
+* **Telemetry (7/10):** Excellent breadth (Net, Proc, File), but limited by user-space polling depth.
+* **Detection (7/10):** Strong deterministic rules, lacks behavioral ML.
+* **Response (5/10):** Can kill processes, but lacks true host isolation.
+* **AI/ML (1/10):** Designed for it, but not implemented.
+* **Desktop Architecture (4/10):** Relies on web servers bundled in an exe. Needs a native Service model.
+* **UX (10/10):** Exceptional, highly polished dashboard.
+
+---
+
+## 22. CRITICAL GAPS (Top 5)
+
+1. **[P0] Lack of Kernel Visibility:** User-space polling misses fileless malware and rapid execution.
+2. **[P0] No Self-Defense:** The agent can be trivially killed by malware.
+3. **[P1] Sensor-to-API Trust:** No authentication on the local loopback telemetry ingest.
+4. **[P1] Memory Volatility:** `EventHub` will lose all forensic data on reboot. DB persistence must be activated.
+5. **[P2] Response Limitations:** Quarantine and Network isolation are not physically enforced.
+
+---
+
+## 23. RECOMMENDED EVOLUTION
+
+* **PHASE 1 (Harden Architecture):** Turn on the Drizzle PostgreSQL DB. Authenticate the Python-to-Node loopback.
+* **PHASE 2 (Advanced Telemetry):** Replace Python `psutil` process polling with Python ETW (Event Tracing for Windows) consumption to catch sub-second execution.
+* **PHASE 3 (Local Intelligence):** Connect the existing SSE stream to a local Ollama instance for autonomous alert summarization.
+* **PHASE 4 (Kernel Transition):** Write a C++ Windows Minifilter driver for file interception and self-defense, deprecating the Python filesystem watcher.
+
+---
+
+## 24. FINAL EXECUTIVE REPORT
+
+**ARGUS CURRENT STATE:**
+ARGUS is a beautifully engineered, highly functional EDR prototype. What is genuinely impressive is the real-time, low-latency SSE pipeline pushing native Windows telemetry directly into a world-class React dashboard. The deterministic rule engine works seamlessly.
+
+What is currently weak is the reliance on user-space polling (`psutil`) and the lack of self-defense. To rival Microsoft Defender, ARGUS cannot rely on bundled Node/Python scripts running as standard executables.
+
+**The Highest-Value Next Engineering Task:**
+Transition the Python agent to consume **ETW (Event Tracing for Windows)**. This gives you near kernel-level visibility (catching rapid process injection and registry changes) without having to write C++ drivers immediately. Simultaneously, wire up the **Ollama Agent** to process the rich JSON telemetry you are already producing.
+
+---
+
+## 25. IMPORTANT FINAL REQUIREMENT
+
+```text
+ARGUS_AUDIT_SUMMARY
+- frontend: React 19 SPA, Highly Polished, SSE Driven
+- backend: Node.js Express 5, Volatile In-Memory EventHub
+- sensor: Python 3, psutil polling, HTTP POST loopback
+- detection_rules: 48+ Deterministic Zod Rules (PROC, NET, FILE)
+- containment: taskkill implemented; network/quarantine partial/simulated
+- authentication: Access Key -> HMAC HttpOnly Cookie
+- database: Drizzle ORM configured, completely dormant
+- realtime: Live SSE streams, sub-second UI updates
+- desktop: PyInstaller + Inno Setup wrapper
+- kernel: 0% implemented, relies entirely on user-mode
+- ml_ai: Architecture spec exists, 0% integrated
+- testing: Strong backend rule tests, missing sensor tests
+- deployment: Local Windows Executable + Vercel UI presentation
+- overall_maturity: Advanced Beta / High-Fidelity PoC
+- top_10_priorities: [ETW Integration, Sensor Auth, DB Activation, Self-Defense Service, Ollama Wire-up, Firewall Hooks, Physical Quarantine, Memory Injection Scanning, Prune EventHub, Driver Research]
+```
