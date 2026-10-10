@@ -64,16 +64,31 @@ app.use(express.urlencoded({ extended: true }));
 
 import path from "path";
 import fs from "fs";
+import { fileURLToPath } from "url";
 
-const publicDir = path.join(__dirname, "public");
-if (fs.existsSync(publicDir)) {
+let publicDir = "";
+try {
+  const currentFilename = fileURLToPath(import.meta.url);
+  publicDir = path.join(path.dirname(currentFilename), "public");
+} catch {
+  publicDir = path.join(process.cwd(), "public");
+}
+
+if (!fs.existsSync(publicDir)) {
+  const cwdDistPublic = path.join(process.cwd(), "dist", "public");
+  if (fs.existsSync(cwdDistPublic)) {
+    publicDir = cwdDistPublic;
+  }
+}
+
+if (publicDir && fs.existsSync(publicDir)) {
   app.use(express.static(publicDir));
 }
 
 // Explicit direct download handlers for sensor scripts
 app.get(["/start-sensor.bat", "/api/start-sensor.bat"], (_req: Request, res: Response) => {
   const file = path.join(publicDir, "start-sensor.bat");
-  if (fs.existsSync(file)) {
+  if (file && fs.existsSync(file)) {
     res.setHeader("Content-Type", "application/x-msdos-program");
     res.setHeader("Content-Disposition", "attachment; filename=start-sensor.bat");
     res.sendFile(file);
@@ -84,7 +99,7 @@ app.get(["/start-sensor.bat", "/api/start-sensor.bat"], (_req: Request, res: Res
 
 app.get(["/start-sensor.ps1", "/api/start-sensor.ps1"], (_req: Request, res: Response) => {
   const file = path.join(publicDir, "start-sensor.ps1");
-  if (fs.existsSync(file)) {
+  if (file && fs.existsSync(file)) {
     res.setHeader("Content-Type", "text/plain");
     res.setHeader("Content-Disposition", "attachment; filename=start-sensor.ps1");
     res.sendFile(file);
@@ -95,7 +110,7 @@ app.get(["/start-sensor.ps1", "/api/start-sensor.ps1"], (_req: Request, res: Res
 
 app.get(["/argus_sensor.py", "/api/argus_sensor.py"], (_req: Request, res: Response) => {
   const file = path.join(publicDir, "argus_sensor.py");
-  if (fs.existsSync(file)) {
+  if (file && fs.existsSync(file)) {
     res.setHeader("Content-Type", "text/x-python");
     res.setHeader("Content-Disposition", "attachment; filename=argus_sensor.py");
     res.sendFile(file);
