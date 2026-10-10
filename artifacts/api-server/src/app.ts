@@ -62,6 +62,48 @@ app.use(cookieParser());
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true }));
 
+import path from "path";
+import fs from "fs";
+
+const publicDir = path.join(__dirname, "public");
+if (fs.existsSync(publicDir)) {
+  app.use(express.static(publicDir));
+}
+
+// Explicit direct download handlers for sensor scripts
+app.get(["/start-sensor.bat", "/api/start-sensor.bat"], (_req: Request, res: Response) => {
+  const file = path.join(publicDir, "start-sensor.bat");
+  if (fs.existsSync(file)) {
+    res.setHeader("Content-Type", "application/x-msdos-program");
+    res.setHeader("Content-Disposition", "attachment; filename=start-sensor.bat");
+    res.sendFile(file);
+  } else {
+    res.status(404).send("start-sensor.bat not found");
+  }
+});
+
+app.get(["/start-sensor.ps1", "/api/start-sensor.ps1"], (_req: Request, res: Response) => {
+  const file = path.join(publicDir, "start-sensor.ps1");
+  if (fs.existsSync(file)) {
+    res.setHeader("Content-Type", "text/plain");
+    res.setHeader("Content-Disposition", "attachment; filename=start-sensor.ps1");
+    res.sendFile(file);
+  } else {
+    res.status(404).send("start-sensor.ps1 not found");
+  }
+});
+
+app.get(["/argus_sensor.py", "/api/argus_sensor.py"], (_req: Request, res: Response) => {
+  const file = path.join(publicDir, "argus_sensor.py");
+  if (fs.existsSync(file)) {
+    res.setHeader("Content-Type", "text/x-python");
+    res.setHeader("Content-Disposition", "attachment; filename=argus_sensor.py");
+    res.sendFile(file);
+  } else {
+    res.status(404).send("argus_sensor.py not found");
+  }
+});
+
 app.use("/api", router);
 app.use(router);
 

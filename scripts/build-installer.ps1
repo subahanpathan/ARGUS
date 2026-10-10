@@ -58,6 +58,9 @@ Copy-Item -Path "$WorkspaceRoot\artifacts\api-server\dist\*" -Destination $Paylo
 
 # Copy Security Engine output
 Copy-Item -Path "$WorkspaceRoot\artifacts\security-engine\*" -Destination $PayloadEngine -Recurse -Force
+if (Test-Path "$WorkspaceRoot\artifacts\security-engine\dist\argus-agent.exe") {
+    Copy-Item -Path "$WorkspaceRoot\artifacts\security-engine\dist\argus-agent.exe" -Destination (Join-Path $PayloadEngine "argus-agent.exe") -Force
+}
 
 # Locate Node binary for runtime payload
 $NodeSystemPath = (Get-Command node -ErrorAction SilentlyContinue).Source

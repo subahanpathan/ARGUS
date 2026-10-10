@@ -121,17 +121,25 @@ def resolve_components() -> tuple[Path | None, Path | None, Path | None]:
             server_js = None
 
     # 3. Security Engine executable
-    agent_exe: Path | None = payload / "engine" / "argus-agent.exe"
-    if not agent_exe.exists():
+    agent_candidates = [
+        payload / "engine" / "argus-agent.exe",
+        payload / "engine" / "dist" / "argus-agent.exe",
+        payload / "argus-agent.exe",
+        base_dir() / "engine" / "argus-agent.exe",
+        base_dir() / "engine" / "dist" / "argus-agent.exe",
+    ]
+    agent_exe: Path | None = None
+    for cand in agent_candidates:
+        if cand.exists():
+            agent_exe = cand
+            break
+
+    if not agent_exe:
         repo_root = Path(__file__).resolve().parent.parent if not getattr(sys, "frozen", False) else None
         if repo_root:
             dev_agent = repo_root / "artifacts" / "security-engine" / "dist" / "argus-agent.exe"
             if dev_agent.exists():
                 agent_exe = dev_agent
-            else:
-                agent_exe = None
-        else:
-            agent_exe = None
 
     return node_exe, server_js, agent_exe
 
