@@ -144,4 +144,13 @@ router.post("/simulations/:id/recover", (req: Request, res: Response) => {
   }
 });
 
+/**
+ * POST /api/simulations/adaptive-memory/reset
+ * Resets adaptive defense memory so previously blocked simulation scenarios can be re-executed from scratch.
+ */
+router.post("/simulations/adaptive-memory/reset", (_req: Request, res: Response) => {
+  simulationEngine.resetAdaptiveMemory();
+  res.json({ success: true, message: "Adaptive defense memory reset successfully." });
+});
+
 export default router;

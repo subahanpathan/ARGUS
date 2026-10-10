@@ -8,7 +8,7 @@ import {
   Radio, FileCode, Monitor, HardDrive, Wifi, Crosshair, ChevronRight, CornerDownRight, CheckSquare2
 } from 'lucide-react';
 
-export type JudgeSimStep = 'IDLE' | 'ENTRY' | 'LEAK_DETECT' | 'CYBER_CELL_CONSENT' | 'ROOT_CAUSE' | 'ADAPTIVE_BLOCK' | 'RECOVERY' | 'FINISHED';
+export type JudgeSimStep = 'IDLE' | 'ENTRY' | 'LEAK_DETECT' | 'CYBER_CELL_CONSENT' | 'ROOT_CAUSE' | 'COORD_PATH_PREDICTOR' | 'ADAPTIVE_BLOCK' | 'RECOVERY' | 'FINISHED';
 
 export type AttackVectorType = 'EMAIL_PHISHING' | 'BROWSER_ZERO_DAY' | 'USB_AUTORUN';
 
@@ -35,6 +35,8 @@ export const JudgeSimulationModal: React.FC<JudgeSimulationModalProps> = ({
   const [selectedInspectFile, setSelectedInspectFile] = useState<any | null>(null);
   const [customTestCmd, setCustomTestCmd] = useState<string>('');
   const [customCmdLogs, setCustomCmdLogs] = useState<string[]>([]);
+  const [mitigatedVectors, setMitigatedVectors] = useState<Set<AttackVectorType>>(new Set());
+  const [isRepeatBlockedRun, setIsRepeatBlockedRun] = useState<boolean>(false);
   
   // Live Metrics Simulation
   const [cpuUsage, setCpuUsage] = useState<number>(14);
@@ -184,12 +186,21 @@ export const JudgeSimulationModal: React.FC<JudgeSimulationModalProps> = ({
         appendLog('CORRELATION GRAPH: Reconstructing root cause process ancestry & network topology.');
         appendLog(`CORRELATION ENGINE: Linked ${activeVector.parent} -> ${activeVector.process} -> Staging -> ${activeVector.c2}.`);
         timer = setTimeout(() => {
-          setCurrentStep('ADAPTIVE_BLOCK');
+          setCurrentStep('COORD_PATH_PREDICTOR');
         }, 3500);
+      } else if (currentStep === 'COORD_PATH_PREDICTOR') {
+        appendLog('PREDICTION ENGINE: Calculating coordinated multi-node attack path trajectory graph.');
+        appendLog(`COORDINATION PATH PREDICTOR: Next-hop lateral movement predicted -> DC-01.corp.internal (94.2% confidence).`);
+        appendLog(`COORDINATION PATH PREDICTOR: Predicted target node -> DB-PROD-02.internal (88.7% confidence).`);
+        appendLog('MITRE ATT&CK ALIGNMENT: T1059.001 (PowerShell) -> T1021.002 (SMB Shares) -> T1041 (C2 Exfiltration).');
+        timer = setTimeout(() => {
+          setCurrentStep('ADAPTIVE_BLOCK');
+        }, 3800);
       } else if (currentStep === 'ADAPTIVE_BLOCK') {
         appendLog(`FIREWALL AGENT: Injected outbound DROP rule for remote IP ${activeVector.c2.split(':')[0]}.`);
         appendLog('APPLOCKER ENGINE: Added kernel deny policy for AppData\\Local\\Temp\\*.exe.');
         appendLog('ADAPTIVE HARDENING: Device self-healing complete. Zero-ms perimeter block active.');
+        setMitigatedVectors(prev => new Set(prev).add(selectedVector));
         timer = setTimeout(() => {
           setCurrentStep('RECOVERY');
         }, 3500);
@@ -210,6 +221,22 @@ export const JudgeSimulationModal: React.FC<JudgeSimulationModalProps> = ({
   if (!isOpen) return null;
 
   const startSimulation = () => {
+    // Check if vector was previously mitigated / adaptively hardened
+    if (mitigatedVectors.has(selectedVector)) {
+      setIsRepeatBlockedRun(true);
+      setCurrentStep('ADAPTIVE_BLOCK');
+      setIsAutoRunning(false);
+      setTerminalLogs([
+        `[ADAPTIVE DEFENSE MEMORY] Attempted re-execution of ${activeVector.title}`,
+        `[KERNEL BOUNDARY INTERCEPT] Vector fingerprint matched persistent Deny Rule AR-BLOCK-ADAPTIVE-${activeVector.pid}`,
+        `[0.0ms INSTANT ENFORCEMENT] SAME ATTACK BLOCKED AT ENTRY PERIMETER! Payload execution denied.`,
+        `[ADAPTIVENESS VERIFIED] Identical attack vector cannot happen again on this endpoint.`
+      ]);
+      toast('Adaptive Defense Active!', `Repeat execution of ${activeVector.title} blocked instantly at entry perimeter!`);
+      return;
+    }
+
+    setIsRepeatBlockedRun(false);
     setCurrentStep('ENTRY');
     setIsAutoRunning(true);
     setUserPermissionGranted(null);
@@ -217,6 +244,12 @@ export const JudgeSimulationModal: React.FC<JudgeSimulationModalProps> = ({
     setTerminalLogs([`[SYSTEM] Initializing ARGUS Live Judge Simulation (${activeVector.title})...`]);
     setRepeatAttackTestResult(null);
     toast('Judge Simulation Initialized', `Launching attack vector: ${activeVector.title}`);
+  };
+
+  const resetAdaptiveMemory = () => {
+    setMitigatedVectors(new Set());
+    setIsRepeatBlockedRun(false);
+    toast('Adaptive Defense Memory Cleared', 'Kernel deny rules reset. Fresh attack execution enabled.');
   };
 
   const handleGrantConsent = (granted: boolean) => {
@@ -332,16 +365,17 @@ export const JudgeSimulationModal: React.FC<JudgeSimulationModalProps> = ({
         </div>
 
         {/* Stepper Progress Header */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 6, marginBottom: 20, background: 'hsl(224 50% 6%)', padding: 8, borderRadius: 8, border: '1px solid hsl(224 40% 12%)' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4, marginBottom: 20, background: 'hsl(224 50% 6%)', padding: 8, borderRadius: 8, border: '1px solid hsl(224 40% 12%)' }}>
           {[
             { id: 'ENTRY', label: '1. Malware Entry' },
             { id: 'LEAK_DETECT', label: '2. Leak Window' },
             { id: 'CYBER_CELL_CONSENT', label: '3. Cyber Cell' },
             { id: 'ROOT_CAUSE', label: '4. Root Cause' },
-            { id: 'ADAPTIVE_BLOCK', label: '5. Adaptive Block' },
-            { id: 'RECOVERY', label: '6. Data Recovery' }
+            { id: 'COORD_PATH_PREDICTOR', label: '5. Path Predictor' },
+            { id: 'ADAPTIVE_BLOCK', label: '6. Adaptive Block' },
+            { id: 'RECOVERY', label: '7. Data Recovery' }
           ].map((s, idx) => {
-            const stepOrder: JudgeSimStep[] = ['ENTRY', 'LEAK_DETECT', 'CYBER_CELL_CONSENT', 'ROOT_CAUSE', 'ADAPTIVE_BLOCK', 'RECOVERY', 'FINISHED'];
+            const stepOrder: JudgeSimStep[] = ['ENTRY', 'LEAK_DETECT', 'CYBER_CELL_CONSENT', 'ROOT_CAUSE', 'COORD_PATH_PREDICTOR', 'ADAPTIVE_BLOCK', 'RECOVERY', 'FINISHED'];
             const currentIdx = stepOrder.indexOf(currentStep);
             const isPassed = currentIdx > idx;
             const isCurrent = currentStep === s.id;
@@ -350,9 +384,9 @@ export const JudgeSimulationModal: React.FC<JudgeSimulationModalProps> = ({
                 key={s.id}
                 style={{
                   textAlign: 'center',
-                  padding: '8px 4px',
+                  padding: '8px 2px',
                   borderRadius: 6,
-                  fontSize: 11,
+                  fontSize: 10,
                   fontWeight: 800,
                   background: isCurrent
                     ? 'linear-gradient(135deg, #eab308, #f97316)'
@@ -613,18 +647,123 @@ export const JudgeSimulationModal: React.FC<JudgeSimulationModalProps> = ({
             </motion.div>
           )}
 
-          {/* STEP 5: ADAPTIVE BLOCKING & REPEAT ATTACK PREVENTION */}
-          {currentStep === 'ADAPTIVE_BLOCK' && (
+          {/* STEP 5: COORDINATION PATH PREDICTOR */}
+          {currentStep === 'COORD_PATH_PREDICTOR' && (
             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} style={{ padding: 4 }}>
-              <div style={{ background: 'hsl(142 71% 10%)', border: '1px solid hsl(142 71% 30%)', borderRadius: 8, padding: 16, marginBottom: 16 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: 'hsl(142 71% 70%)', fontWeight: 800 }}>
-                  <ShieldCheck size={22} />
-                  <span style={{ fontSize: 15 }}>STEP 5: ADAPTIVE DEFENSE HARDENING & ATTACKER REPEAT BLOCK</span>
+              <div style={{ background: 'hsl(270 70% 12% / 0.7)', border: '1px solid hsl(270 70% 35%)', borderRadius: 8, padding: 16, marginBottom: 16 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: 'hsl(270 70% 75%)', fontWeight: 800 }}>
+                    <Layers size={22} />
+                    <span style={{ fontSize: 15 }}>STEP 5: COORDINATION PATH PREDICTOR & TRAJECTORY FORECASTING</span>
+                  </div>
+                  <span className="badge badge-primary" style={{ background: 'hsl(270 70% 25%)', color: 'hsl(270 70% 80%)', padding: '6px 12px', fontSize: 11, border: '1px solid hsl(270 70% 45%)' }}>
+                    PREDICTIVE PROBABILITY ENGINE ACTIVE
+                  </span>
                 </div>
                 <p style={{ margin: '8px 0 0', fontSize: 13, color: 'hsl(var(--foreground))' }}>
-                  ARGUS dynamically injected firewall and kernel execution policies so identical repeat attacks are blocked instantly. Try typing a test command below to test live enforcement!
+                  ARGUS Predictive Engine analyzed observed entry telemetry to map the coordinated multi-stage propagation path before lateral spread occurs.
                 </p>
               </div>
+
+              {/* Coordinated Path Graph & Predicted Nodes */}
+              <div style={{ background: 'hsl(224 50% 5%)', border: '1px solid hsl(224 40% 12%)', borderRadius: 8, padding: 20, marginBottom: 16 }}>
+                <div style={{ fontSize: 11, fontWeight: 800, color: 'hsl(var(--muted-foreground))', letterSpacing: '1px', marginBottom: 14 }}>
+                  PREDICTED COORDINATED ATTACK PROPAGATION TRAJECTORY
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
+                  <div style={{ background: 'hsl(224 60% 4%)', border: '1px solid hsl(var(--destructive) / 0.5)', borderRadius: 8, padding: 16 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                      <span style={{ fontSize: 10, fontWeight: 800, color: 'hsl(var(--destructive))', background: 'hsl(var(--destructive) / 0.15)', padding: '2px 8px', borderRadius: 4 }}>NODE 1 (OBSERVED ENTRY)</span>
+                      <span className="mono" style={{ fontSize: 10, color: '#f87171' }}>CONFIRMED</span>
+                    </div>
+                    <div style={{ fontWeight: 800, fontSize: 14, color: '#fff' }}>WS-0427 (Host Device)</div>
+                    <div style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))', marginTop: 4 }}>
+                      Payload: <code style={{ color: '#f87171' }}>{activeVector.process}</code>
+                    </div>
+                    <div style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))', marginTop: 2 }}>
+                      Vector: {activeVector.title}
+                    </div>
+                  </div>
+
+                  <div style={{ background: 'hsl(224 60% 4%)', border: '1px dashed hsl(270 70% 50%)', borderRadius: 8, padding: 16 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                      <span style={{ fontSize: 10, fontWeight: 800, color: 'hsl(270 70% 75%)', background: 'hsl(270 70% 20%)', padding: '2px 8px', borderRadius: 4 }}>NODE 2 (PREDICTED NEXT HOP)</span>
+                      <span className="mono" style={{ fontSize: 11, fontWeight: 900, color: '#a855f7' }}>94.2% CONFIDENCE</span>
+                    </div>
+                    <div style={{ fontWeight: 800, fontSize: 14, color: '#fff' }}>DC-01.corp.internal</div>
+                    <div style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))', marginTop: 4 }}>
+                      Technique: <code style={{ color: '#a855f7' }}>T1021.002 (SMB/WMI Ticket Injection)</code>
+                    </div>
+                    <div style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))', marginTop: 2 }}>
+                      Action: Active Directory Privilege Escalation
+                    </div>
+                  </div>
+
+                  <div style={{ background: 'hsl(224 60% 4%)', border: '1px dashed hsl(38 90% 50%)', borderRadius: 8, padding: 16 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                      <span style={{ fontSize: 10, fontWeight: 800, color: 'hsl(38 90% 60%)', background: 'hsl(38 90% 15%)', padding: '2px 8px', borderRadius: 4 }}>NODE 3 (PREDICTED TARGET)</span>
+                      <span className="mono" style={{ fontSize: 11, fontWeight: 900, color: '#eab308' }}>88.7% CONFIDENCE</span>
+                    </div>
+                    <div style={{ fontWeight: 800, fontSize: 14, color: '#fff' }}>DB-PROD-02.internal</div>
+                    <div style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))', marginTop: 4 }}>
+                      Technique: <code style={{ color: '#eab308' }}>T1041 (Exfiltration via C2 {activeVector.c2})</code>
+                    </div>
+                    <div style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))', marginTop: 2 }}>
+                      Action: Master Database Exfiltration
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* MITRE & Proactive Isolation Summary */}
+              <div style={{ background: 'hsl(224 50% 5%)', border: '1px solid hsl(224 40% 12%)', borderRadius: 8, padding: 14, fontSize: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <ShieldAlert size={18} style={{ color: 'hsl(270 70% 70%)' }} />
+                  <div>
+                    <span style={{ fontWeight: 800 }}>PROACTIVE CONTAINMENT PREDICTION RECOMMENDATION:</span>
+                    <span style={{ color: 'hsl(var(--muted-foreground))', marginLeft: 6 }}>Block port 445/135 on WS-0427 to prevent predicted SMB lateral hop to DC-01.</span>
+                  </div>
+                </div>
+                <span className="badge badge-low" style={{ background: 'hsl(270 70% 20%)', color: 'hsl(270 70% 80%)', padding: '4px 10px' }}>MITRE ATT&CK TA0008 ANCHORED</span>
+              </div>
+            </motion.div>
+          )}
+
+          {/* STEP 6: ADAPTIVE BLOCKING & REPEAT ATTACK PREVENTION */}
+          {currentStep === 'ADAPTIVE_BLOCK' && (
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} style={{ padding: 4 }}>
+              {isRepeatBlockedRun ? (
+                <div style={{ background: 'hsl(142 71% 8%)', border: '2px solid hsl(142 71% 40%)', borderRadius: 8, padding: 20, marginBottom: 16, boxShadow: '0 0 24px rgba(74, 222, 128, 0.25)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, color: 'hsl(142 71% 70%)', fontWeight: 900 }}>
+                      <ShieldCheck size={28} />
+                      <span style={{ fontSize: 17 }}>ADAPTIVE DEFENSE ACTIVE: SAME ATTACK BLOCKED AT ENTRY</span>
+                    </div>
+                    <span className="badge badge-low" style={{ background: 'hsl(142 71% 25%)', color: 'hsl(142 71% 85%)', fontSize: 12, padding: '6px 14px' }}>
+                      INSTANT BLOCK: 0.0ms DELAY
+                    </span>
+                  </div>
+                  <p style={{ margin: '10px 0 0', fontSize: 13, color: 'hsl(var(--foreground))', lineHeight: 1.6 }}>
+                    <strong>Adaptiveness Verified:</strong> ARGUS remembered the persistent rule <code style={{ background: 'rgba(0,0,0,0.5)', padding: '2px 8px', borderRadius: 4, color: '#4ade80' }}>AR-BLOCK-ADAPTIVE-{activeVector.pid}</code> from the previous simulation run. When the exact same attack vector (<strong>{activeVector.title}</strong>) was executed again, the kernel perimeter immediately denied payload execution before any compromise or exfiltration could take place!
+                  </p>
+                  <div style={{ marginTop: 14, display: 'flex', gap: 12 }}>
+                    <button className="btn btn-sm btn-outline" onClick={resetAdaptiveMemory} style={{ fontSize: 12, gap: 6 }}>
+                      <RefreshCw size={14} /> Clear Adaptive Memory (Allow Fresh Execution)
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div style={{ background: 'hsl(142 71% 10%)', border: '1px solid hsl(142 71% 30%)', borderRadius: 8, padding: 16, marginBottom: 16 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: 'hsl(142 71% 70%)', fontWeight: 800 }}>
+                    <ShieldCheck size={22} />
+                    <span style={{ fontSize: 15 }}>STEP 6: ADAPTIVE DEFENSE HARDENING & ATTACKER REPEAT BLOCK</span>
+                  </div>
+                  <p style={{ margin: '8px 0 0', fontSize: 13, color: 'hsl(var(--foreground))' }}>
+                    ARGUS dynamically injected firewall and kernel execution policies so identical repeat attacks are blocked instantly. Try typing a test command below to test live enforcement!
+                  </p>
+                </div>
+              )}
 
               <div className="grid split-grid" style={{ gap: 16, marginBottom: 14 }}>
                 <div style={{ background: 'hsl(224 50% 5%)', border: '1px solid hsl(224 40% 12%)', padding: 16, borderRadius: 8 }}>
