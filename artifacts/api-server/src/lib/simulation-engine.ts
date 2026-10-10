@@ -126,6 +126,26 @@ export type SimulationRun = {
 
 export const ALLOWED_SCENARIOS: SimulationScenarioDef[] = [
   {
+    id: "photo_exfiltration_deletion",
+    name: "Photo Copying, Exfiltration & Destruction Attack",
+    description:
+      "Simulates an adversary copying confidential image files (classified_photo.png) to a staging folder for exfiltration and then deleting the original file to destroy evidence.",
+    safetyNote:
+      "All file operations are isolated to var/argus-lab-workspace. Original files are restored automatically upon containment.",
+    expectedRules: [
+      "PROC-002-ENCODED-COMMAND-LINE",
+      "FILE-001-STARTUP-PERSISTENCE",
+      "NET-009-DATA-EXFILTRATION",
+    ],
+    phases: [
+      { phase: "PRE_ATTACK", label: "Deploy confidential image file (classified_photo.png) & record SHA-256 hash", durationMs: 400 },
+      { phase: "INITIAL_ACCESS", label: "Establish unauthorized PowerShell shell session", durationMs: 600 },
+      { phase: "EXECUTION", label: "Execute command shell payload to discover and stage media files", durationMs: 800 },
+      { phase: "FILE_MODIFICATION", label: "Copy classified_photo.png to staging folder & execute file deletion", durationMs: 500 },
+      { phase: "POST_ATTACK", label: "Detect file deletion, isolate process, & initiate SHA-256 auto-recovery", durationMs: 400 },
+    ],
+  },
+  {
     id: "reverse_shell_exfiltration",
     name: "Reverse Shell + Exfiltration Sequence",
     description:
@@ -378,25 +398,46 @@ class SimulationEngine {
 
           const credFile = path.join(this.labWorkspaceDir, "lab_credentials.txt");
           const finFile = path.join(this.labWorkspaceDir, "lab_financial_data.xlsx");
+          const photoFile = path.join(this.labWorkspaceDir, "classified_photo.png");
+
           const credBackup = path.join(backupDir, "lab_credentials.txt");
           const finBackup = path.join(backupDir, "lab_financial_data.xlsx");
+          const photoBackup = path.join(backupDir, "classified_photo.png");
 
           const credContent = "ARGUS_LAB_SYNTHETIC credentials test artifact\nuser=lab_analyst\npass=ArgusDemo2026!\n";
           const finContent = "ARGUS_LAB_SYNTHETIC Q4 Financial Report synthetic artifact\n";
+          const photoContent = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==", "base64");
 
           fs.writeFileSync(credFile, credContent, "utf-8");
           fs.writeFileSync(finFile, finContent, "utf-8");
+          fs.writeFileSync(photoFile, photoContent);
+
           fs.writeFileSync(credBackup, credContent, "utf-8");
           fs.writeFileSync(finBackup, finContent, "utf-8");
+          fs.writeFileSync(photoBackup, photoContent);
 
           const credHash = crypto.createHash("sha256").update(credContent).digest("hex");
           const finHash = crypto.createHash("sha256").update(finContent).digest("hex");
+          const photoHash = crypto.createHash("sha256").update(photoContent).digest("hex");
 
           baselineHashes["lab_credentials.txt"] = credHash;
           baselineHashes["lab_financial_data.xlsx"] = finHash;
+          baselineHashes["classified_photo.png"] = photoHash;
 
           const nowPre = new Date().toISOString();
           run.affectedFiles = [
+            {
+              filePath: photoFile,
+              fileName: "classified_photo.png",
+              classification: "Media/Confidential",
+              baselineHash: photoHash,
+              currentHash: photoHash,
+              hashStatus: "HASH_MATCH",
+              exposureStatus: "ACCESSED",
+              recoveryStatus: "INTACT",
+              lastEventTimestamp: nowPre,
+              evidence: "Confidential image artifact staged in lab workspace; baseline SHA-256 recorded.",
+            },
             {
               filePath: credFile,
               fileName: "lab_credentials.txt",
@@ -427,7 +468,7 @@ class SimulationEngine {
             id: `gt-${simulationId}-pre`,
             phase: "PRE_ATTACK",
             timestamp: nowPre,
-            detail: `Deployed 2 synthetic test files in var/argus-lab-workspace; recorded baseline hashes`,
+            detail: `Deployed synthetic test files (including classified_photo.png) in var/argus-lab-workspace; recorded baseline hashes`,
             expectedRule: null,
           });
         } else if (phaseDef.phase === "INITIAL_ACCESS") {
