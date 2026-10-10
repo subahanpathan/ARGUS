@@ -67,19 +67,42 @@ import fs from "fs";
 import { fileURLToPath } from "url";
 
 let publicDir = "";
-try {
-  const currentFilename = fileURLToPath(import.meta.url);
-  publicDir = path.join(path.dirname(currentFilename), "public");
-} catch {
-  publicDir = path.join(process.cwd(), "public");
+
+function resolvePublicDir(): string {
+  let moduleDir = "";
+  try {
+    const currentFilename = fileURLToPath(import.meta.url);
+    moduleDir = path.dirname(currentFilename);
+  } catch {
+    moduleDir = process.cwd();
+  }
+
+  const candidates = [
+    path.join(moduleDir, "public"),
+    path.join(process.cwd(), "public"),
+    path.join(process.cwd(), "dist", "public"),
+    path.join(process.cwd(), "artifacts", "api-server", "dist", "public"),
+    path.join(process.cwd(), "artifacts", "argus", "dist", "public"),
+    path.join(moduleDir, "..", "..", "argus", "dist", "public"),
+    path.join(moduleDir, "..", "argus", "dist", "public"),
+  ];
+
+  for (const cand of candidates) {
+    if (cand && fs.existsSync(path.join(cand, "index.html"))) {
+      return cand;
+    }
+  }
+
+  for (const cand of candidates) {
+    if (cand && fs.existsSync(cand)) {
+      return cand;
+    }
+  }
+
+  return path.join(moduleDir, "public");
 }
 
-if (!fs.existsSync(publicDir)) {
-  const cwdDistPublic = path.join(process.cwd(), "dist", "public");
-  if (fs.existsSync(cwdDistPublic)) {
-    publicDir = cwdDistPublic;
-  }
-}
+publicDir = resolvePublicDir();
 
 if (publicDir && fs.existsSync(publicDir)) {
   app.use(express.static(publicDir));
@@ -121,6 +144,19 @@ app.get(["/argus_sensor.py", "/api/argus_sensor.py"], (_req: Request, res: Respo
 
 app.use("/api", router);
 app.use(router);
+
+// SPA Catch-all Fallback Handler for React Dashboard
+app.get("*", (req: Request, res: Response, next: any) => {
+  if (req.path.startsWith("/api")) {
+    return next();
+  }
+  const indexPath = path.join(publicDir, "index.html");
+  if (publicDir && fs.existsSync(indexPath)) {
+    res.sendFile(indexPath);
+  } else {
+    res.status(404).send("ARGUS Dashboard UI not found.");
+  }
+});
 
 // Express global error handler to prevent unhandled 500 HTML crashes
 app.use((err: any, _req: Request, res: Response, _next: any) => {

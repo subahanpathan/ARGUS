@@ -121,6 +121,17 @@ globalThis.__dirname = __bannerPath.dirname(globalThis.__filename);
     `,
     },
   });
+
+  try {
+    const { cpSync, existsSync } = await import("node:fs");
+    const argusPublic = path.resolve(artifactDir, "..", "argus", "dist", "public");
+    const targetPublic = path.resolve(distDir, "public");
+    if (existsSync(argusPublic)) {
+      cpSync(argusPublic, targetPublic, { recursive: true, force: true });
+    }
+  } catch (e) {
+    console.warn("Could not copy public static assets:", e);
+  }
 }
 
 buildAll().catch((err) => {
