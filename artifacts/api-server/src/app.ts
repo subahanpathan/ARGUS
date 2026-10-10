@@ -146,8 +146,8 @@ app.use("/api", router);
 app.use(router);
 
 // SPA Catch-all Fallback Handler for React Dashboard
-app.get("*", (req: Request, res: Response, next: any) => {
-  if (req.path.startsWith("/api")) {
+app.use((req: Request, res: Response, next: any) => {
+  if (req.path.startsWith("/api") || req.method !== "GET") {
     return next();
   }
   const indexPath = path.join(publicDir, "index.html");
