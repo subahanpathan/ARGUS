@@ -129,16 +129,25 @@ export function getArgusDataDir(): string {
     } catch {}
   }
 
-  const localAppData = process.env.LOCALAPPDATA || path.join(os.homedir(), "AppData", "Local");
-  const defaultDir = path.join(localAppData, "ARGUS");
-  try {
-    fs.mkdirSync(defaultDir, { recursive: true });
-    return defaultDir;
-  } catch {
-    const fallback = path.join(process.cwd(), ".argus-data");
-    fs.mkdirSync(fallback, { recursive: true });
-    return fallback;
+  const tmpDir = os.tmpdir() || "/tmp";
+  const localAppData = process.env.LOCALAPPDATA ? path.join(process.env.LOCALAPPDATA, "ARGUS") : null;
+  const defaultDir = localAppData || path.join(tmpDir, "ARGUS");
+
+  const candidates = [
+    defaultDir,
+    path.join(tmpDir, "ARGUS"),
+    path.join(process.cwd(), ".argus-data"),
+    tmpDir,
+  ].filter(Boolean) as string[];
+
+  for (const cand of candidates) {
+    try {
+      fs.mkdirSync(cand, { recursive: true });
+      return cand;
+    } catch {}
   }
+
+  return tmpDir;
 }
 
 /** Check whether this process is running inside the installed Windows desktop environment. */
